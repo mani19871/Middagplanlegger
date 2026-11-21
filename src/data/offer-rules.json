@@ -1,5 +1,24 @@
 {
   "version": 1,
   "description": "Kuraterte regler for tilbudsmatching. Menneskekuratert: mønstre, ikke tilbud. Lagre aldri tilbudsinnhold (pris, periode, butikk) her. Endres via Kundeaviser → Kontroll → «Eksporter regler».",
-  "rules": []
+  "rules": [
+    {
+      "pattern": "fiskekaker",
+      "decision": "tillatt",
+      "ingredient": "fiskekaker",
+      "note": "Unntak fra utelukkelsesordet «kake». Treff er bare forslag til kontroll."
+    },
+    {
+      "pattern": "hvetenudler",
+      "decision": "tillatt",
+      "ingredient": "nudler",
+      "note": "Unntak fra utelukkelsesordet «nudler». Treff er bare forslag til kontroll."
+    },
+    {
+      "pattern": "soyasaus",
+      "decision": "tillatt",
+      "ingredient": "soyasaus",
+      "note": "Unntak fra utelukkelsesordet «saus». Treff er bare forslag til kontroll."
+    }
+  ]
 }

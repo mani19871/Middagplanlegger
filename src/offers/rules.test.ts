@@ -82,6 +82,30 @@ describe('matching med regler', () => {
   });
 });
 
+describe('«tillatt»: unntak fra utelukkelseslisten', () => {
+  const allow = (pattern: string, ingredient: string): OfferRule => ({ pattern, decision: 'tillatt', ingredient });
+  it('soyasaus, fiskekaker og hvetenudler stoppes uten unntak, og slipper gjennom som forslag med', () => {
+    expect(m('Soyasaus 150 ml', [], { unit: 'ml', amount: 150 })).toBeNull();
+    expect(m('Fiskekaker', [])).toBeNull();
+    expect(m('Soyasaus 150 ml', [allow('soyasaus', 'soyasaus')], { unit: 'ml', amount: 150 })).toMatchObject({ ingredient: 'soyasaus', approved: false, rule: 'soyasaus', needsReview: false });
+    expect(m('Fiskekaker', [allow('fiskekaker', 'fiskekaker')])).toMatchObject({ ingredient: 'fiskekaker', approved: false });
+  });
+  it('resten av overskriften sjekkes fortsatt mot utelukkelseslisten', () => {
+    expect(m('Fiskekaker i hvit saus', [allow('fiskekaker', 'fiskekaker')])).toBeNull();
+    expect(m('Soyasaus kyllingnudler', [allow('soyasaus', 'soyasaus')])).toBeNull(); // «nudler» står igjen
+  });
+  it('avvisning vinner over unntak, og unntaket krever ingrediens', () => {
+    expect(m('Soyasaus søt', [allow('soyasaus', 'soyasaus'), no('søt')])).toBeNull();
+    expect(() => parseRules({ version: 1, rules: [{ pattern: 'soyasaus', decision: 'tillatt' }] })).toThrow('ingrediens');
+  });
+  it('regelfilen har unntak for alle søkeord som ellers ville blitt utelukket', () => {
+    for (const [id, term] of [['soyasaus', 'Soyasaus'], ['fiskekaker', 'Fiskekaker'], ['nudler', 'Hvetenudler']]) {
+      const unit = ingredients.find((i) => i.id === id)!.unit;
+      expect(m(term, OFFER_RULES, { unit, amount: 100 })?.ingredient, term).toBe(id);
+    }
+  });
+});
+
 describe('redigering og eksport av regler', () => {
   it('samme regel to ganger gir én rad', () => {
     const r = upsertRule(upsertRule([], ok('Torskefilet', 'torsk')), ok('torskefilet ', 'torsk'));

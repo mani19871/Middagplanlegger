@@ -1,9 +1,11 @@
 // Kuraterte regler for tilbudsmatching (src/data/offer-rules.json). Reglene lagrer mønstre, aldri tilbud.
 // «godkjent»: overskrifter som inneholder mønsteret er ingrediensen (redaktøren har kontrollert koblingen).
 // «avvist»: mønsteret er ikke ingrediensen (eller, uten ingrediens, ikke noe vi planlegger med). Avvisning vinner alltid.
+// «tillatt»: unntak fra utelukkelseslisten (f.eks. «soyasaus» selv om «saus» er utelukket). Resten av overskriften
+// sjekkes fortsatt, og treffet er bare et forslag til kontrollkøen, ikke en godkjenning.
 import rawRules from '../data/offer-rules.json';
 
-export type RuleDecision = 'godkjent' | 'avvist';
+export type RuleDecision = 'godkjent' | 'avvist' | 'tillatt';
 export interface OfferRule { pattern: string; decision: RuleDecision; ingredient?: string; note?: string }
 export interface RuleFile { version: 1; description?: string; rules: OfferRule[] }
 
@@ -34,8 +36,8 @@ export function parseRules(x: unknown, ingredientIds?: string[]): OfferRule[] {
   for (const [i, r] of file.rules.entries()) {
     const where = `Regel ${i + 1}`;
     if (!r || typeof r.pattern !== 'string' || normText(r.pattern).length < 2) throw new Error(`${where}: mønsteret må ha minst to tegn`);
-    if (r.decision !== 'godkjent' && r.decision !== 'avvist') throw new Error(`${where}: decision må være «godkjent» eller «avvist»`);
-    if (r.decision === 'godkjent' && !r.ingredient) throw new Error(`${where}: godkjent regel må ha ingrediens`);
+    if (!['godkjent', 'avvist', 'tillatt'].includes(r.decision)) throw new Error(`${where}: decision må være «godkjent», «avvist» eller «tillatt»`);
+    if (r.decision !== 'avvist' && !r.ingredient) throw new Error(`${where}: ${r.decision} regel må ha ingrediens`);
     if (r.ingredient !== undefined && ingredientIds && !ingredientIds.includes(r.ingredient)) throw new Error(`${where}: ukjent ingrediens «${r.ingredient}»`);
     out.push(clean(r));
   }

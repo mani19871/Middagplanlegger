@@ -1,7 +1,7 @@
 // Kobler et tilbud til en ingrediens og regner pris per standardenhet. Ren funksjon, ingen nettverk.
 import type { Ingredient } from '../engine/types';
 import type { NormalizedOffer } from './types';
-import { OFFER_RULES, patternMatches, type OfferRule } from './rules';
+import { normText, OFFER_RULES, patternMatches, type OfferRule } from './rules';
 
 /** Norske søkeord per ingrediens. Redaktøren utvider listen; tvetydige treff går til kontroll. */
 export const OFFER_TERMS: Record<string, string[]> = {
@@ -14,7 +14,7 @@ export const OFFER_TERMS: Record<string, string[]> = {
   svinekotelett: ['svinekotelett', 'nakkekotelett', 'kotelett'], svinedeig: ['svinekjøttdeig', 'svinedeig'], flesk: ['sideflesk', 'flesk'],
   lammedeig: ['lammekjøttdeig', 'lammedeig'], reker: ['reker'], sei: ['seifilet', 'sei'], hyse: ['hysefilet', 'hyse'],
   sild: ['sildefilet', 'sild'], makrell: ['makrell'], kikerter: ['kikerter'], tofu: ['tofu'], sopp: ['sjampinjong', 'champignon'],
-  blomkal: ['blomkål'], kalrot: ['kålrot'], nudler: ['hvetenudler'],
+  blomkal: ['blomkål'], kalrot: ['kålrot'], nudler: ['hvetenudler'], soyasaus: ['soyasaus'],
 };
 
 /** Hvorfor et treff må kontrolleres før det kan brukes i en sum. */
@@ -60,7 +60,7 @@ export const rejectedBy = (heading: string, rules: OfferRule[] = OFFER_RULES) =>
 
 interface Pick { ingredient: Ingredient; ambiguous: boolean; approved: boolean; rule: string | null }
 
-/** Kobler en overskrift til en ingrediens: kuraterte regler først, deretter søkeord. Avvisning vinner alltid. */
+/** Kobler en overskrift til en ingrediens: avvisning, så godkjente regler, så søkeord (med «tillatt»-unntak fra utelukkelseslisten). */
 function pickIngredient(heading: string, ingredients: Ingredient[], terms: Record<string, string[]>, rules: OfferRule[]): Pick | null {
   if (rejectedBy(heading, rules)) return null;
   const blocked = new Set(rules.filter((r) => r.decision === 'avvist' && r.ingredient && patternMatches(heading, r.pattern)).map((r) => r.ingredient!));
@@ -77,13 +77,20 @@ function pickIngredient(heading: string, ingredients: Ingredient[], terms: Recor
     return { ingredient: top.ing, ambiguous, approved: !ambiguous, rule: top.r.pattern };
   }
   const text = norm(heading); // beskrivelsen er for støyende til å matche på
-  if (EXCLUDE.some((w) => (w.length <= 3 ? new RegExp(`(^|[^${L}])${w}`).test(text) : text.includes(w)))) return null;
-  const hits = allowed.filter((i) => (terms[i.id] ?? []).some((t) => hasWord(text, norm(t))));
+  // «tillatt»-mønstre teller ikke mot utelukkelseslisten («soyasaus» er ikke «saus»), men resten av overskriften gjør det.
+  const allows = rules.filter((r) => r.decision === 'tillatt' && allowed.some((i) => i.id === r.ingredient) && patternMatches(heading, r.pattern));
+  let rest = normText(text);
+  for (const a of allows) rest = rest.split(a.pattern).join(' ');
+  if (EXCLUDE.some((w) => (w.length <= 3 ? new RegExp(`(^|[^${L}])${w}`).test(rest) : rest.includes(w)))) return null;
+  const all: Record<string, string[]> = { ...terms };
+  for (const a of allows) all[a.ingredient!] = [...(all[a.ingredient!] ?? []), a.pattern];
+  const hits = allowed.filter((i) => (all[i.id] ?? []).some((t) => hasWord(text, norm(t))));
   if (hits.length === 0) return null;
   // Flere mulige ingredienser: velg den med lengst treff, men merk for kontroll hvis det er uavgjort.
-  const score = (i: Ingredient) => Math.max(...(terms[i.id] ?? []).filter((t) => hasWord(text, norm(t))).map((t) => t.length));
+  const score = (i: Ingredient) => Math.max(...(all[i.id] ?? []).filter((t) => hasWord(text, norm(t))).map((t) => t.length));
   const sorted = [...hits].sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id));
-  return { ingredient: sorted[0], ambiguous: sorted.length > 1 && score(sorted[0]) === score(sorted[1]), approved: false, rule: null };
+  const rule = allows.find((a) => a.ingredient === sorted[0].id)?.pattern ?? null;
+  return { ingredient: sorted[0], ambiguous: sorted.length > 1 && score(sorted[0]) === score(sorted[1]), approved: false, rule };
 }
 
 export function matchOffer(offer: NormalizedOffer, ingredients: Ingredient[], shopDate: string, terms = OFFER_TERMS, rules: OfferRule[] = OFFER_RULES): MatchedOffer | null {

@@ -94,11 +94,12 @@ export default function ReviewView({ ingredients }: { ingredients: Ingredient[] 
       <ul className="list">
         {draft.map((r) => (
           <li key={ruleKey(r)}>
-            <span className="main"><b>«{r.pattern}»</b><small>{r.decision === 'godkjent' ? `godkjent som ${ingName(r.ingredient)}` : `avvist for ${ingName(r.ingredient)}`}</small></span>
+            <span className="main"><b>«{r.pattern}»</b><small>{r.decision === 'godkjent' ? `godkjent som ${ingName(r.ingredient)}` : r.decision === 'tillatt' ? `unntak fra utelukkelseslisten, forslag til ${ingName(r.ingredient)}` : `avvist for ${ingName(r.ingredient)}`}</small></span>
             <button className="x" aria-label={`Fjern regel ${r.pattern}`} onClick={() => setDraft((d) => removeRule(d, r))}>✕</button>
           </li>
         ))}
       </ul>
+      <AllowForm ingredients={ingredients} onRule={add} />
       <details className="steps" open={changed}>
         <summary>Eksporter regler</summary>
         <p className="fine">Kopier hele filen inn i <code>src/data/offer-rules.json</code> og send endringen til gjennomgang. Diffen viser bare endringene.</p>
@@ -145,5 +146,26 @@ function ReviewRow({ row, ingredients, onRule }: { row: Row; ingredients: Ingred
         <button className="ghost sm" disabled={!valid} onClick={() => onRule({ pattern, decision: 'avvist' })}>✕ Avvis helt</button>
       </div>
     </li>
+  );
+}
+
+/** Unntak fra utelukkelseslisten. Tilbud som stoppes av den (f.eks. «saus» i «soyasaus») når aldri køen, så unntaket legges inn her. */
+function AllowForm({ ingredients, onRule }: { ingredients: Ingredient[]; onRule: (r: OfferRule) => void }) {
+  const choices = ingredients.filter((i) => !i.staple);
+  const [pattern, setPattern] = useState('');
+  const [ing, setIng] = useState(choices[0]?.id ?? '');
+  return (
+    <details className="steps">
+      <summary>Legg til unntak fra utelukkelseslisten</summary>
+      <p className="fine">Bruk når et søkeord inneholder et utelukket ord, f.eks. «soyasaus» (saus) eller «fiskekaker» (kake). Resten av overskriften sjekkes fortsatt,
+        og treffene havner i køen som forslag, ikke som godkjent.</p>
+      <div className="row-field">
+        <input aria-label="Unntaksmønster" placeholder="f.eks. soyasaus" style={{ flex: 1, width: 'auto' }} value={pattern} onChange={(e) => setPattern(e.target.value)} />
+        <select aria-label="Ingrediens for unntak" className="field" style={{ width: 'auto' }} value={ing} onChange={(e) => setIng(e.target.value)}>
+          {choices.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+        </select>
+        <button className="ghost sm" disabled={pattern.trim().length < 2 || !ing} onClick={() => { onRule({ pattern, decision: 'tillatt', ingredient: ing }); setPattern(''); }}>Tillat</button>
+      </div>
+    </details>
   );
 }
