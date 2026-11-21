@@ -78,3 +78,4 @@ header { display:flex; justify-content:space-between; align-items:center; }
 .chips.tabs { margin:10px 0; }
 select.field { display:block; width:100%; }
 .tile { padding-bottom:40px; }
+.dealtxt { color:#8a3d1c; } .banner.deal { background:#fbe9de; color:#7a3615; }

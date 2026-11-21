@@ -54,6 +54,7 @@ export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
       <button className="link" onClick={() => setMore(!more)}>{more ? 'Skjul flere valg' : 'Flere valg (kost, allergener, flere butikker)'}</button>
       {more && (
         <div className="more">
+          <label><input type="checkbox" checked={s.useOffers !== false} onChange={() => set({ useOffers: s.useOffers === false })} /> Planlegg rundt tilbud (når tilbudsdata er tilgjengelig)</label>
           <label><input type="checkbox" checked={s.vegetarian} onChange={() => set({ vegetarian: !s.vegetarian })} /> Bare vegetar (absolutt krav)</label>
           <p>Unngå allergener (absolutt krav):</p>
           {ALLERGENS.map((a) => (

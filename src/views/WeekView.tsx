@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Alternatives, Basket } from '../engine/types';
-import { budgetAnswer, budgetSuggestions, swapOptions, type Ctx } from '../engine/planner';
+import { budgetAnswer, budgetSuggestions, dealsFor, swapOptions, type Ctx } from '../engine/planner';
 import { DAYS, kr } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
@@ -28,6 +28,14 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const recipe = (id: string) => ctx.catalog.recipes.find((r) => r.id === id)!;
   const portions = (day: number) => settings.eaters.filter((e) => e.daysHome[day]).reduce((a, e) => a + e.portion, 0);
   const nutr = (id: string) => recipeNutrition(recipe(id), ctx.catalog.ingredients, NUTRITION);
+  const dealText = (id: string, day: number) => {
+    const d = dealsFor(recipe(id), day, ctx);
+    if (d.lines.length === 0) return null;
+    const names = d.lines.map((l) => `${ctx.catalog.ingredients.find((i) => i.id === l.ingredient)?.name.toLowerCase()} hos ${l.dealer}`);
+    return `🏷 På tilbud: ${names.join(', ')}${d.savingOre > 0 ? ` · spar ca. ${kr(d.savingOre)}` : ''}`;
+  };
+  const weekSaving = slots.reduce((sum, x) => sum + dealsFor(recipe(x.recipeId), x.day, ctx).savingOre, 0);
+  const weekDealLines = slots.reduce((sum, x) => sum + dealsFor(recipe(x.recipeId), x.day, ctx).lines.length, 0);
   const fmtP = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 
   if (slots.length === 0 || mode === 'edit') {
@@ -128,7 +136,8 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
             <span className="dchip"><small>{DAYS[s.day].slice(0, 3)}</small><b>{d.getDate()}.</b></span>
             <Thumb id={r.id} />
             <span className="rinfo"><strong>{r.name}{s.locked && ' 🔒'}</strong>
-              <small>⏱ {r.minutes} min · 👥 {fmtP(portions(s.day) + (s.extra ?? 0))} porsjoner</small></span>
+              <small>⏱ {r.minutes} min · 👥 {fmtP(portions(s.day) + (s.extra ?? 0))} porsjoner</small>
+              {dealText(r.id, s.day) && <small className="dealtxt">{dealText(r.id, s.day)}</small>}</span>
             <span aria-hidden>›</span>
           </button>
         );
@@ -138,6 +147,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
           {s.extraFor !== undefined ? DAYS[s.extraFor] : 'Senere'} · {fmtP(s.extra ?? 0)} porsjon fra {DAYS[s.day].toLowerCase()}</span></div>
       ))}
       {summary}
+      {weekDealLines > 0 && <div className="banner deal">🏷 {weekDealLines} varer i uka er på tilbud{weekSaving > 0 ? `, ca. ${kr(weekSaving)} lavere enn førpris` : ''}. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</div>}
       {sugg.length > 0 && (
         <ul className="sugg">{sugg.map((g) => (
           <li key={g.day}><button className="ghost" onClick={() => patchSlot(g.day, { recipeId: g.option.recipe.id, locked: true })}>
@@ -174,6 +184,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                     <Thumb id={o.recipe.id} size={48} />
                     <span className="rinfo"><strong>{o.recipe.name}</strong>
                       <small>ca. {nutr(o.recipe.id).kcal} kcal · {nutr(o.recipe.id).protein} g protein</small>
+                      {dealText(o.recipe.id, sheetSlot.day) && <small className="dealtxt">{dealText(o.recipe.id, sheetSlot.day)}</small>}
                       {o.complete ? <span className={p.c}>{p.t}</span> : <span className="pill warnp">ufullstendig pris</span>}</span>
                   </label>
                 );

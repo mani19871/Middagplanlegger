@@ -13,3 +13,10 @@ export function weekLabel(start: Date): string {
     ? `${start.getDate()}.–${end.getDate()}. ${m(end)} ${end.getFullYear()}`
     : `${start.getDate()}. ${m(start)} – ${end.getDate()}. ${m(end)} ${end.getFullYear()}`;
 }
+export const isoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** Handledag for tilbud: starten på uka som vises, men aldri før i dag. */
+export function shopDate(now = new Date()): string {
+  const a = isoDate(weekStart(now));
+  const t = isoDate(now);
+  return a > t ? a : t;
+}

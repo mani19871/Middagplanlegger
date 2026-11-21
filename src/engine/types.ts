@@ -22,6 +22,8 @@ export interface Settings {
   eaters: Eater[]; days: DayPlan[]; budgetOre: number; storeIds: string[]; regularStoreId: string;
   maxStops: 1 | 2; extraStoreThresholdOre: number; vegetarian: boolean; avoid: Allergen[];
   pantry: Record<string, number>;
+  /** Planlegg rundt kontrollerte tilbud når de er tilgjengelige. */
+  useOffers?: boolean;
 }
 export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number }
 

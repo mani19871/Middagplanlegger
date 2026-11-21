@@ -13,7 +13,16 @@ export const portionsOnDay = (s: Settings, day: number) =>
 
 const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id, x]));
 
-export interface Ctx { catalog: Catalog; settings: Settings }
+import { recipeDeals, type OfferHint, type RecipeDeals } from './deals';
+
+export interface Ctx { catalog: Catalog; settings: Settings; offers?: OfferHint[]; shopDate?: string }
+
+/** Tilbud for en rett på en bestemt dag (tomt hvis tilbudsplanlegging er av eller dato mangler). */
+export function dealsFor(recipe: Recipe, day: number, ctx: Ctx): RecipeDeals {
+  if (ctx.settings.useOffers === false || !ctx.offers?.length || !ctx.shopDate) return { lines: [], savingOre: 0 };
+  const portions = portionsOnDay(ctx.settings, day);
+  return recipeDeals(recipe, portions / recipe.baseServings, ctx.catalog.ingredients, ctx.offers, ctx.shopDate);
+}
 
 /** Kostkrav: absolutte krav filtrerer oppskriftene; preferanser påvirker bare rangering. */
 export function eligibleRecipes(ctx: Ctx, day: number): Recipe[] {
@@ -138,7 +147,7 @@ export function generatePlan(ctx: Ctx, previous: Slot[] = []): Slot[] {
     let best: { r: Recipe; s: number } | null = null;
     for (const r of pool) {
       const b = buildBasket([...slots, { day, recipeId: r.id, locked: false }], [settings.regularStoreId], ctx);
-      const s = score(b) + (r.protein === prevP ? 3000 : 0);
+      const s = score(b) + (r.protein === prevP ? 3000 : 0) - dealsFor(r, day, ctx).savingOre;
       if (!best || s < best.s) best = { r, s };
     }
     if (best) slots.push({ day, recipeId: best.r.id, locked: false });
