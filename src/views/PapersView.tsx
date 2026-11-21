@@ -8,6 +8,7 @@ import { editions, offers, type Edition, type Offer } from '../data/newspapers';
 import { DAYS, kr } from '../engine/format';
 import { ING_EMOJI } from './art';
 import { dayDate, weekStart } from './dates';
+import ReviewView from './ReviewView';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void }
 type View = 'Hele Norge' | 'Nær meg' | 'Mine butikker';
@@ -25,7 +26,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [recipeId, setRecipeId] = useState<string>('');
   const [day, setDay] = useState<number>(-1);
-  const [mode, setMode] = useState<'live' | 'aviser'>('live');
+  const [mode, setMode] = useState<'live' | 'aviser' | 'kontroll'>('live');
   const [live, setLive] = useState<LiveResponse | null>(null);
   const [liveErr, setLiveErr] = useState(false);
   const [lq, setLq] = useState('');
@@ -123,7 +124,9 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
       <div className="chips tabs">
         <button className={mode === 'live' ? 'chip on' : 'chip'} onClick={() => setMode('live')}>Tilbud nå</button>
         <button className={mode === 'aviser' ? 'chip on' : 'chip'} onClick={() => setMode('aviser')}>Aviser (demo)</button>
+        <button className={mode === 'kontroll' ? 'chip on' : 'chip'} onClick={() => setMode('kontroll')}>Kontroll</button>
       </div>
+      {mode === 'kontroll' && <ReviewView ingredients={ctx.catalog.ingredients} />}
       {mode === 'live' && (() => {
         const ingName = (id: string) => ctx.catalog.ingredients.find((i) => i.id === id)?.name ?? id;
         const list = (live?.offers ?? []).filter((l) => `${l.offer.heading} ${l.offer.dealerName} ${ingName(l.ingredient)}`.toLowerCase().includes(lq.toLowerCase()));

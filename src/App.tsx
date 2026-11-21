@@ -11,6 +11,7 @@ import { shopDate, weekLabel, weekStart } from './views/dates';
 import { fetchLiveOffers } from './offers/client';
 import { toHints } from './offers/hints';
 import type { OfferHint } from './engine/deals';
+import { totalWithOffers } from './engine/offerTotal';
 import type { Mode } from './views/WeekView';
 
 const TABS = ['Uka', 'Kundeaviser', 'Handleliste', 'Matskap'] as const;
@@ -43,6 +44,9 @@ export default function App() {
   const useCombo = state.option === 'combo' && alts.combo;
   const activeStores = useCombo ? alts.combo!.storeIds : [state.settings.regularStoreId];
   const basket = useCombo ? alts.combo! : alts.regular;
+  // Egen sum med regelgodkjente tilbud; basissummen og butikksammenligningen over er uendret.
+  const offerTotal = useMemo(() => totalWithOffers(basket, hints, day, state.settings), [basket, hints, day, state.settings]);
+  const approvedHints = hints.filter((h) => h.approved).length;
   const regenerate = () => update((s) => ({ ...s, slots: generatePlan({ ...ctx, settings: s.settings }, s.slots), approved: false }));
 
   return (
@@ -55,9 +59,10 @@ export default function App() {
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>
       <main>
         {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
+          offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} />}
-        {tab === 'Handleliste' && <ListView state={state} update={update} basket={basket} />}
+        {tab === 'Handleliste' && <ListView state={state} update={update} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} />}
         {tab === 'Matskap' && <PantryView state={state} update={update} ctx={ctx} basket={basket} />}
       </main>
       <nav role="tablist">

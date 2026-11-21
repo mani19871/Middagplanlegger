@@ -4,14 +4,16 @@ import type { Basket, BasketLine } from '../engine/types';
 import { amount, kr } from '../engine/format';
 import { catalog } from '../data/catalog';
 import { DEPT_EMOJI, ING_EMOJI } from './art';
+import OfferTotalNote from './OfferTotalNote';
+import type { OfferTotal } from '../engine/offerTotal';
 
-interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; basket: Basket }
+interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; basket: Basket; offerTotal: OfferTotal; approvedHints: number }
 const statusText: Record<BasketLine['status'], string> = { ordinær: 'Ordinær pris', tilbud: 'Tilbud', estimat: 'Estimert pris', ukjent: 'Ukjent pris' };
 const storeName = (id: string | null) => catalog.stores.find((s) => s.id === id)?.name ?? 'Ukjent butikk';
 const recipeName = (id: string) => catalog.recipes.find((r) => r.id === id)?.name ?? id;
 const lineText = (l: BasketLine) => (l.productId ? (l.packs > 1 ? `${l.packs} × ${l.productName}` : l.productName!) : `${l.name}: ${amount(l.need, l.unit)}`);
 
-export default function ListView({ state, update, basket }: Props) {
+export default function ListView({ state, update, basket, offerTotal, approvedHints }: Props) {
   const [detail, setDetail] = useState<BasketLine | null>(null);
   if (state.slots.length === 0) return <><h1 className="page">Handleliste</h1><section className="card"><p>Lag en ukeplan først.</p></section></>;
 
@@ -49,6 +51,7 @@ export default function ListView({ state, update, basket }: Props) {
         <div className="totalpill"><small>Anslått handel</small><strong>{kr(basket.totalOre)}</strong></div>
       </div>
       {!state.approved && <p className="fine">Planen er ikke godkjent ennå, listen kan endre seg.</p>}
+      <OfferTotalNote total={offerTotal} approvedHints={approvedHints} className="card offertotal-card" />
       {basket.unknownCount > 0 && <div className="banner warn">{basket.unknownCount} vare{basket.unknownCount === 1 ? '' : 'r'} mangler pris. Summen er en delsum.</div>}
       {[...groups].map(([storeId, lines]) => (
         <section key={storeId}>

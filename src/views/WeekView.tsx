@@ -6,6 +6,8 @@ import { DAYS, kr } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import PlanForm from './PlanForm';
+import OfferTotalNote from './OfferTotalNote';
+import type { OfferTotal } from '../engine/offerTotal';
 import { recipeNutrition, scaleNutrition, weekNutrition, type NutritionTable } from '../engine/nutrition';
 import nutritionData from '../data/nutrition.json';
 
@@ -14,13 +16,14 @@ const NUTRITION = nutritionData.items as unknown as NutritionTable;
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; alts: Alternatives;
   basket: Basket; activeStores: string[]; regenerate: () => void; openList: () => void;
+  offerTotal: OfferTotal; approvedHints: number;
   mode: Mode; setMode: (m: Mode) => void;
 }
 export type Mode = 'home' | 'plan' | 'edit' | 'trip';
 const storeName = (ctx: Ctx, id: string) => ctx.catalog.stores.find((s) => s.id === id)?.name ?? id;
 const pill = (d: number) => (d === 0 ? { t: 'Samme pris', c: 'pill' } : d > 0 ? { t: `+${Math.round(d / 100)} kr på handelen`, c: 'pill up' } : { t: `−${Math.round(-d / 100)} kr på handelen`, c: 'pill down' });
 
-export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode }: Props) {
+export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode, offerTotal, approvedHints }: Props) {
   const { settings, slots } = state;
   const [sheet, setSheet] = useState<number | null>(null);
   const [pick, setPick] = useState<string | null>(null);
@@ -63,6 +66,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         {basket.stops} butikk{basket.stops === 1 ? '' : 'er'} · {basket.estimatedCount} estimert · {basket.unknownCount} ukjent pris
       </p>
       {answer === 'ufullstendig' && <p className="fine">Mangler pris: {basket.lines.filter((l) => l.costOre === null).map((l) => l.name).join(', ')}. Kurven kan ikke bekreftes innenfor budsjett.</p>}
+      <OfferTotalNote total={offerTotal} approvedHints={approvedHints} />
     </div>
   );
 
@@ -166,7 +170,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         <p className="fine">Gjelder bare middagene i planen, regnet fra generelle matvarer i Matvaretabellen, uten salt, olje og krydder. Veiledende tall for planlegging. Ikke kostråd eller anbefalt inntak.</p>
       </details>
       {summary}
-      {weekDealLines > 0 && <div className="banner deal">🏷 {weekDealLines} varer i uka er på tilbud{weekSaving > 0 ? `, ca. ${kr(weekSaving)} lavere enn førpris` : ''}. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</div>}
+      {weekDealLines > 0 && <div className="banner deal">🏷 {weekDealLines} varer i uka er på tilbud{weekSaving > 0 ? `, ca. ${kr(weekSaving)} lavere enn førpris` : ''}. Bare regelgodkjente tilbud med kjent pris, mengde og vilkår regnes inn i «Med kontrollerte tilbud»; summen over er uendret.</div>}
       {sugg.length > 0 && (
         <ul className="sugg">{sugg.map((g) => (
           <li key={g.day}><button className="ghost" onClick={() => patchSlot(g.day, { recipeId: g.option.recipe.id, locked: true })}>
