@@ -1,22 +1,22 @@
 // DEMODATA: oppdiktede butikker og priser for å vise hvordan appen fungerer.
 // Ekte prisdata avklares i fase 0 (Kassalapp, Tjek, kjedeavtaler).
-import type { Catalog, Ingredient, PriceObs, Product, Recipe, Store } from '../engine/types';
+import type { Catalog, FoodTag, Ingredient, PriceObs, Product, Recipe, Store } from '../engine/types';
 
-const I = (id: string, name: string, unit: Ingredient['unit'], department: string, staple = false): Ingredient =>
-  ({ id, name, unit, department, staple });
+const I = (id: string, name: string, unit: Ingredient['unit'], department: string, staple = false, tags: FoodTag[] = []): Ingredient =>
+  ({ id, name, unit, department, staple, tags });
 export const ingredients: Ingredient[] = [
   I('pasta', 'Pasta', 'g', 'Tørrvarer'), I('tomat', 'Hakkede tomater', 'g', 'Hermetikk'),
-  I('kjottdeig', 'Kjøttdeig', 'g', 'Kjøtt og fisk'), I('lok', 'Løk', 'stk', 'Frukt og grønt'),
-  I('ris', 'Ris', 'g', 'Tørrvarer'), I('kylling', 'Kyllingfilet', 'g', 'Kjøtt og fisk'),
-  I('kokosmelk', 'Kokosmelk', 'ml', 'Hermetikk'), I('torsk', 'Torsk', 'g', 'Kjøtt og fisk'),
+  I('kjottdeig', 'Kjøttdeig', 'g', 'Kjøtt og fisk', false, ['storfe']), I('lok', 'Løk', 'stk', 'Frukt og grønt'),
+  I('ris', 'Ris', 'g', 'Tørrvarer'), I('kylling', 'Kyllingfilet', 'g', 'Kjøtt og fisk', false, ['kylling']),
+  I('kokosmelk', 'Kokosmelk', 'ml', 'Hermetikk'), I('torsk', 'Torsk', 'g', 'Kjøtt og fisk', false, ['fisk']),
   I('poteter', 'Poteter', 'g', 'Frukt og grønt'), I('gulrot', 'Gulrot', 'g', 'Frukt og grønt'),
-  I('fiskekaker', 'Fiskekaker', 'g', 'Kjøtt og fisk'), I('tortilla', 'Tortillalefser', 'stk', 'Tørrvarer'),
+  I('fiskekaker', 'Fiskekaker', 'g', 'Kjøtt og fisk', false, ['fisk']), I('tortilla', 'Tortillalefser', 'stk', 'Tørrvarer'),
   I('mais', 'Mais', 'g', 'Hermetikk'), I('paprika', 'Paprika', 'stk', 'Frukt og grønt'),
   I('ost', 'Ost', 'g', 'Meieri'), I('romme', 'Rømme', 'ml', 'Meieri'), I('egg', 'Egg', 'stk', 'Meieri'),
   I('melk', 'Melk', 'ml', 'Meieri'), I('mel', 'Hvetemel', 'g', 'Tørrvarer'),
-  I('brokkoli', 'Brokkoli', 'g', 'Frukt og grønt'), I('laks', 'Laks', 'g', 'Kjøtt og fisk'),
-  I('spinat', 'Spinat', 'g', 'Frukt og grønt'), I('linser', 'Røde linser', 'g', 'Tørrvarer'),
-  I('bonner', 'Kidneybønner', 'g', 'Hermetikk'),
+  I('brokkoli', 'Brokkoli', 'g', 'Frukt og grønt'), I('laks', 'Laks', 'g', 'Kjøtt og fisk', false, ['fisk']),
+  I('spinat', 'Spinat', 'g', 'Frukt og grønt'), I('linser', 'Røde linser', 'g', 'Tørrvarer', false, ['belgvekster']),
+  I('bonner', 'Kidneybønner', 'g', 'Hermetikk', false, ['belgvekster']),
   I('salt', 'Salt og pepper', 'g', 'Krydder', true), I('olje', 'Matolje', 'ml', 'Tørrvarer', true),
 ];
 

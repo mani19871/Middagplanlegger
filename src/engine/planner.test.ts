@@ -84,3 +84,24 @@ describe('planmotor', () => {
     for (const n of counts.values()) expect(n).toBeLessThanOrEqual(2);
   });
 });
+
+describe('kostmodell', () => {
+  it('råvarekrav filtrerer bort retter med taggen, og taggene utledes fra ingrediensene', async () => {
+    const { recipeTags } = await import('./planner');
+    const days = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 60 }));
+    const c = ctx({ days, avoidFoods: ['storfe', 'fisk'] });
+    for (const s of generatePlan(c)) {
+      const tags = recipeTags(catalog.recipes.find((r) => r.id === s.recipeId)!, catalog.ingredients);
+      expect(tags.has('storfe')).toBe(false);
+      expect(tags.has('fisk')).toBe(false);
+    }
+    expect(recipeTags(catalog.recipes.find((r) => r.id === 'taco')!, catalog.ingredients).has('storfe')).toBe(true);
+  });
+  it('vegetarretter har ingen kjøtt- eller fisketagger', async () => {
+    const { recipeTags } = await import('./planner');
+    for (const r of catalog.recipes.filter((x) => x.vegetarian)) {
+      const t = recipeTags(r, catalog.ingredients);
+      for (const bad of ['storfe', 'svin', 'lam', 'kylling', 'fisk', 'skalldyr'] as const) expect(t.has(bad), `${r.id} ${bad}`).toBe(false);
+    }
+  });
+});

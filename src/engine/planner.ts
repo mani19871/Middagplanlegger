@@ -1,12 +1,20 @@
 // Planmotor: ren, deterministisk beregning. Beløp i øre, mengder i standardenheter (g, ml, stk).
 // Samme inndata og prisversjon gir alltid samme kurv, sum og begrunnelse.
 import type {
+  FoodTag,
   Alternatives, Basket, BasketLine, BudgetAnswer, Catalog, PriceObs, Product, Recipe, Settings, Slot,
 } from './types';
 
 const UNKNOWN_PENALTY_ORE = 100_000;
 const EPS = 1e-9;
 export const MAX_SAME_PROTEIN = 2;
+
+/** Kosttagger for en rett, utledet fra ingrediensene. */
+export function recipeTags(recipe: Recipe, ingredients: { id: string; tags?: FoodTag[] }[]): Set<FoodTag> {
+  const tags = new Set<FoodTag>();
+  for (const l of recipe.lines) for (const t of ingredients.find((i) => i.id === l.ingredient)?.tags ?? []) tags.add(t);
+  return tags;
+}
 
 export const portionsOnDay = (s: Settings, day: number) =>
   s.eaters.filter((e) => e.daysHome[day]).reduce((sum, e) => sum + e.portion, 0);
@@ -32,6 +40,7 @@ export function eligibleRecipes(ctx: Ctx, day: number): Recipe[] {
     .filter((r) => r.minutes <= max)
     .filter((r) => !settings.vegetarian || r.vegetarian)
     .filter((r) => !r.allergens.some((a) => settings.avoid.includes(a)))
+    .filter((r) => !(settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t)))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 

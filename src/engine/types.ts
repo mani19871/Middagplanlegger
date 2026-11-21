@@ -2,7 +2,9 @@ export type Unit = 'g' | 'ml' | 'stk';
 export type PriceStatus = 'ordinær' | 'tilbud' | 'estimat' | 'ukjent';
 export type Allergen = 'gluten' | 'melk' | 'egg' | 'fisk';
 
-export interface Ingredient { id: string; name: string; unit: Unit; department: string; staple?: boolean }
+/** Kosttagger på ingrediensnivå. En rett arver taggene til ingrediensene sine. */
+export type FoodTag = 'storfe' | 'svin' | 'lam' | 'kylling' | 'fisk' | 'skalldyr' | 'belgvekster' | 'notter';
+export interface Ingredient { id: string; name: string; unit: Unit; department: string; staple?: boolean; tags?: FoodTag[] }
 export interface RecipeLine { ingredient: string; amount: number }
 export interface Recipe {
   id: string; name: string; minutes: number; baseServings: number;
@@ -24,6 +26,8 @@ export interface Settings {
   pantry: Record<string, number>;
   /** Planlegg rundt kontrollerte tilbud når de er tilgjengelige. */
   useOffers?: boolean;
+  /** Absolutte kostkrav: retter med disse ingrediensene filtreres bort. */
+  avoidFoods?: FoodTag[];
 }
 export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number }
 

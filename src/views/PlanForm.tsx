@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import type { AppState } from '../store';
-import type { Allergen, Eater } from '../engine/types';
+import type { Allergen, Eater, FoodTag } from '../engine/types';
 import { DAYS, kr } from '../engine/format';
 import { catalog } from '../data/catalog';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; onDone: () => void; hasPlan: boolean }
 const ALLERGENS: Allergen[] = ['gluten', 'melk', 'egg', 'fisk'];
+const FOODS: [FoodTag, string][] = [['storfe', 'storfe'], ['kylling', 'kylling'], ['fisk', 'fisk'], ['belgvekster', 'belgvekster']];
 const ALL = [true, true, true, true, true, true, true];
 
 export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
@@ -60,6 +61,11 @@ export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
           {ALLERGENS.map((a) => (
             <label key={a} className="mini"><input type="checkbox" checked={s.avoid.includes(a)}
               onChange={() => set({ avoid: s.avoid.includes(a) ? s.avoid.filter((x) => x !== a) : [...s.avoid, a] })} /> {a}</label>
+          ))}
+          <p>Unngå råvarer (absolutt krav):</p>
+          {FOODS.map(([t, label]) => (
+            <label key={t} className="mini"><input type="checkbox" checked={(s.avoidFoods ?? []).includes(t)}
+              onChange={() => set({ avoidFoods: (s.avoidFoods ?? []).includes(t) ? (s.avoidFoods ?? []).filter((x) => x !== t) : [...(s.avoidFoods ?? []), t] })} /> {label}</label>
           ))}
           <p className="fine">Appen garanterer aldri at en vare er allergenfri. Uavklart allergenstatus godkjennes aldri når et filter er aktivt.</p>
           <p>Butikker som sammenlignes:</p>
