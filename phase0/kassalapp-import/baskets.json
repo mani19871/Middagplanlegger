@@ -1,9 +1,745 @@
 {
-  "note": "Startsett. Utvid til ti prøvekurver fra reelle handler i ulike landsdeler.",
+  "note": "Prøvekurver for Kassalapp-dekningstesten. Kurvene er KONSTRUERT fra planens oppskrifter (src/data/catalog.ts), ikke fra faktiske kvitteringer. Salt, pepper og matolje (basisvarer) er utelatt. Sammenligning mot faktiske kjøp er ikke gjort. Hver vare har søkeord (query), krav til ord i produktnavnet (must; alternativer skilt med |, hele ord), ordforkastelser (not; delstreng) og ønsket pakningsstørrelse (size/unit) der den er entydig. Treffene er automatisk vurdert, ikke manuelt kontrollert.",
+  "items": {
+    "kjottdeig": {
+      "label": "Kjøttdeig",
+      "query": "kjøttdeig",
+      "must": [
+        "kjøttdeig"
+      ],
+      "not": [
+        "saus",
+        "pizza",
+        "laks",
+        "kylling",
+        "kalkun",
+        "burger",
+        "vegetar",
+        "soya",
+        "lasagne",
+        "grandiosa",
+        "pølse",
+        "fisk",
+        "lam",
+        "svin",
+        "kalv"
+      ],
+      "size": 400,
+      "unit": "g"
+    },
+    "pasta": {
+      "label": "Spagetti",
+      "query": "spagetti",
+      "must": [
+        "spagetti"
+      ],
+      "not": [
+        "saus",
+        "sunn",
+        "gluten",
+        "bolognese",
+        "hermetikk"
+      ],
+      "size": 500,
+      "unit": "g"
+    },
+    "tomat": {
+      "label": "Hakkede tomater",
+      "query": "hakkede tomater",
+      "must": [
+        "hakkede|hakket",
+        "tomater|tomat"
+      ],
+      "not": [
+        "chili",
+        "basilikum"
+      ],
+      "size": 400,
+      "unit": "g"
+    },
+    "lok": {
+      "label": "Løk (gul)",
+      "query": "løk",
+      "must": [
+        "løk"
+      ],
+      "not": [
+        "ring",
+        "stekt",
+        "pulver",
+        "krydder",
+        "salt",
+        "saus",
+        "dressing",
+        "rød",
+        "hvit",
+        "vår",
+        "sjalott",
+        "purre"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "ris": {
+      "label": "Jasminris",
+      "query": "jasminris",
+      "must": [
+        "jasminris|jasmin"
+      ],
+      "not": [
+        "nudler",
+        "ferdig",
+        "microwave",
+        "mikro"
+      ],
+      "size": 1000,
+      "unit": "g"
+    },
+    "tortilla": {
+      "label": "Tortillalefser",
+      "query": "tortilla",
+      "must": [
+        "tortilla|tortillalefser|tortillas"
+      ],
+      "not": [
+        "chips",
+        "saus",
+        "dip",
+        "taco shells",
+        "skall"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "mais": {
+      "label": "Mais (hermetikk)",
+      "query": "mais",
+      "must": [
+        "mais|sukkermais"
+      ],
+      "not": [
+        "popcorn",
+        "chips",
+        "mel",
+        "stivelse",
+        "maizena",
+        "flakes",
+        "brød",
+        "snacks",
+        "kjeks",
+        "tortilla",
+        "ris",
+        "pasta",
+        "pops",
+        "fyll"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "paprika": {
+      "label": "Paprika",
+      "query": "paprika",
+      "must": [
+        "paprika"
+      ],
+      "not": [
+        "krydder",
+        "chips",
+        "dip",
+        "saus",
+        "pulver",
+        "malt",
+        "fyll",
+        "røkt",
+        "stekt",
+        "hakket",
+        "glass",
+        "pålegg"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "ost": {
+      "label": "Revet ost",
+      "query": "revet ost",
+      "must": [
+        "revet|revet,",
+        "ost"
+      ],
+      "not": [
+        "pizza",
+        "kake",
+        "bit",
+        "snacks"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "romme": {
+      "label": "Rømme",
+      "query": "rømme",
+      "must": [
+        "rømme"
+      ],
+      "not": [
+        "dressing",
+        "saus",
+        "chips",
+        "dip",
+        "dipp"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "kylling": {
+      "label": "Kyllingfilet",
+      "query": "kyllingfilet",
+      "must": [
+        "kyllingfilet|kyllingfileter|kyllingbryst"
+      ],
+      "not": [
+        "pålegg",
+        "kebab",
+        "pølse",
+        "nugget",
+        "panert",
+        "marinert",
+        "krydret",
+        "stekt",
+        "kokt"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "kokosmelk": {
+      "label": "Kokosmelk",
+      "query": "kokosmelk",
+      "must": [
+        "kokosmelk"
+      ],
+      "not": [
+        "is",
+        "drikke",
+        "yoghurt"
+      ],
+      "size": 400,
+      "unit": "ml"
+    },
+    "torsk": {
+      "label": "Torsk (filet)",
+      "query": "torsk",
+      "must": [
+        "torsk|torskefilet|torskerygg|torskeloins"
+      ],
+      "not": [
+        "tran",
+        "kaviar",
+        "pålegg",
+        "lever",
+        "fiskekake",
+        "fiskeboller",
+        "fiskepudding",
+        "saltet",
+        "bacalao",
+        "klippfisk",
+        "pinner",
+        "gryte",
+        "kokt",
+        "røkt",
+        "sprø"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "poteter": {
+      "label": "Poteter",
+      "query": "poteter",
+      "must": [
+        "poteter|potet"
+      ],
+      "not": [
+        "chips",
+        "mos",
+        "pulver",
+        "skall",
+        "bakt",
+        "gratinert",
+        "fries",
+        "pommes",
+        "pai",
+        "boller",
+        "lompe",
+        "salat",
+        "stappe",
+        "klar",
+        "sprø",
+        "hash",
+        "kaker"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "gulrot": {
+      "label": "Gulrot",
+      "query": "gulrot",
+      "must": [
+        "gulrot|gulrøtter"
+      ],
+      "not": [
+        "juice",
+        "kake",
+        "saft",
+        "pålegg",
+        "snacks",
+        "revet",
+        "pureé",
+        "puré"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "fiskekaker": {
+      "label": "Fiskekaker",
+      "query": "fiskekaker",
+      "must": [
+        "fiskekaker|fiskekake"
+      ],
+      "not": [
+        "pålegg",
+        "saus"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "egg": {
+      "label": "Egg",
+      "query": "egg",
+      "must": [
+        "egg"
+      ],
+      "not": [
+        "nudler",
+        "pasta",
+        "likør",
+        "salat",
+        "røre",
+        "plomme",
+        "hvite",
+        "kake",
+        "brød",
+        "bacon"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "melk": {
+      "label": "Melk",
+      "query": "melk",
+      "must": [
+        "lettmelk|helmelk|melk|ekstra lett melk"
+      ],
+      "not": [
+        "sjokolade",
+        "kondens",
+        "kokos",
+        "havre",
+        "soya",
+        "mandel",
+        "pulver",
+        "shake",
+        "drikke",
+        "yoghurt",
+        "is",
+        "fløte",
+        "creme",
+        "karamell",
+        "ris",
+        "saus",
+        "oppvarmet"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "mel": {
+      "label": "Hvetemel",
+      "query": "hvetemel",
+      "must": [
+        "hvetemel|hvete"
+      ],
+      "not": [
+        "fullkorn",
+        "grov",
+        "brød",
+        "kake",
+        "pizza",
+        "mix",
+        "bland"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "brokkoli": {
+      "label": "Brokkoli",
+      "query": "brokkoli",
+      "must": [
+        "brokkoli"
+      ],
+      "not": [
+        "suppe",
+        "frossen",
+        "fryst",
+        "krydder"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "laks": {
+      "label": "Laksefilet",
+      "query": "laksefilet",
+      "must": [
+        "laksefilet|laksefileter|laksefiletar"
+      ],
+      "not": [
+        "røkt",
+        "røkelaks",
+        "pålegg",
+        "sushi",
+        "gravet",
+        "pasta",
+        "saus",
+        "kaviar",
+        "burger",
+        "pinner",
+        "sprø"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "spinat": {
+      "label": "Spinat",
+      "query": "spinat",
+      "must": [
+        "spinat"
+      ],
+      "not": [
+        "suppe",
+        "pasta",
+        "lasagne",
+        "pai",
+        "pizza",
+        "saus",
+        "krydder",
+        "frossen",
+        "fryst",
+        "dip"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "linser": {
+      "label": "Røde linser",
+      "query": "røde linser",
+      "must": [
+        "linser",
+        "røde|rød"
+      ],
+      "not": [
+        "suppe",
+        "salat",
+        "gryte",
+        "hermetikk",
+        "ferdig",
+        "chips",
+        "snacks"
+      ],
+      "size": null,
+      "unit": null
+    },
+    "bonner": {
+      "label": "Kidneybønner",
+      "query": "kidneybønner",
+      "must": [
+        "kidneybønner|kidney"
+      ],
+      "not": [
+        "salat",
+        "chili",
+        "gryte",
+        "saus",
+        "mix",
+        "ferdig"
+      ],
+      "size": null,
+      "unit": null
+    }
+  },
+  "recipes": {
+    "bolognese": {
+      "name": "Spagetti bolognese",
+      "items": [
+        "pasta",
+        "kjottdeig",
+        "tomat",
+        "lok"
+      ]
+    },
+    "taco": {
+      "name": "Fredagstaco",
+      "items": [
+        "kjottdeig",
+        "tortilla",
+        "mais",
+        "paprika",
+        "ost",
+        "romme"
+      ]
+    },
+    "karri": {
+      "name": "Kylling i karri",
+      "items": [
+        "kylling",
+        "kokosmelk",
+        "ris",
+        "lok"
+      ]
+    },
+    "ovnstorsk": {
+      "name": "Ovnsbakt torsk med rotgrønnsaker",
+      "items": [
+        "torsk",
+        "poteter",
+        "gulrot"
+      ]
+    },
+    "fiskekaker": {
+      "name": "Fiskekaker med poteter og gulrot",
+      "items": [
+        "fiskekaker",
+        "poteter",
+        "gulrot"
+      ]
+    },
+    "linsegryte": {
+      "name": "Linsegryte",
+      "items": [
+        "linser",
+        "tomat",
+        "lok",
+        "gulrot",
+        "ris"
+      ]
+    },
+    "pastaspinat": {
+      "name": "Pasta med spinat og ost",
+      "items": [
+        "pasta",
+        "spinat",
+        "ost"
+      ]
+    },
+    "omelett": {
+      "name": "Omelett med grønnsaker",
+      "items": [
+        "egg",
+        "paprika",
+        "ost"
+      ]
+    },
+    "lakseris": {
+      "name": "Laks med ris og brokkoli",
+      "items": [
+        "laks",
+        "ris",
+        "brokkoli"
+      ]
+    },
+    "kyllingwok": {
+      "name": "Kyllingwok",
+      "items": [
+        "kylling",
+        "ris",
+        "paprika",
+        "brokkoli",
+        "gulrot"
+      ]
+    },
+    "pannekaker": {
+      "name": "Pannekaker",
+      "items": [
+        "mel",
+        "egg",
+        "melk"
+      ]
+    },
+    "bonnechili": {
+      "name": "Bønnechili med ris",
+      "items": [
+        "bonner",
+        "tomat",
+        "mais",
+        "lok",
+        "ris"
+      ]
+    },
+    "kjottkaker": {
+      "name": "Kjøttkaker med poteter",
+      "items": [
+        "kjottdeig",
+        "poteter",
+        "gulrot",
+        "melk"
+      ]
+    },
+    "fiskesuppe": {
+      "name": "Fiskesuppe",
+      "items": [
+        "torsk",
+        "poteter",
+        "gulrot",
+        "kokosmelk"
+      ]
+    }
+  },
   "baskets": [
-    { "id": "kurv-1", "region": "TODO (postnummer/landsdel)", "items": [
-      { "query": "spagetti 500 g" }, { "query": "hakkede tomater 400 g" },
-      { "query": "kjøttdeig 400 g" }, { "query": "jasminris 1 kg" }, { "query": "egg 12" }
-    ] }
+    {
+      "id": "kurv-01",
+      "region": "Oslo",
+      "landsdel": "Østlandet",
+      "type": "by",
+      "place": "Oslo",
+      "recipes": [
+        "bolognese",
+        "taco",
+        "karri",
+        "lakseris",
+        "omelett"
+      ]
+    },
+    {
+      "id": "kurv-02",
+      "region": "Bergen",
+      "landsdel": "Vestlandet",
+      "type": "by",
+      "place": "Bergen",
+      "recipes": [
+        "kjottkaker",
+        "ovnstorsk",
+        "linsegryte",
+        "pastaspinat",
+        "pannekaker"
+      ]
+    },
+    {
+      "id": "kurv-03",
+      "region": "Trondheim",
+      "landsdel": "Trøndelag",
+      "type": "by",
+      "place": "Trondheim",
+      "recipes": [
+        "fiskekaker",
+        "kyllingwok",
+        "bonnechili",
+        "bolognese",
+        "omelett"
+      ]
+    },
+    {
+      "id": "kurv-04",
+      "region": "Tromsø",
+      "landsdel": "Nord-Norge",
+      "type": "by",
+      "place": "Tromsø",
+      "recipes": [
+        "fiskesuppe",
+        "taco",
+        "lakseris",
+        "kjottkaker",
+        "pannekaker"
+      ]
+    },
+    {
+      "id": "kurv-05",
+      "region": "Stavanger",
+      "landsdel": "Sørvestlandet",
+      "type": "by",
+      "place": "Stavanger",
+      "recipes": [
+        "karri",
+        "ovnstorsk",
+        "taco",
+        "linsegryte",
+        "pastaspinat"
+      ]
+    },
+    {
+      "id": "kurv-06",
+      "region": "Kristiansand",
+      "landsdel": "Sørlandet",
+      "type": "by",
+      "place": "Kristiansand",
+      "recipes": [
+        "bolognese",
+        "kyllingwok",
+        "fiskekaker",
+        "bonnechili",
+        "omelett"
+      ]
+    },
+    {
+      "id": "kurv-07",
+      "region": "Hamar",
+      "landsdel": "Innlandet",
+      "type": "småby",
+      "place": "Hamar",
+      "recipes": [
+        "kjottkaker",
+        "karri",
+        "pastaspinat",
+        "taco",
+        "pannekaker"
+      ]
+    },
+    {
+      "id": "kurv-08",
+      "region": "Bodø",
+      "landsdel": "Nord-Norge (Nordland)",
+      "type": "småby",
+      "place": "Bodø",
+      "recipes": [
+        "lakseris",
+        "fiskesuppe",
+        "bolognese",
+        "kyllingwok",
+        "linsegryte"
+      ]
+    },
+    {
+      "id": "kurv-09",
+      "region": "Alta",
+      "landsdel": "Nord-Norge (Finnmark)",
+      "type": "distrikt",
+      "place": "Alta",
+      "recipes": [
+        "kjottkaker",
+        "fiskekaker",
+        "taco",
+        "bonnechili",
+        "pannekaker"
+      ]
+    },
+    {
+      "id": "kurv-10",
+      "region": "Sogndal",
+      "landsdel": "Vestlandet (indre)",
+      "type": "distrikt",
+      "place": "Sogndal",
+      "recipes": [
+        "karri",
+        "ovnstorsk",
+        "omelett",
+        "bolognese",
+        "lakseris"
+      ]
+    }
   ]
 }
