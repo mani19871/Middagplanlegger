@@ -33,17 +33,18 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
 
   return (
     <>
-      <div className="row">
+      <h1 className="page">Kundeaviser</h1>
+      <div className="chips">
         {(['Hele Norge', 'Nær meg', 'Mine butikker'] as View[]).map((v) => (
           <button key={v} className={view === v ? 'chip on' : 'chip'} onClick={() => setView(v)}>{v}</button>
         ))}
       </div>
-      <div className="row">
+      <div className="row-field">
         <input placeholder="Søk på kjede, butikk eller sted" value={q} onChange={(e) => setQ(e.target.value)} />
         <input className="postal" placeholder="Postnummer" inputMode="numeric" maxLength={4} value={state.postal}
           onChange={(e) => update((s) => ({ ...s, postal: e.target.value.replace(/\D/g, '') }))} />
       </div>
-      <div className="row">
+      <div className="chips">
         <button className={when === 'denne' ? 'chip on' : 'chip'} onClick={() => setWhen('denne')}>Denne uka</button>
         <button className={when === 'kommende' ? 'chip on' : 'chip'} onClick={() => setWhen('kommende')}>Kommende</button>
       </div>
@@ -56,9 +57,9 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
             <h4>{e.title}</h4>
             <p>{e.sender} · {e.scope} · gyldig {e.validFrom} – {e.validTo} · {e.branch}</p>
             <p className="fine">Sist kontrollert {TODAY} · visningsrett: {e.rights === 'visning' ? 'bla i appen' : 'les hos kjeden'}</p>
-            <button disabled title="Lenke avklares i fase 0">Les hos kjeden</button>
+            <button className="ghost" disabled title="Lenke avklares i fase 0">Les hos kjeden</button>
             {eOffers.length > 0 && (
-              <button onClick={() => setOpen(open === e.id ? null : e.id)}>Tilbud ({eOffers.length})</button>
+              <button className="ghost" onClick={() => setOpen(open === e.id ? null : e.id)}>Tilbud ({eOffers.length})</button>
             )}
             {open === e.id && eOffers.map((o) => {
               const matches = ctx.catalog.recipes.filter((r) => r.lines.some((l) => l.ingredient === o.ingredient));

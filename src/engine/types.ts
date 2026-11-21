@@ -23,7 +23,7 @@ export interface Settings {
   maxStops: 1 | 2; extraStoreThresholdOre: number; vegetarian: boolean; avoid: Allergen[];
   pantry: Record<string, number>;
 }
-export interface Slot { day: number; recipeId: string; locked: boolean }
+export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number }
 
 export interface BasketLine {
   ingredient: string; name: string; department: string; unit: Unit; need: number;

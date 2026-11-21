@@ -65,4 +65,10 @@ describe('planmotor', () => {
     const direct = buildBasket([slot(0, 'bolognese'), slot(1, 'pastaspinat')], ['demoA'], c).totalOre;
     expect(cur + o.deltaOre).toBe(direct);
   });
+  it('reserverte ekstra porsjoner øker behovet', () => {
+    const plain = buildBasket([slot(0, 'bolognese')], ['demoA'], ctx());
+    const extra = buildBasket([{ ...slot(0, 'bolognese'), extra: 4 }], ['demoA'], ctx());
+    const n = (b: typeof plain) => b.lines.find((l) => l.ingredient === 'pasta')!.need;
+    expect(n(extra)).toBeCloseTo(n(plain) * (3.2 + 4) / 3.2);
+  });
 });

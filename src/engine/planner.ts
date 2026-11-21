@@ -39,8 +39,9 @@ function aggregateNeeds(slots: Slot[], ctx: Ctx): Map<string, Need> {
   const needs = new Map<string, Need>();
   for (const slot of slots) {
     const r = recipes.get(slot.recipeId);
-    const portions = portionsOnDay(ctx.settings, slot.day);
-    if (!r || portions <= 0) continue;
+    const base = portionsOnDay(ctx.settings, slot.day);
+    if (!r || base <= 0) continue;
+    const portions = base + (slot.extra ?? 0); // reserverte porsjoner (matpakke/rester)
     const factor = portions / r.baseServings;
     for (const line of r.lines) {
       if (ingredients.get(line.ingredient)?.staple) continue;

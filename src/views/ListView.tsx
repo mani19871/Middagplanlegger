@@ -9,7 +9,7 @@ const statusText: Record<BasketLine['status'], string> = {
 };
 
 export default function ListView({ state, update, basket }: Props) {
-  if (state.slots.length === 0) return <section className="card"><p>Lag en ukeplan først.</p></section>;
+  if (state.slots.length === 0) return <><h1 className="page">Handleliste</h1><section className="card"><p>Lag en ukeplan først.</p></section></>;
   const toggle = (key: string) => update((s) => ({ ...s, checked: { ...s.checked, [key]: !s.checked[key] } }));
   const groups = new Map<string, BasketLine[]>();
   for (const l of basket.lines) {
@@ -19,6 +19,7 @@ export default function ListView({ state, update, basket }: Props) {
   const recipeName = (id: string) => catalog.recipes.find((r) => r.id === id)?.name ?? id;
   return (
     <>
+      <h1 className="page">Handleliste</h1>
       {!state.approved && <p className="fine">Planen er ikke godkjent ennå, listen kan endre seg.</p>}
       {[...groups].map(([storeId, lines]) => {
         const store = catalog.stores.find((s) => s.id === storeId);
@@ -69,7 +70,7 @@ export default function ListView({ state, update, basket }: Props) {
         </section>
       )}
       <p className="fine">Anslått sum for varer med pris: {kr(basket.totalOre)}. Avkrysninger lagres på enheten og virker uten nett.</p>
-      <button onClick={() => update((s) => ({ ...s, checked: {} }))}>Nullstill avkrysninger</button>
+      <button className="ghost" onClick={() => update((s) => ({ ...s, checked: {} }))}>Nullstill avkrysninger</button>
     </>
   );
 }
