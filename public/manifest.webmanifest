@@ -1,0 +1,2 @@
+{ "name": "Middagsplanlegger", "short_name": "Middag", "start_url": "/", "display": "standalone",
+  "background_color": "#f6f4ee", "theme_color": "#1f6f54", "lang": "nb", "icons": [] }
