@@ -5,7 +5,7 @@ import type { NormalizedOffer } from './types';
 /** Norske søkeord per ingrediens. Redaktøren utvider listen; tvetydige treff går til kontroll. */
 export const OFFER_TERMS: Record<string, string[]> = {
   pasta: ['spagetti', 'pasta', 'penne'], tomat: ['hakkede tomater', 'tomat hakket'], kjottdeig: ['kjøttdeig'],
-  lok: ['løk', 'gul løk'], ris: ['ris', 'jasminris'], kylling: ['kyllingfilet', 'kylling'], kokosmelk: ['kokosmelk'],
+  lok: ['løk', 'gul løk'], ris: ['ris', 'jasminris'], kylling: ['kyllingfilet', 'kyllingbryst', 'kylling'], kokosmelk: ['kokosmelk'],
   torsk: ['torsk', 'torskefilet'], poteter: ['poteter'], gulrot: ['gulrot', 'gulrøtter'], fiskekaker: ['fiskekaker'],
   tortilla: ['tortilla'], mais: ['mais'], paprika: ['paprika'], ost: ['norvegia', 'ost'], romme: ['rømme'],
   egg: ['egg'], melk: ['lettmelk', 'melk'], mel: ['hvetemel'], brokkoli: ['brokkoli'], laks: ['laks', 'laksefilet'],
@@ -24,7 +24,9 @@ export interface MatchedOffer {
 const norm = (s: string) => s.toLowerCase();
 const L = 'a-zæøåäö';
 /** Ord som viser at det er en bearbeidet vare eller ikke mat vi planlegger med (kaffe, chips, saus …). */
-export const EXCLUDE = ['kaffe', 'chips', 'saus', 'suppe', 'kake', 'pålegg', 'snacks', 'drikke', 'juice', 'sjokolade', 'godteri', 'pulver', 'dressing', 'bolle', 'brød', 'baby', 'hundemat', 'kattemat', 'øl', 'vin', 'iskrem', 'pizza', 'ferdigrett', 'gryte', 'salat', 'smoothie', 'pringles', 'koker', 'gratin', 'kjeks', 'nudler', 'krydder'];
+export const EXCLUDE = ['kaffe', 'chips', 'saus', 'suppe', 'kake', 'pålegg', 'snacks', 'drikke', 'juice', 'sjokolade', 'godteri', 'pulver', 'dressing', 'bolle', 'brød', 'baby', 'hundemat', 'kattemat', 'øl', 'vin', 'iskrem', 'pizza', 'ferdigrett', 'gryte', 'salat', 'smoothie', 'pringles', 'koker', 'gratin', 'kjeks', 'nudler', 'krydder',
+  // fra tilbudstrolden-mcp (MIT), norske ikke-ingrediens- og bearbeidingsord:
+  'røkt', 'røykt', 'marinert', 'panert', 'gravet', 'tørket', 'postei', 'spekemat', 'spekepølse', 'spekeskinke', 'grateng', 'omelett', 'gryterett', 'instant', 'kopnudler', 'brus', 'energidrikk', 'sjampo', 'såpe', 'oppvask', 'vaselin', 'blomsterløk', 'hundesnacks', 'treningsbiter', 'pai'];
 /** Hele ord (med vanlige norske endelser). «ost» treffer ikke «kost» eller «ostekake». */
 const hasWord = (text: string, term: string) =>
   new RegExp(`(^|[^${L}])${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(e|en|er|ene|et)?($|[^${L}])`).test(text);

@@ -43,6 +43,8 @@ describe('tilbud', () => {
     const h = (heading: string) => matchOffer(parseTjekOffer(raw({ heading }), 'x'), ingredients, '2026-11-24');
     expect(h('Ostekake')).toBeNull();
     expect(h('FRIELE FROKOSTKAFFE 500 G')).toBeNull();
+    expect(h('Røkt laks')).toBeNull();
+    expect(h('Kyllingbryst')?.ingredient).toBe('kylling');
     expect(h('Norvegia')?.ingredient).toBe('ost');
     expect(h('Hvite bønner øko')?.ingredient).toBe('bonner');
     expect(h('Gulrøtter 1 kg')?.ingredient).toBe('gulrot');
