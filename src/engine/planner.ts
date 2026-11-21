@@ -23,7 +23,14 @@ const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id,
 
 import { recipeDeals, type OfferHint, type RecipeDeals } from './deals';
 
-export interface Ctx { catalog: Catalog; settings: Settings; offers?: OfferHint[]; shopDate?: string }
+export interface Ctx {
+  catalog: Catalog; settings: Settings; offers?: OfferHint[]; shopDate?: string;
+  /**
+   * Beholdning som trekkes fra behovet (bekreftet hjemme + kjøpt og ikke brukt, se inventory.ts `deriveStock` med
+   * `planWeek`). Mangler den, brukes `settings.pantry`. Forventet rest skal aldri inn her.
+   */
+  stock?: Record<string, number>;
+}
 
 /** Tilbud for en rett på en bestemt dag (tomt hvis tilbudsplanlegging er av eller dato mangler). */
 export function dealsFor(recipe: Recipe, day: number, ctx: Ctx): RecipeDeals {
@@ -32,16 +39,35 @@ export function dealsFor(recipe: Recipe, day: number, ctx: Ctx): RecipeDeals {
   return recipeDeals(recipe, portions / recipe.baseServings, ctx.catalog.ingredients, ctx.offers, ctx.shopDate);
 }
 
+/**
+ * En rett der hver vare har produkter i katalogen, men ingen som slipper gjennom det aktive allergifilteret
+ * (uavklart allergenstatus eller treff på allergen). Alle varene ville blitt «ukjent pris».
+ */
+export function blockedByAllergenStatus(r: Recipe, ctx: Ctx): boolean {
+  const s = ctx.settings;
+  if (s.avoid.length === 0) return false;
+  const lines = r.lines.filter((l) => !ctx.catalog.ingredients.find((i) => i.id === l.ingredient)?.staple);
+  if (lines.length === 0) return false;
+  return lines.every((l) => {
+    const ps = ctx.catalog.products.filter((p) => p.ingredient === l.ingredient);
+    return ps.length > 0 && !ps.some((p) => productAllowed(p, s));
+  });
+}
+
 /** Kostkrav: absolutte krav filtrerer oppskriftene; preferanser påvirker bare rangering. */
 export function eligibleRecipes(ctx: Ctx, day: number): Recipe[] {
   const { catalog, settings } = ctx;
   const max = settings.days[day].maxMinutes;
-  return catalog.recipes
+  const ok = catalog.recipes
     .filter((r) => r.minutes <= max)
     .filter((r) => !settings.vegetarian || r.vegetarian)
     .filter((r) => !r.allergens.some((a) => settings.avoid.includes(a)))
     .filter((r) => !(settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t)))
     .sort((a, b) => a.id.localeCompare(b.id));
+  // Hopp over retter som bare ville gitt ukjent pris på grunn av allergifilteret, så lenge det finnes andre.
+  // Kurvregnskapet er uendret: velges en slik rett likevel (låst eller eneste mulighet), er prisen fortsatt ukjent.
+  const priced = ok.filter((r) => !blockedByAllergenStatus(r, ctx));
+  return priced.length > 0 ? priced : ok;
 }
 
 /** Et produkt kan leveres hvis det ikke bryter et aktivt allergifilter. Uavklart status godkjennes aldri. */
@@ -52,26 +78,30 @@ function productAllowed(p: Product, s: Settings): boolean {
 
 interface Need { amount: number; covers: Set<string> }
 
+/** Mengdene en rett bruker en gitt dag (inkludert reserverte porsjoner), uten basisvarer. Brukes også som forbruk. */
+export function slotUses(slot: Slot, ctx: Ctx): { ingredient: string; amount: number }[] {
+  const r = ctx.catalog.recipes.find((x) => x.id === slot.recipeId);
+  const base = portionsOnDay(ctx.settings, slot.day);
+  if (!r || base <= 0) return [];
+  const factor = (base + (slot.extra ?? 0)) / r.baseServings; // reserverte porsjoner (matpakke/rester)
+  return r.lines
+    .filter((l) => !ctx.catalog.ingredients.find((i) => i.id === l.ingredient)?.staple)
+    .map((l) => ({ ingredient: l.ingredient, amount: l.amount * factor }));
+}
+
 function aggregateNeeds(slots: Slot[], ctx: Ctx): Map<string, Need> {
-  const recipes = byId(ctx.catalog.recipes);
-  const ingredients = byId(ctx.catalog.ingredients);
   const needs = new Map<string, Need>();
   for (const slot of slots) {
-    const r = recipes.get(slot.recipeId);
-    const base = portionsOnDay(ctx.settings, slot.day);
-    if (!r || base <= 0) continue;
-    const portions = base + (slot.extra ?? 0); // reserverte porsjoner (matpakke/rester)
-    const factor = portions / r.baseServings;
-    for (const line of r.lines) {
-      if (ingredients.get(line.ingredient)?.staple) continue;
-      const n = needs.get(line.ingredient) ?? { amount: 0, covers: new Set<string>() };
-      n.amount += line.amount * factor; // summer på tvers av retter før avrunding
-      n.covers.add(r.id);
-      needs.set(line.ingredient, n);
+    for (const u of slotUses(slot, ctx)) {
+      const n = needs.get(u.ingredient) ?? { amount: 0, covers: new Set<string>() };
+      n.amount += u.amount; // summer på tvers av retter før avrunding
+      n.covers.add(slot.recipeId);
+      needs.set(u.ingredient, n);
     }
   }
   // Trekk fra beholdning én gang per vare, etter summering.
-  for (const [ing, n] of needs) n.amount = Math.max(0, n.amount - (ctx.settings.pantry[ing] ?? 0));
+  const stock = ctx.stock ?? ctx.settings.pantry;
+  for (const [ing, n] of needs) n.amount = Math.max(0, n.amount - (stock[ing] ?? 0));
   return needs;
 }
 

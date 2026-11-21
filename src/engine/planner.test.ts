@@ -119,3 +119,38 @@ describe('regresjon: «Med kontrollerte tilbud» er en egen sum', () => {
     expect(t.complete).toBe(false);
   });
 });
+
+describe('allergifilter og uavklart allergenstatus', () => {
+  // Testrett der alle varer bare finnes som produkter med uavklart allergenstatus (kokosmelk i demokatalogen).
+  const kokos = { id: 'aaa-kokossuppe', name: 'Kokossuppe (test)', minutes: 10, baseServings: 4, vegetarian: true, protein: 'test',
+    allergens: [], steps: [], lines: [{ ingredient: 'kokosmelk', amount: 800 }, { ingredient: 'salt', amount: 5 }] };
+  const withKokos = { ...catalog, recipes: [...catalog.recipes, kokos] };
+  it('hopper over retter der alle varer ville blitt ukjent pris, så lenge det finnes andre', async () => {
+    const { blockedByAllergenStatus, eligibleRecipes } = await import('./planner');
+    const c = { catalog: withKokos, settings: { ...defaultSettings, avoid: ['egg' as const] } };
+    expect(blockedByAllergenStatus(kokos, c)).toBe(true);
+    expect(eligibleRecipes(c, 0).map((r) => r.id)).not.toContain(kokos.id);
+    for (const s of generatePlan(c)) expect(s.recipeId).not.toBe(kokos.id);
+    // Uten allergifilter er retten med som før.
+    const free = { catalog: withKokos, settings: defaultSettings };
+    expect(blockedByAllergenStatus(kokos, free)).toBe(false);
+    expect(eligibleRecipes(free, 0).map((r) => r.id)).toContain(kokos.id);
+  });
+  it('er den eneste muligheten, beholdes den, og prisen er fortsatt ukjent', async () => {
+    const { eligibleRecipes } = await import('./planner');
+    const only = { ...catalog, recipes: [kokos] };
+    const c = { catalog: only, settings: { ...defaultSettings, avoid: ['egg' as const] } };
+    expect(eligibleRecipes(c, 0).map((r) => r.id)).toEqual([kokos.id]);
+    const plan = generatePlan(c);
+    const b = buildBasket(plan, ['demoA', 'demoB'], c);
+    expect(b.lines.every((l) => l.status === 'ukjent')).toBe(true);
+    expect(budgetAnswer(b, 10_000_000)).toBe('ufullstendig');
+    expect(alternatives(plan, c).combo).toBeNull(); // ukjent pris vinner aldri
+  });
+  it('en låst rett med bare ukjente priser beholdes og telles fortsatt som ukjent', () => {
+    const c = { catalog: withKokos, settings: { ...defaultSettings, avoid: ['egg' as const] } };
+    const plan = generatePlan(c, [slot(0, kokos.id, true)]);
+    expect(plan.find((s) => s.day === 0)!.recipeId).toBe(kokos.id);
+    expect(buildBasket(plan, ['demoA'], c).complete).toBe(false);
+  });
+});
