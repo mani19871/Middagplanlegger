@@ -77,3 +77,4 @@ header { display:flex; justify-content:space-between; align-items:center; }
 .big { font-size:1.4rem; } .center { text-align:center; } .wide { width:100%; }
 .chips.tabs { margin:10px 0; }
 select.field { display:block; width:100%; }
+.tile { padding-bottom:40px; }

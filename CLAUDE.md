@@ -24,4 +24,4 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 ## Tilbudskilder (`src/offers/`)
 - Eksterne tilbud går gjennom `OfferSource` og normaliseres til øre og standardenheter. Planmotoren kjenner ikke kildene.
 - Et tilbud gir bare rabatt når det er gyldig på **handledagen** og vare, pris, mengde og vilkår er kjent. Uavklart går til kontroll (`needsReview`).
-- Tjek-data forutsetter skriftlig avtale. Muntlig tillatelse er ikke nok til å vise eller lagre innhold. Se `THIRD_PARTY.md` og `phase0/RESULTS.md`.
+- Tjek: brukeren opplyser at Tjek har godkjent bruk av **tilbudsdata, kun live-visning** (ingen lagring, ingen avissider, ingen bilder). Godkjenningen er ikke dokumentert skriftlig i repoet ennå; legg den i `phase0/tjek-avtale.md` når den foreligger. `server/index.ts` holder tilbud bare i minnet. Se `THIRD_PARTY.md` og `phase0/RESULTS.md`.

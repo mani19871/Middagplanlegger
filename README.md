@@ -9,3 +9,7 @@ Norsk middagsplanlegger etter planen «Fullstendig plan: norsk middagsplanlegger
 `npm run dev` · `npm test` · `npm run build`
 
 Ikke med ennå: konto/deling mellom to voksne, ekte prisimport, KI (fase 3), egne apper (fase 3).
+
+## Live tilbud (Tjek)
+`npm run build && npm run server` (bak proxy: `NODE_USE_ENV_PROXY=1`) starter appen og tilbudsserveren på http://localhost:8787.
+Under `npm run dev` proxyes `/api` til serveren (start den i en egen terminal). Tilbud holdes bare i minnet i seks timer.

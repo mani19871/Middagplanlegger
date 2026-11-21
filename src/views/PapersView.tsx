@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { fetchLiveOffers, type LiveResponse } from '../offers/client';
+import type { LiveOffer } from '../offers/service';
+import { amount } from '../engine/format';
 import type { AppState } from '../store';
 import type { Ctx } from '../engine/planner';
 import { editions, offers, type Edition, type Offer } from '../data/newspapers';
@@ -22,6 +25,33 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [recipeId, setRecipeId] = useState<string>('');
   const [day, setDay] = useState<number>(-1);
+  const [mode, setMode] = useState<'live' | 'aviser'>('live');
+  const [live, setLive] = useState<LiveResponse | null>(null);
+  const [liveErr, setLiveErr] = useState(false);
+  const [lq, setLq] = useState('');
+
+  useEffect(() => {
+    if (mode !== 'live') return;
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const load = async () => {
+      try {
+        const r = await fetchLiveOffers();
+        if (stop) return;
+        setLive(r); setLiveErr(false);
+        if (r.status === 'loading') timer = setTimeout(load, 4000);
+      } catch { if (!stop) setLiveErr(true); }
+    };
+    load();
+    return () => { stop = true; clearTimeout(timer); };
+  }, [mode]);
+  const pickLive = (l: LiveOffer) => {
+    const o = l.offer;
+    const pack = o.amount ? amount(o.amount, o.unit ?? 'g') : o.pieces ? `${o.pieces} stk` : 'mengde ukjent';
+    const terms = `Gyldig ${o.validFrom.slice(8, 10)}.${o.validFrom.slice(5, 7)}.–${o.validUntil.slice(8, 10)}.${o.validUntil.slice(5, 7)}.${o.prePriceOre ? ` Før ${kr(o.prePriceOre)}.` : ''}`;
+    setEdition({ id: o.dealerId, sender: o.dealerName, title: 'Tilbud', scope: 'nasjonal', validFrom: o.validFrom.slice(0, 10), validUntil: o.validUntil.slice(0, 10), validTo: o.validUntil.slice(0, 10), branch: 'dagligvare', rights: 'lenke' } as unknown as Edition);
+    setOffer({ editionId: 'live', text: o.heading, ingredient: l.ingredient, priceOre: o.priceOre ?? 0, pack, terms });
+  };
 
   if (offer && edition) {
     const ing = ctx.catalog.ingredients.find((i) => i.id === offer.ingredient)!;
@@ -90,6 +120,35 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
   return (
     <>
       <h1 className="page">Kundeaviser</h1>
+      <div className="chips tabs">
+        <button className={mode === 'live' ? 'chip on' : 'chip'} onClick={() => setMode('live')}>Tilbud nå</button>
+        <button className={mode === 'aviser' ? 'chip on' : 'chip'} onClick={() => setMode('aviser')}>Aviser (demo)</button>
+      </div>
+      {mode === 'live' && (() => {
+        const ingName = (id: string) => ctx.catalog.ingredients.find((i) => i.id === id)?.name ?? id;
+        const list = (live?.offers ?? []).filter((l) => `${l.offer.heading} ${l.offer.dealerName} ${ingName(l.ingredient)}`.toLowerCase().includes(lq.toLowerCase()));
+        return (
+          <>
+            <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk i tilbud" value={lq} onChange={(e) => setLq(e.target.value)} /></div>
+            {liveErr && <div className="banner warn">Fikk ikke kontakt med tilbudsserveren. Start den med <code>npm run server</code>, eller se «Aviser (demo)».</div>}
+            {!liveErr && (!live || live.status === 'loading') && <p className="card">Henter tilbud … det kan ta et halvt minutt første gang.</p>}
+            {live?.status === 'error' && <div className="banner warn">Tilbudskilden svarte ikke ({live.error}). Prøver igjen ved neste besøk.</div>}
+            {live?.status === 'ok' && <p className="fine">Kilde: Tjek. Lest {new Date(live.observed!).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}. {list.length} tilbud koblet til varer i oppskriftene. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</p>}
+            <div className="tiles">
+              {list.map((l) => (
+                <button key={l.offer.id} className="tile" onClick={() => pickLive(l)}>
+                  <span className="bigemoji" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>
+                  <b>{l.offer.heading}</b><small>{l.offer.dealerName}</small>
+                  <span className="price">{l.offer.priceOre !== null ? kr(l.offer.priceOre) : 'Pris ukjent'}</span>
+                  <small>{l.offer.amount ? amount(l.offer.amount, l.offer.unit ?? 'g') : 'mengde ukjent'}{l.unitPriceOre !== null && l.offer.unit ? ` · ${kr(l.unitPriceOre)}/${l.offer.unit === 'g' ? 'kg' : 'l'}` : ''}</small>
+                  <small>{l.phase === 'nå' ? `til ${l.offer.validUntil.slice(8, 10)}.${l.offer.validUntil.slice(5, 7)}.` : `fra ${l.offer.validFrom.slice(8, 10)}.${l.offer.validFrom.slice(5, 7)}.`}{l.needsReview ? ' · må kontrolleres' : ''}</small>
+                  <span className="plus" aria-hidden>＋</span></button>
+              ))}
+            </div>
+          </>
+        );
+      })()}
+      {mode === 'aviser' && (<>
       <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk etter kjede eller sted" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="chips tabs">
         {(['Hele Norge', 'Nær meg', 'Mine butikker'] as View[]).map((v) => <button key={v} className={view === v ? 'chip on' : 'chip'} onClick={() => setView(v)}>{v}</button>)}
@@ -109,7 +168,8 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
           </button>
         ))}
       </div>
-      <p className="fine">Demodata. Avisene er oppdiktet; ekte utgaver krever avtale (se planen).</p>
+      <p className="fine">Demodata. Avisene er oppdiktet; visning av ekte aviser krever egen avtale.</p>
+      </>)}
     </>
   );
 }

@@ -23,21 +23,23 @@ export interface RawTjekOffer {
 
 const toOre = (kr: number | null | undefined) => (kr === null || kr === undefined ? null : Math.round(kr * 100));
 
-/** Mengde i g/ml via SI-faktor (kg → g, dl → ml). Andre enheter blir ukjent mengde. */
+const TO_G: Record<string, number> = { g: 1, kg: 1000, hg: 100 };
+const TO_ML: Record<string, number> = { ml: 1, cl: 10, dl: 100, l: 1000 };
+
+/** Mengde i g/ml fra enhetssymbolet (Tjeks «si»-felt er basisenhet i kg/l og brukes ikke). Stykk gir ukjent vekt. */
 function readAmount(q: RawTjekOffer['quantity']): { amount: number | null; unit: Unit | null } {
   const size = q?.size?.from ?? null;
-  const unit = q?.unit;
-  if (size === null || size <= 0 || !unit) return { amount: null, unit: null };
-  const si = unit.si?.symbol ?? unit.symbol;
-  const factor = unit.si?.factor ?? 1;
-  if (si === 'g') return { amount: size * factor, unit: 'g' };
-  if (si === 'ml' || si === 'l') return { amount: si === 'l' ? size * factor * 1000 : size * factor, unit: 'ml' };
+  const sym = q?.unit?.symbol?.toLowerCase();
+  if (size === null || size <= 0 || !sym) return { amount: null, unit: null };
+  if (sym in TO_G) return { amount: size * TO_G[sym], unit: 'g' };
+  if (sym in TO_ML) return { amount: size * TO_ML[sym], unit: 'ml' };
   return { amount: null, unit: null };
 }
 
 export function parseTjekOffer(raw: RawTjekOffer, observed: string): NormalizedOffer {
   const { amount, unit } = readAmount(raw.quantity);
-  const pieces = raw.quantity?.pieces?.from ?? null;
+  const sym = raw.quantity?.unit?.symbol?.toLowerCase();
+  const pieces = sym === 'pcs' || sym === 'stk' ? (raw.quantity?.size?.from ?? null) : (raw.quantity?.pieces?.from ?? null);
   return {
     id: raw.id, source: 'tjek', heading: raw.heading, description: raw.description ?? null,
     priceOre: toOre(raw.pricing?.price), prePriceOre: toOre(raw.pricing?.pre_price),
