@@ -10,6 +10,10 @@ export const OFFER_TERMS: Record<string, string[]> = {
   tortilla: ['tortilla'], mais: ['mais'], paprika: ['paprika'], ost: ['norvegia', 'ost'], romme: ['rømme'],
   egg: ['egg'], melk: ['lettmelk', 'melk'], mel: ['hvetemel'], brokkoli: ['brokkoli'], laks: ['laks', 'laksefilet'],
   spinat: ['spinat'], linser: ['linser'], bonner: ['kidneybønner', 'bønner'],
+  svinekotelett: ['svinekotelett', 'nakkekotelett', 'kotelett'], svinedeig: ['svinekjøttdeig', 'svinedeig'], flesk: ['sideflesk', 'flesk'],
+  lammedeig: ['lammekjøttdeig', 'lammedeig'], reker: ['reker'], sei: ['seifilet', 'sei'], hyse: ['hysefilet', 'hyse'],
+  sild: ['sildefilet', 'sild'], makrell: ['makrell'], kikerter: ['kikerter'], tofu: ['tofu'], sopp: ['sjampinjong', 'champignon'],
+  blomkal: ['blomkål'], kalrot: ['kålrot'], nudler: ['hvetenudler'],
 };
 
 export interface MatchedOffer {

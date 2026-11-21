@@ -5,8 +5,8 @@ import { DAYS, kr } from '../engine/format';
 import { catalog } from '../data/catalog';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; onDone: () => void; hasPlan: boolean }
-const ALLERGENS: Allergen[] = ['gluten', 'melk', 'egg', 'fisk'];
-const FOODS: [FoodTag, string][] = [['storfe', 'storfe'], ['kylling', 'kylling'], ['fisk', 'fisk'], ['belgvekster', 'belgvekster']];
+const ALLERGENS: Allergen[] = ['gluten', 'melk', 'egg', 'fisk', 'skalldyr'];
+const FOODS: [FoodTag, string][] = [['storfe', 'storfe'], ['svin', 'svin'], ['lam', 'lam'], ['kylling', 'kylling'], ['fisk', 'fisk'], ['skalldyr', 'skalldyr'], ['belgvekster', 'belgvekster']];
 const ALL = [true, true, true, true, true, true, true];
 
 export default function PlanForm({ state, update, onDone, hasPlan }: Props) {

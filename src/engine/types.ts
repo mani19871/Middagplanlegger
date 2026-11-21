@@ -1,6 +1,6 @@
 export type Unit = 'g' | 'ml' | 'stk';
 export type PriceStatus = 'ordinær' | 'tilbud' | 'estimat' | 'ukjent';
-export type Allergen = 'gluten' | 'melk' | 'egg' | 'fisk';
+export type Allergen = 'gluten' | 'melk' | 'egg' | 'fisk' | 'skalldyr';
 
 /** Kosttagger på ingrediensnivå. En rett arver taggene til ingrediensene sine. */
 export type FoodTag = 'storfe' | 'svin' | 'lam' | 'kylling' | 'fisk' | 'skalldyr' | 'belgvekster' | 'notter';
