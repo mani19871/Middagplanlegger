@@ -105,3 +105,17 @@ describe('kostmodell', () => {
     }
   });
 });
+
+describe('regresjon: «Med kontrollerte tilbud» er en egen sum', () => {
+  it('basissum og budsjettsvar er uendret; ukjent pris gir fortsatt ufullstendig', async () => {
+    const { totalWithOffers } = await import('./offerTotal');
+    const hint = { id: 'o', ingredient: 'tomat', dealer: 'X', priceOre: 100, prePriceOre: 1490, amount: 400, unit: 'g' as const, validFrom: '2026-11-23', validUntil: '2026-11-29', approved: true };
+    const slots = [slot(0, 'linsegryte')];
+    const b = buildBasket(slots, ['demoA'], { ...ctx(), offers: [hint], shopDate: '2026-11-24' });
+    const t = totalWithOffers(b, [hint], '2026-11-24', defaultSettings);
+    expect(t.savingOre).toBeGreaterThan(0);
+    expect(b.totalOre).toBe(buildBasket(slots, ['demoA'], ctx()).totalOre);
+    expect(budgetAnswer(b, 1)).toBe('ufullstendig');
+    expect(t.complete).toBe(false);
+  });
+});

@@ -2,11 +2,12 @@
 import type { Ingredient } from '../engine/types';
 import { matchOffer, OFFER_TERMS, validOn, type MatchedOffer } from './match';
 import type { OfferSource } from './types';
+import { OFFER_RULES, type OfferRule } from './rules';
 
 export interface LiveOffer extends MatchedOffer { phase: 'nå' | 'kommende' }
 export interface CollectOptions {
   country: string; today: string; termsPerIngredient?: number; limit?: number; delayMs?: number;
-  sleep?: (ms: number) => Promise<void>; terms?: Record<string, string[]>;
+  sleep?: (ms: number) => Promise<void>; terms?: Record<string, string[]>; rules?: OfferRule[];
 }
 
 export const addDays = (iso: string, n: number) => {
@@ -28,7 +29,7 @@ export async function collectOffers(source: OfferSource, ingredients: Ingredient
         const from = offer.validFrom.slice(0, 10);
         const phase: LiveOffer['phase'] | null = validOn(offer, o.today) ? 'nå' : from > o.today && from <= addDays(o.today, 7) ? 'kommende' : null;
         if (!phase) continue; // utløpte og fjerne tilbud tas ikke med
-        const m = matchOffer(offer, ingredients, phase === 'nå' ? o.today : from, terms);
+        const m = matchOffer(offer, ingredients, phase === 'nå' ? o.today : from, terms, o.rules ?? OFFER_RULES);
         if (m) out.set(offer.id, { ...m, phase });
       }
       await sleep(o.delayMs ?? 500); // vær snill mot kilden

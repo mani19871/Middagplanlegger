@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "description": "Kuraterte regler for tilbudsmatching. Menneskekuratert: mønstre, ikke tilbud. Lagre aldri tilbudsinnhold (pris, periode, butikk) her. Endres via Kundeaviser → Kontroll → «Eksporter regler».",
+  "rules": []
+}

@@ -5,6 +5,8 @@ import type { Ingredient, Recipe, Unit } from './types';
 export interface OfferHint {
   id: string; ingredient: string; dealer: string; priceOre: number; prePriceOre: number | null;
   amount: number; unit: Unit; validFrom: string; validUntil: string; // ISO-datoer (YYYY-MM-DD)
+  /** Koblingen tilbud → ingrediens er godkjent av en kuratert regel. Bare slike tilbud kan senke «Med tilbud»-summen. */
+  approved?: boolean;
 }
 export interface DealLine { ingredient: string; dealer: string; offerId: string; packs: number; savingOre: number }
 export interface RecipeDeals { lines: DealLine[]; savingOre: number }
