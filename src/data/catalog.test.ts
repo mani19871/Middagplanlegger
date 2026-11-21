@@ -4,6 +4,7 @@ import { catalog, ingredients, products, recipes } from './catalog';
 import { defaultSettings } from './defaults';
 import { recipeNutrition, type NutritionTable } from '../engine/nutrition';
 import { generatePlan, recipeTags } from '../engine/planner';
+import { ALLERGENS } from '../engine/allergens';
 import type { FoodTag, Settings } from '../engine/types';
 
 const t = table.items as unknown as NutritionTable;
@@ -34,6 +35,30 @@ describe('katalog (demodata)', () => {
   it('allergenene til en rett dekker produktenes allergener', () => {
     for (const r of recipes) for (const l of r.lines) for (const p of products.filter((x) => x.ingredient === l.ingredient))
       for (const a of p.allergens) expect(r.allergens, `${r.id} mangler ${a} fra ${p.id}`).toContain(a);
+  });
+  it('bare gyldige allergener brukes, og alle 14 finnes i modellen', () => {
+    const valid = new Set<string>(ALLERGENS);
+    for (const r of recipes) for (const a of r.allergens) expect(valid.has(a), `${r.id}: ${a}`).toBe(true);
+    for (const p of products) for (const a of p.allergens) expect(valid.has(a), `${p.id}: ${a}`).toBe(true);
+  });
+  it('merking av kjente allergener: soya, gluten, fisk, skalldyr, egg og melk', () => {
+    const al = (id: string) => products.find((p) => p.id === id)!.allergens;
+    expect(al('soya150')).toEqual(expect.arrayContaining(['soya', 'gluten']));
+    expect(al('tofu400')).toContain('soya');
+    expect(al('nud250')).toEqual(expect.arrayContaining(['gluten', 'egg']));
+    expect(al('reker300')).toContain('skalldyr');
+    expect(al('egg12')).toContain('egg');
+    expect(al('melk1')).toContain('melk');
+    for (const id of ['svinewok', 'tofuwok', 'kyllingnudler']) {
+      const r = recipes.find((x) => x.id === id);
+      if (r) expect(r.allergens, id).toContain('soya');
+    }
+  });
+  it('sammensatte og tvilsomme varer er uavklart (aldri gjettet trygge)', () => {
+    const unknown = new Set(products.filter((p) => !p.allergenKnown).map((p) => p.id));
+    for (const id of ['fk500', 'mak170', 'tort8', 'reker300', 'kokos400', 'nud250']) expect(unknown.has(id), id).toBe(true);
+    // Rene råvarer er avklart.
+    for (const id of ['egg12', 'melk1', 'laks400', 'kd400', 'tofu400', 'soya150']) expect(unknown.has(id), id).toBe(false);
   });
   it('en uke på 7 dager kan planlegges med hvert enkelt kostkrav uten tomme dager', () => {
     const cases: Partial<Settings>[] = [

@@ -1,6 +1,9 @@
 export type Unit = 'g' | 'ml' | 'stk';
 export type PriceStatus = 'ordinær' | 'tilbud' | 'estimat' | 'ukjent';
-export type Allergen = 'gluten' | 'melk' | 'egg' | 'fisk' | 'skalldyr';
+/** De 14 allergenene som skal deklareres i EU. «skalldyr» er krepsdyr (reker, krabbe), «blotdyr» er bløtdyr (blåskjell, blekksprut). */
+export type Allergen =
+  | 'gluten' | 'melk' | 'egg' | 'fisk' | 'skalldyr' | 'blotdyr' | 'soya' | 'peanotter' | 'notter'
+  | 'selleri' | 'sennep' | 'sesam' | 'lupin' | 'sulfitt';
 
 /** Kosttagger på ingrediensnivå. En rett arver taggene til ingrediensene sine. */
 export type FoodTag = 'storfe' | 'svin' | 'lam' | 'kylling' | 'fisk' | 'skalldyr' | 'belgvekster' | 'notter';

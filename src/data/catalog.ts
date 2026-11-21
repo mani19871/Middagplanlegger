@@ -29,6 +29,9 @@ export const ingredients: Ingredient[] = [
   I('salt', 'Salt og pepper', 'g', 'Krydder', true), I('olje', 'Matolje', 'ml', 'Tørrvarer', true),
 ];
 
+// Allergenmerking (demodata): `allergens` er typiske allergener etter EUs 14-liste. `allergenKnown: false` betyr at
+// innholdet ikke er avklart og kan ha flere allergener enn oppgitt; slike varer godkjennes aldri ved aktivt allergifilter.
+// En rett skal alltid dekke allergenene til alle varer den bruker (testet i catalog.test.ts). Ved tvil: allergenKnown=false.
 const R = (
   id: string, name: string, minutes: number, vegetarian: boolean, protein: string,
   allergens: Recipe['allergens'], lines: [string, number][], steps: string[],
@@ -48,7 +51,7 @@ export const recipes: Recipe[] = [
   R('ovnstorsk', 'Ovnsbakt torsk med rotgrønnsaker', 30, false, 'fisk', ['fisk'],
     [['torsk', 600], ['poteter', 800], ['gulrot', 300], ['olje', 20]],
     ['Skjær poteter og gulrot, bak i 15 min.', 'Legg torsken oppå og bak 12 min til.']),
-  R('fiskekaker', 'Fiskekaker med poteter og gulrot', 25, false, 'fisk', ['fisk', 'gluten'],
+  R('fiskekaker', 'Fiskekaker med poteter og gulrot', 25, false, 'fisk', ['fisk', 'gluten', 'melk', 'egg'],
     [['fiskekaker', 500], ['poteter', 800], ['gulrot', 300]],
     ['Kok poteter og gulrot.', 'Stek fiskekakene.']),
   R('linsegryte', 'Linsegryte', 35, true, 'belgvekster', [],
@@ -72,6 +75,7 @@ export const recipes: Recipe[] = [
   R('bonnechili', 'Bønnechili med ris', 40, true, 'belgvekster', [],
     [['bonner', 500], ['tomat', 800], ['mais', 200], ['lok', 1], ['ris', 300]],
     ['Fres løk, tilsett bønner, tomat og mais.', 'Småkok 25 min og server med ris.']),
+  // Kjøttkaker lages vanligvis med mel/brødsmuler (ikke ført opp som vare her): gluten er tatt med for sikkerhets skyld.
   R('kjottkaker', 'Kjøttkaker med poteter', 45, false, 'storfe', ['gluten', 'melk'],
     [['kjottdeig', 600], ['poteter', 1000], ['gulrot', 400], ['melk', 200]],
     ['Form kjøttkaker og stek.', 'Kok poteter og gulrot.']),
@@ -84,7 +88,7 @@ export const recipes: Recipe[] = [
   R('fleskkalrot', 'Stekt flesk med kålrotstappe', 40, false, 'svin', [],
     [['flesk', 600], ['kalrot', 800], ['poteter', 600], ['gulrot', 300]],
     ['Skrell og kok kålrot, poteter og gulrot møre.', 'Stek fleskeskivene sprø i panne eller ovn.', 'Stapp grønnsakene og server med flesket.']),
-  R('svinewok', 'Svinekjøttdeig-wok med ris', 20, false, 'svin', ['gluten'],
+  R('svinewok', 'Svinekjøttdeig-wok med ris', 20, false, 'svin', ['gluten', 'soya'],
     [['svinedeig', 500], ['ris', 300], ['paprika', 2], ['gulrot', 200], ['soyasaus', 40]],
     ['Sett ris på koking.', 'Stek svinekjøttdeigen smuldrende.', 'Tilsett strimlet grønnsaker og soyasaus, wok i 5 min.', 'Server med ris.']),
   R('lammeboller', 'Lammekjøttboller med ris og rømmesaus', 35, false, 'lam', ['melk'],
@@ -105,13 +109,13 @@ export const recipes: Recipe[] = [
   R('stektsild', 'Stekt sild med poteter og gulrot', 30, false, 'fisk', ['fisk', 'gluten'],
     [['sild', 500], ['mel', 80], ['poteter', 800], ['gulrot', 300], ['olje', 40]],
     ['Kok poteter og gulrot.', 'Vend sildefiletene i mel og salt.', 'Stek gyllen på middels varme, 2–3 min per side.']),
-  R('makrelltomat', 'Makrell i tomat med poteter', 20, false, 'fisk', ['fisk'],
+  R('makrelltomat', 'Makrell i tomat med poteter', 20, false, 'fisk', ['fisk', 'gluten'],
     [['makrell', 510], ['poteter', 800], ['gulrot', 300], ['lok', 1]],
     ['Kok poteter.', 'Riv gulrot og skjær løk.', 'Server makrell i tomat med poteter og rå grønnsaker.']),
   R('hyseris', 'Hyse med ris og brokkoli', 25, false, 'fisk', ['fisk'],
     [['hyse', 600], ['ris', 300], ['brokkoli', 300], ['olje', 15]],
     ['Kok ris og brokkoli.', 'Stek hysefilet 3–4 min på hver side.', 'Server sammen.']),
-  R('kyllingnudler', 'Kyllingnudler', 20, false, 'kylling', ['gluten'],
+  R('kyllingnudler', 'Kyllingnudler', 20, false, 'kylling', ['gluten', 'soya', 'egg'],
     [['kylling', 400], ['nudler', 250], ['gulrot', 200], ['paprika', 1], ['soyasaus', 40]],
     ['Kok nudler etter anvisning på pakken.', 'Stek kylling i strimler, tilsett grønnsaker og soyasaus.', 'Vend inn nudlene.']),
   R('ovnskylling', 'Ovnsbakt kylling med blomkål og poteter', 40, false, 'kylling', [],
@@ -120,7 +124,7 @@ export const recipes: Recipe[] = [
   R('kikertcurry', 'Kikertcurry med spinat og ris', 30, true, 'belgvekster', [],
     [['kikerter', 800], ['kokosmelk', 400], ['tomat', 400], ['lok', 1], ['spinat', 200], ['ris', 300]],
     ['Fres løk og karri.', 'Tilsett kikerter, tomat og kokosmelk, la putre 15 min.', 'Vend inn spinat og server med ris.']),
-  R('tofuwok', 'Tofuwok med ris', 20, true, 'tofu', ['gluten'],
+  R('tofuwok', 'Tofuwok med ris', 20, true, 'tofu', ['gluten', 'soya'],
     [['tofu', 400], ['ris', 300], ['brokkoli', 300], ['gulrot', 200], ['soyasaus', 40]],
     ['Kok ris.', 'Stek tofu i terninger gylden.', 'Tilsett grønnsaker og soyasaus, wok i 5 min.', 'Server med ris.']),
   R('soppasta', 'Pasta med sopp og rømme', 25, true, 'sopp', ['gluten', 'melk'],
@@ -137,10 +141,13 @@ export const products: Product[] = [
   P('pasta500', 'pasta', 'Spagetti 500 g', 500, ['gluten']), P('tomat400', 'tomat', 'Hakkede tomater 400 g', 400),
   P('kd400', 'kjottdeig', 'Kjøttdeig 400 g', 400), P('kd800', 'kjottdeig', 'Kjøttdeig 800 g', 800),
   P('lok3', 'lok', 'Gul løk 3-pk', 3), P('ris1000', 'ris', 'Jasminris 1 kg', 1000),
-  P('kyl600', 'kylling', 'Kyllingfilet 600 g', 600), P('kokos400', 'kokosmelk', 'Kokosmelk 400 ml', 400),
+  P('kyl600', 'kylling', 'Kyllingfilet 600 g', 600), // Kokosmelk: noen merker har tilsatt sulfitt (konserveringsmiddel), så innhold er ikke avklart.
+  P('kokos400', 'kokosmelk', 'Kokosmelk 400 ml', 400, [], false),
   P('torsk400', 'torsk', 'Torskefilet 400 g', 400, ['fisk']), P('pot1500', 'poteter', 'Poteter 1,5 kg', 1500),
-  P('gul1000', 'gulrot', 'Gulrot 1 kg', 1000), P('fk500', 'fiskekaker', 'Fiskekaker 500 g', 500, ['fisk', 'gluten'], false),
-  P('tort8', 'tortilla', 'Tortillalefser 8 stk', 8, ['gluten']), P('mais200', 'mais', 'Mais 200 g', 200),
+  P('gul1000', 'gulrot', 'Gulrot 1 kg', 1000), // Fiskekaker: typisk fisk, hvetemel, melk og egg, ofte også soya; innholdet varierer mellom merker og er ikke avklart.
+  P('fk500', 'fiskekaker', 'Fiskekaker 500 g', 500, ['fisk', 'gluten', 'melk', 'egg'], false),
+  // Tortillalefser: hvete, men noen merker har også melk eller soya; ikke avklart.
+  P('tort8', 'tortilla', 'Tortillalefser 8 stk', 8, ['gluten'], false), P('mais200', 'mais', 'Mais 200 g', 200),
   P('pap3', 'paprika', 'Paprika 3-pk', 3), P('ost400', 'ost', 'Norvegia 400 g', 400, ['melk']),
   P('rom300', 'romme', 'Rømme 300 ml', 300, ['melk']), P('egg12', 'egg', 'Egg 12 stk', 12, ['egg']),
   P('melk1', 'melk', 'Lettmelk 1 l', 1000, ['melk']), P('mel1000', 'mel', 'Hvetemel 1 kg', 1000, ['gluten']),
@@ -150,14 +157,16 @@ export const products: Product[] = [
   P('linser500', 'linser', 'Røde linser 500 g', 500),
   P('kots600', 'svinekotelett', 'Svinekoteletter 600 g', 600), P('svd400', 'svinedeig', 'Svinekjøttdeig 400 g', 400),
   P('flesk500', 'flesk', 'Sideflesk 500 g', 500), P('lamd400', 'lammedeig', 'Lammekjøttdeig 400 g', 400),
-  P('reker300', 'reker', 'Reker, skallfrie 300 g', 300, ['skalldyr']), P('sei400', 'sei', 'Seifilet 400 g', 400, ['fisk']),
+  // Skallfrie reker: sulfitt brukes ofte mot mørkfarging, så innhold er ikke avklart.
+  P('reker300', 'reker', 'Reker, skallfrie 300 g', 300, ['skalldyr'], false), P('sei400', 'sei', 'Seifilet 400 g', 400, ['fisk']),
   P('hyse400', 'hyse', 'Hysefilet 400 g', 400, ['fisk']), P('sild400', 'sild', 'Sildefilet 400 g', 400, ['fisk']),
-  // Hermetikk: allergenstatus ikke avklart i demodata (kan inneholde gluten), så den godkjennes aldri ved aktivt allergifilter.
-  P('mak170', 'makrell', 'Makrell i tomat 170 g', 170, ['fisk'], false),
-  P('kik400', 'kikerter', 'Kikerter 400 g', 400), P('tofu400', 'tofu', 'Tofu naturell 400 g', 400),
+  // Hermetikk: tomatsausen kan ha gluten (stivelse) og andre tilsetninger; ikke avklart, så den godkjennes aldri ved aktivt allergifilter.
+  P('mak170', 'makrell', 'Makrell i tomat 170 g', 170, ['fisk', 'gluten'], false),
+  P('kik400', 'kikerter', 'Kikerter 400 g', 400), P('tofu400', 'tofu', 'Tofu naturell 400 g', 400, ['soya']),
   P('sopp250', 'sopp', 'Sjampinjong 250 g', 250), P('blk600', 'blomkal', 'Blomkål 1 stk (ca. 600 g)', 600),
-  P('kal1000', 'kalrot', 'Kålrot 1 kg', 1000), P('soya150', 'soyasaus', 'Soyasaus 150 ml', 150, ['gluten']),
-  P('nud250', 'nudler', 'Hvetenudler 250 g', 250, ['gluten']),
+  P('kal1000', 'kalrot', 'Kålrot 1 kg', 1000), P('soya150', 'soyasaus', 'Soyasaus 150 ml', 150, ['soya', 'gluten']),
+  // Hvetenudler: ofte eggnudler; egg er ikke avklart.
+  P('nud250', 'nudler', 'Hvetenudler 250 g', 250, ['gluten', 'egg'], false),
 ];
 
 export const stores: Store[] = [
