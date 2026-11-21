@@ -71,4 +71,16 @@ describe('planmotor', () => {
     const n = (b: typeof plain) => b.lines.find((l) => l.ingredient === 'pasta')!.need;
     expect(n(extra)).toBeCloseTo(n(plain) * (3.2 + 4) / 3.2);
   });
+  it('maks to retter med samme protein per uke', () => {
+    const days = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 60 }));
+    const c = ctx({ days });
+    const plan = generatePlan(c);
+    expect(plan).toHaveLength(7);
+    const counts = new Map<string, number>();
+    for (const s of plan) {
+      const p = catalog.recipes.find((r) => r.id === s.recipeId)!.protein;
+      counts.set(p, (counts.get(p) ?? 0) + 1);
+    }
+    for (const n of counts.values()) expect(n).toBeLessThanOrEqual(2);
+  });
 });

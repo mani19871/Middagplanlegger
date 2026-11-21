@@ -6,6 +6,7 @@ import type {
 
 const UNKNOWN_PENALTY_ORE = 100_000;
 const EPS = 1e-9;
+export const MAX_SAME_PROTEIN = 2;
 
 export const portionsOnDay = (s: Settings, day: number) =>
   s.eaters.filter((e) => e.daysHome[day]).reduce((sum, e) => sum + e.portion, 0);
@@ -128,8 +129,12 @@ export function generatePlan(ctx: Ctx, previous: Slot[] = []): Slot[] {
     const used = new Set(slots.map((s) => s.recipeId));
     const prevProtein = slots.find((s) => s.day === day - 1);
     const prevP = prevProtein ? ctx.catalog.recipes.find((r) => r.id === prevProtein.recipeId)?.protein : null;
-    let pool = eligibleRecipes(ctx, day).filter((r) => !used.has(r.id));
-    if (pool.length === 0) pool = eligibleRecipes(ctx, day);
+    // Maks to retter med samme protein per uke (så lenge det finnes alternativer).
+    const proteinCount = (p: string) => slots.filter((x) => ctx.catalog.recipes.find((r) => r.id === x.recipeId)?.protein === p).length;
+    const all = eligibleRecipes(ctx, day);
+    let pool = all.filter((r) => !used.has(r.id) && proteinCount(r.protein) < MAX_SAME_PROTEIN);
+    if (pool.length === 0) pool = all.filter((r) => !used.has(r.id));
+    if (pool.length === 0) pool = all;
     let best: { r: Recipe; s: number } | null = null;
     for (const r of pool) {
       const b = buildBasket([...slots, { day, recipeId: r.id, locked: false }], [settings.regularStoreId], ctx);

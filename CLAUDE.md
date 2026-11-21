@@ -20,3 +20,8 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Ikke bygg funksjoner fra senere faser uten å bli bedt om det (KI = fase 3, egne apper = fase 3).
 - Fase 0 er en port: uten dokumentert dekning bygger vi ikke videre som planlagt. Rapporter funn ærlig, også når dekningen er dårlig.
 - Commit på brukerens utviklingsbranch. Ikke lag PR uten å bli bedt om det.
+
+## Tilbudskilder (`src/offers/`)
+- Eksterne tilbud går gjennom `OfferSource` og normaliseres til øre og standardenheter. Planmotoren kjenner ikke kildene.
+- Et tilbud gir bare rabatt når det er gyldig på **handledagen** og vare, pris, mengde og vilkår er kjent. Uavklart går til kontroll (`needsReview`).
+- Tjek-data forutsetter skriftlig avtale. Muntlig tillatelse er ikke nok til å vise eller lagre innhold. Se `THIRD_PARTY.md` og `phase0/RESULTS.md`.
