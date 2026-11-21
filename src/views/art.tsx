@@ -22,3 +22,12 @@ export const icons = {
   Handleliste: I('M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01'),
   Matskap: I('M7 3h10v4H7zM6 7h12v14H6zM6 12h12'),
 };
+
+export const ING_EMOJI: Record<string, string> = {
+  pasta: '🍝', tomat: '🍅', kjottdeig: '🥩', lok: '🧅', ris: '🍚', kylling: '🍗', kokosmelk: '🥥', torsk: '🐟', poteter: '🥔',
+  gulrot: '🥕', fiskekaker: '🍤', tortilla: '🫓', mais: '🌽', paprika: '🫑', ost: '🧀', romme: '🥛', egg: '🥚', melk: '🥛',
+  mel: '🌾', brokkoli: '🥦', laks: '🍣', spinat: '🥬', linser: '🫘', bonner: '🫘',
+};
+export const DEPT_EMOJI: Record<string, string> = {
+  'Frukt og grønt': '🍎', 'Kjøtt og fisk': '🥩', Tørrvarer: '🥫', Hermetikk: '🥫', Meieri: '🥛', Krydder: '🧂',
+};

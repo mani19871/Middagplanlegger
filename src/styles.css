@@ -54,3 +54,26 @@ select.inl { padding:2px 6px; font-size:1rem; font-weight:700; border-radius:8px
 nav { position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--line); display:flex; justify-content:center; padding:6px 8px calc(6px + env(safe-area-inset-bottom)); z-index:10; }
 nav button { flex:1; max-width:120px; background:none; border:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 4px; color:var(--mut); font-size:.75rem; border-radius:14px; }
 nav button.on { background:var(--g); color:#fff; font-weight:600; }
+header { display:flex; justify-content:space-between; align-items:center; }
+.household { background:none; border:0; padding:6px; font-size:.9rem; }
+.alt.big { flex-direction:row; align-items:center; gap:12px; width:100%; } .alt.big .amt { font-size:1.4rem; } .radio { font-size:1.4rem; color:var(--g); }
+.banner { background:var(--upbg); color:var(--upfg); border-radius:14px; padding:12px 14px; margin:10px 0; } .banner.warn { background:#fff0cc; color:#6b4500; }
+.thr { display:flex; justify-content:space-between; align-items:center; margin:12px 0; gap:8px; }
+.totalpill { background:var(--gl); border-radius:14px; padding:8px 14px; text-align:center; } .totalpill small { display:block; color:var(--mut); } .totalpill strong { font-size:1.5rem; }
+.storebar { display:flex; gap:8px; padding:12px; border:1px solid var(--line); border-radius:14px; background:var(--card); margin:10px 0; }
+.deptbar { background:var(--gl); border-radius:10px; padding:8px 12px; margin:12px 0 0; display:flex; gap:8px; }
+.list li { align-items:center; gap:12px; } .list input[type=checkbox] { width:28px; height:28px; accent-color:var(--g); flex:none; }
+.list .main { flex:1; background:none; border:0; text-align:left; padding:0; font-size:1.02rem; cursor:pointer; display:block; } .list .main b { display:block; }
+.ie { font-size:2rem; } .x { cursor:pointer; }
+.detailhead { display:flex; align-items:center; gap:14px; } .bigemoji { font-size:3rem; line-height:1; }
+.drow { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); } .drow:last-child { border:0; } .wrap { text-align:right; max-width:60%; }
+.covers { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:8px; }
+.ecard { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; padding:0; text-align:left; }
+.cvr { display:flex; flex-direction:column; justify-content:flex-end; gap:4px; min-height:150px; padding:12px; color:#fff; } .cvr b { font-size:1.3rem; line-height:1.1; } .cvr small { opacity:.9; }
+.cap { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; font-size:.9rem; } .cap small { color:var(--mut); }
+.coverbig { border-radius:18px; min-height:200px; display:flex; flex-direction:column; justify-content:flex-end; padding:18px; color:#fff; margin:8px 0; } .coverbig b { font-size:2rem; }
+.tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .tile { position:relative; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; text-align:left; display:flex; flex-direction:column; gap:2px; }
+.price { color:#b4532a; font-weight:800; font-size:1.3rem; } .plus { position:absolute; right:10px; bottom:10px; background:#b4532a; color:#fff; border-radius:50%; width:30px; height:30px; display:grid; place-items:center; }
+.big { font-size:1.4rem; } .center { text-align:center; } .wide { width:100%; }
+.chips.tabs { margin:10px 0; }
+select.field { display:block; width:100%; }

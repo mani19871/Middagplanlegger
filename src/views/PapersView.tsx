@@ -1,18 +1,84 @@
 import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Ctx } from '../engine/planner';
-import { editions, offers, type Edition } from '../data/newspapers';
-import { kr } from '../engine/format';
+import { editions, offers, type Edition, type Offer } from '../data/newspapers';
+import { DAYS, kr } from '../engine/format';
+import { ING_EMOJI } from './art';
+import { dayDate, weekStart } from './dates';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void }
 type View = 'Hele Norge' | 'Nær meg' | 'Mine butikker';
 const TODAY = '2026-11-21';
+const COVERS = ['#1f5a46', '#b4532a', '#2b5d6b', '#6b4a2b', '#4b3a63'];
+const cover = (id: string) => COVERS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COVERS.length];
+const period = (e: Edition) => `${e.validFrom.slice(8)}.–${e.validTo.slice(8)}.${e.validTo.slice(5, 7)}.`;
+const place = (e: Edition) => (e.scope === 'nasjonal' ? 'Hele landet' : e.scope === 'regional' ? 'Regional utgave' : 'Lokal utgave');
 
 export default function PapersView({ state, update, ctx, goWeek }: Props) {
   const [view, setView] = useState<View>('Hele Norge');
   const [q, setQ] = useState('');
   const [when, setWhen] = useState<'denne' | 'kommende'>('denne');
-  const [open, setOpen] = useState<string | null>(null);
+  const [edition, setEdition] = useState<Edition | null>(null);
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const [recipeId, setRecipeId] = useState<string>('');
+  const [day, setDay] = useState<number>(-1);
+
+  if (offer && edition) {
+    const ing = ctx.catalog.ingredients.find((i) => i.id === offer.ingredient)!;
+    const matches = ctx.catalog.recipes.filter((r) => r.lines.some((l) => l.ingredient === offer.ingredient));
+    const rid = recipeId || matches[0]?.id;
+    const days = state.slots.map((s) => s.day);
+    const d = day >= 0 && days.includes(day) ? day : days[0];
+    const start = weekStart();
+    const back = () => { setOffer(null); setRecipeId(''); setDay(-1); };
+    const addManual = () => update((s) => ({ ...s, manual: [...s.manual, { id: `m${s.manual.length}-${offer.text}`, text: offer.text, note: `${edition.sender}, ${kr(offer.priceOre)}` }] }));
+    return (
+      <>
+        <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={back}>←</button><h2>Bruk tilbudet</h2><span /></div>
+        <div className="card row"><span className="bigemoji" aria-hidden>{ING_EMOJI[ing.id] ?? '🛒'}</span>
+          <span className="rinfo"><strong className="big">{offer.text}</strong><span><b className="price">{kr(offer.priceOre)}</b> · {offer.pack}</span><small>{offer.terms}</small></span></div>
+        <h3>Velg en middag</h3>
+        {matches.map((r) => (
+          <label key={r.id} className={`row inner opt ${rid === r.id ? 'sel' : ''}`}>
+            <input type="radio" name="m" checked={rid === r.id} onChange={() => setRecipeId(r.id)} />
+            <span className="rinfo"><strong>{r.name}</strong><small>{r.minutes} min</small></span></label>
+        ))}
+        <h3>Velg dag</h3>
+        {days.length === 0 ? <p className="fine">Lag ukeplanen først for å bruke tilbudet i planen.</p> : (
+          <select className="field" value={d} onChange={(e) => setDay(Number(e.target.value))}>
+            {days.map((x) => <option key={x} value={x}>{DAYS[x]} {dayDate(start, x).getDate()}.</option>)}</select>
+        )}
+        <button className="cta" disabled={days.length === 0 || !rid} onClick={() => {
+          update((s) => ({ ...s, approved: false, slots: s.slots.map((x) => (x.day === d ? { ...x, recipeId: rid!, locked: true } : x)) }));
+          back(); setEdition(null); goWeek();
+        }}>Legg i ukeplan</button>
+        <button className="ghost wide" onClick={() => { addManual(); back(); }}>Bare legg i handlelista</button>
+        <p className="fine">Tilbudsprisen regnes ikke inn i summen før vare, pris, omfang og vilkår er kontrollert. Linjen i handlelista er merket «ikke kontrollert».</p>
+      </>
+    );
+  }
+
+  if (edition) {
+    const eOffers = offers.filter((o) => o.editionId === edition.id);
+    return (
+      <>
+        <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={() => setEdition(null)}>←</button>
+          <div className="center"><h2>{edition.sender}</h2><small className="fine">{edition.title} · {period(edition)}</small></div><span /></div>
+        <div className="coverbig" style={{ background: cover(edition.id) }}><b>{edition.sender}</b><span>{edition.title}</span></div>
+        <p className="fine">{place(edition)} · {edition.branch} · sist kontrollert {TODAY}. Visningsrett: {edition.rights === 'visning' ? 'bla i appen (avtale kreves)' : 'les hos kjeden'}. Selve avissidene vises først når vi har avtale.</p>
+        <button className="ghost wide" disabled title="Lenke avklares i fase 0">Les hos kjeden ↗</button>
+        <h3>Tilbud koblet til varer</h3>
+        {eOffers.length === 0 && <p className="fine">Ingen tilbud er koblet til varer i denne utgaven ennå. Du kan fortsatt lese den hos kjeden.</p>}
+        <div className="tiles">
+          {eOffers.map((o) => (
+            <button key={o.text} className="tile" onClick={() => { setOffer(o); setRecipeId(''); }}>
+              <span className="bigemoji" aria-hidden>{ING_EMOJI[o.ingredient] ?? '🛒'}</span>
+              <b>{o.text}</b><span className="price">{kr(o.priceOre)}</span><small>{o.terms}</small><span className="plus" aria-hidden>＋</span></button>
+          ))}
+        </div>
+      </>
+    );
+  }
 
   const inPeriod = (e: Edition) => (when === 'denne' ? e.validFrom <= TODAY && e.validTo >= TODAY : e.validFrom > TODAY);
   const local = (e: Edition) => e.scope === 'nasjonal' || (e.postalPrefixes ?? []).some((p) => state.postal.startsWith(p));
@@ -21,65 +87,29 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
     if (view === 'Mine butikker') return !!e.storeId && state.settings.storeIds.includes(e.storeId);
     return true;
   });
-
-  const useInPlan = (recipeId: string) => {
-    update((s) => {
-      const day = s.slots.find((x) => !x.locked)?.day;
-      if (day === undefined) return s;
-      return { ...s, approved: false, slots: s.slots.map((x) => (x.day === day ? { ...x, recipeId, locked: true } : x)) };
-    });
-    goWeek();
-  };
-
   return (
     <>
       <h1 className="page">Kundeaviser</h1>
-      <div className="chips">
-        {(['Hele Norge', 'Nær meg', 'Mine butikker'] as View[]).map((v) => (
-          <button key={v} className={view === v ? 'chip on' : 'chip'} onClick={() => setView(v)}>{v}</button>
-        ))}
+      <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk etter kjede eller sted" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="chips tabs">
+        {(['Hele Norge', 'Nær meg', 'Mine butikker'] as View[]).map((v) => <button key={v} className={view === v ? 'chip on' : 'chip'} onClick={() => setView(v)}>{v}</button>)}
       </div>
       <div className="row-field">
-        <input placeholder="Søk på kjede, butikk eller sted" value={q} onChange={(e) => setQ(e.target.value)} />
-        <input className="postal" placeholder="Postnummer" inputMode="numeric" maxLength={4} value={state.postal}
-          onChange={(e) => update((s) => ({ ...s, postal: e.target.value.replace(/\D/g, '') }))} />
-      </div>
-      <div className="chips">
         <button className={when === 'denne' ? 'chip on' : 'chip'} onClick={() => setWhen('denne')}>Denne uka</button>
         <button className={when === 'kommende' ? 'chip on' : 'chip'} onClick={() => setWhen('kommende')}>Kommende</button>
+        <input style={{ width: 120 }} placeholder="Postnummer" inputMode="numeric" maxLength={4} value={state.postal} onChange={(e) => update((s) => ({ ...s, postal: e.target.value.replace(/\D/g, '') }))} />
       </div>
-      {view === 'Nær meg' && !state.postal && <p className="fine">Skriv inn postnummer eller bruk «Hele Norge». Posisjonstillatelse trengs ikke.</p>}
+      {view === 'Nær meg' && !state.postal && <p className="fine">Skriv inn postnummer, eller bruk «Hele Norge». Posisjonstillatelse trengs ikke.</p>}
       {shown.length === 0 && <p className="card">Ingen aviser funnet. Nasjonale aviser vises alltid; lokale utgaver kan mangle i ditt område.</p>}
-      {shown.map((e) => {
-        const eOffers = offers.filter((o) => o.editionId === e.id);
-        return (
-          <article key={e.id} className="card">
-            <h4>{e.title}</h4>
-            <p>{e.sender} · {e.scope} · gyldig {e.validFrom} – {e.validTo} · {e.branch}</p>
-            <p className="fine">Sist kontrollert {TODAY} · visningsrett: {e.rights === 'visning' ? 'bla i appen' : 'les hos kjeden'}</p>
-            <button className="ghost" disabled title="Lenke avklares i fase 0">Les hos kjeden</button>
-            {eOffers.length > 0 && (
-              <button className="ghost" onClick={() => setOpen(open === e.id ? null : e.id)}>Tilbud ({eOffers.length})</button>
-            )}
-            {open === e.id && eOffers.map((o) => {
-              const matches = ctx.catalog.recipes.filter((r) => r.lines.some((l) => l.ingredient === o.ingredient));
-              return (
-                <div key={o.text} className="offer">
-                  <strong>{o.text}</strong> · {kr(o.priceOre)} · {o.pack}<br /><small>{o.terms}</small>
-                  <div>
-                    <button onClick={() => update((s) => ({ ...s, manual: [...s.manual, { id: `m${Date.now()}`, text: o.text, note: `${e.sender}, ${kr(o.priceOre)}` }] }))}>Legg i handlelista</button>
-                  </div>
-                  <small>Middager med {ctx.catalog.ingredients.find((i) => i.id === o.ingredient)?.name.toLowerCase()}:</small>
-                  <div>{matches.map((r) => (
-                    <button key={r.id} className="chip" disabled={state.slots.length === 0} onClick={() => useInPlan(r.id)}>Bruk {r.name}</button>
-                  ))}</div>
-                  {state.slots.length === 0 && <small>Lag ukeplanen først for å bruke tilbudet i planen.</small>}
-                </div>
-              );
-            })}
-          </article>
-        );
-      })}
+      <div className="covers">
+        {shown.map((e) => (
+          <button key={e.id} className="ecard" onClick={() => setEdition(e)}>
+            <span className="cvr" style={{ background: cover(e.id) }}><b>{e.sender}</b><small>{e.title}</small></span>
+            <span className="cap"><span>{period(e)}<br /><small>{place(e)}</small></span><span aria-hidden>›</span></span>
+          </button>
+        ))}
+      </div>
+      <p className="fine">Demodata. Avisene er oppdiktet; ekte utgaver krever avtale (se planen).</p>
     </>
   );
 }

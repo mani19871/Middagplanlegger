@@ -8,6 +8,7 @@ import PapersView from './views/PapersView';
 import PantryView from './views/PantryView';
 import { Leaf, icons } from './views/art';
 import { weekLabel, weekStart } from './views/dates';
+import type { Mode } from './views/WeekView';
 
 const TABS = ['Uka', 'Kundeaviser', 'Handleliste', 'Matskap'] as const;
 type Tab = (typeof TABS)[number];
@@ -15,6 +16,9 @@ type Tab = (typeof TABS)[number];
 export default function App() {
   const [state, update] = usePersistentState();
   const [tab, setTab] = useState<Tab>('Uka');
+  const [mode, setMode] = useState<Mode>('home');
+  const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
+  const kids = state.settings.eaters.length - adults;
   const ctx = useMemo(() => ({ catalog, settings: state.settings }), [state.settings]);
   const alts = useMemo(() => alternatives(state.slots, ctx), [state.slots, ctx]);
   const useCombo = state.option === 'combo' && alts.combo;
@@ -26,10 +30,12 @@ export default function App() {
     <div className="app">
       <header>
         <span className="logo"><Leaf /><span><b>Matuke</b><small>{weekLabel(weekStart())}</small></span></span>
+        <button className="household" aria-label="Endre hvem som spiser" onClick={() => { setTab('Uka'); setMode('edit'); }}>
+          👥 {adults} voksne, {kids} barn ⌄</button>
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>
       <main>
-        {tab === 'Uka' && <WeekView state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
+        {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} />}
         {tab === 'Handleliste' && <ListView state={state} update={update} basket={basket} />}

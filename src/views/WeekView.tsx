@@ -10,14 +10,14 @@ import PlanForm from './PlanForm';
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; alts: Alternatives;
   basket: Basket; activeStores: string[]; regenerate: () => void; openList: () => void;
+  mode: Mode; setMode: (m: Mode) => void;
 }
-type Mode = 'home' | 'plan' | 'edit';
+export type Mode = 'home' | 'plan' | 'edit' | 'trip';
 const storeName = (ctx: Ctx, id: string) => ctx.catalog.stores.find((s) => s.id === id)?.name ?? id;
 const pill = (d: number) => (d === 0 ? { t: 'Samme pris', c: 'pill' } : d > 0 ? { t: `+${Math.round(d / 100)} kr på handelen`, c: 'pill up' } : { t: `−${Math.round(-d / 100)} kr på handelen`, c: 'pill down' });
 
-export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList }: Props) {
+export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode }: Props) {
   const { settings, slots } = state;
-  const [mode, setMode] = useState<Mode>('home');
   const [sheet, setSheet] = useState<number | null>(null);
   const [pick, setPick] = useState<string | null>(null);
   const start = weekStart();
@@ -68,6 +68,43 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
     );
   }
 
+  if (mode === 'trip') {
+    const usedStores = (b: Basket) => [...new Set(b.lines.map((l) => l.storeId).filter((x): x is string => !!x))].map((id) => storeName(ctx, id));
+    const sel = state.option === 'combo' && combo ? 'combo' : 'regular';
+    const saving = alts.savingOre;
+    const extraStop = combo ? combo.stops > regular.stops : false;
+    return (
+      <>
+        <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={() => setMode('plan')}>←</button></div>
+        <h1 className="page">Velg handletur</h1>
+        <p className="fine">Samme {slots.length} middager.</p>
+        <button className={`card alt big ${sel === 'regular' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'regular' }))}>
+          <span className="radio" aria-hidden>{sel === 'regular' ? '◉' : '○'}</span>
+          <span className="rinfo"><strong>Én butikk</strong><small>{storeName(ctx, settings.regularStoreId)}</small></span>
+          <strong className="amt">{regular.complete ? kr(regular.totalOre) : `${kr(regular.totalOre)}+`}</strong>
+        </button>
+        {combo ? (
+          <button className={`card alt big ${sel === 'combo' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'combo' }))}>
+            <span className="radio" aria-hidden>{sel === 'combo' ? '◉' : '○'}</span>
+            <span className="rinfo"><strong>{combo.stops >= 2 ? 'To butikker' : 'Annen butikk'}</strong><small>{usedStores(combo).join(' + ')}</small></span>
+            <strong className="amt">{kr(combo.totalOre)}</strong>
+          </button>
+        ) : <div className="card alt muted"><strong>Ingen komplett kombinasjon</strong><span>Ikke alle varer har pris i flere butikker.</span></div>}
+        {combo && saving !== null && saving > 0 && (
+          <div className="banner">🏷 Du sparer <b>{kr(saving)}</b> {extraStop ? 'med et ekstra stopp' : 'ved å bytte butikk'}.</div>
+        )}
+        {!regular.complete && <div className="banner warn">Vanlig butikk mangler pris på {regular.unknownCount} vare{regular.unknownCount === 1 ? '' : 'r'}, og kan ikke kåres billigst.</div>}
+        <label className="thr">Minste besparelse for ekstra stopp
+          <select value={settings.extraStoreThresholdOre} onChange={(e) => update((s) => ({ ...s, settings: { ...s.settings, extraStoreThresholdOre: Number(e.target.value) } }))}>
+            {[0, 2500, 5000, 10000, 20000].map((v) => <option key={v} value={v}>{kr(v)}</option>)}
+          </select></label>
+        <p className="fine">Anbefaling: {alts.recommended === 'combo' ? 'kombinasjonen' : 'én butikk'}. «Laveste beregnede pris blant sammenlignede alternativer», ikke en garanti. Reisetid og drivstoff er ikke med.</p>
+        <button className="cta" onClick={() => { update((s) => ({ ...s, approved: true, option: sel })); setMode('plan'); openList(); }}>
+          {sel === 'combo' && combo && combo.stops >= 2 ? 'Velg to butikker' : 'Velg én butikk'}</button>
+      </>
+    );
+  }
+
   const sheetSlot = sheet !== null ? slots.find((s) => s.day === sheet) : undefined;
   const opts = sheetSlot ? swapOptions(slots, sheetSlot.day, activeStores, ctx).filter((o) => o.recipe.id !== sheetSlot.recipeId) : [];
   const chosen = opts.find((o) => o.recipe.id === pick);
@@ -101,25 +138,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
           <li key={g.day}><button className="ghost" onClick={() => patchSlot(g.day, { recipeId: g.option.recipe.id, locked: true })}>
             Bytt {DAYS[g.day].toLowerCase()} til {g.option.recipe.name} → {kr(g.newTotalOre)}</button></li>))}</ul>
       )}
-      <h3>Butikkvalg for samme meny</h3>
-      <div className="altgrid">
-        <button className={`card alt ${state.option === 'regular' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'regular', approved: false }))}>
-          <strong>Vanlig butikk</strong><span>{storeName(ctx, settings.regularStoreId)}</span>
-          <span>{regular.complete ? kr(regular.totalOre) : `${kr(regular.totalOre)} + ${regular.unknownCount} ukjent`}</span>
-          {alts.recommended === 'regular' && <em>Anbefalt</em>}
-        </button>
-        {combo ? (
-          <button className={`card alt ${state.option === 'combo' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'combo', approved: false }))}>
-            <strong>Beste kombinasjon</strong>
-            <span>{[...new Set(combo.lines.map((l) => l.storeId).filter((x): x is string => !!x))].map((id) => storeName(ctx, id)).join(' + ')} · {combo.stops} stopp</span>
-            <span>{kr(combo.totalOre)}{alts.savingOre !== null && ` · ${kr(alts.savingOre)} lavere varekostnad`}</span>
-            {alts.recommended === 'combo' && <em>Anbefalt</em>}
-            {alts.recommended === 'regular' && alts.savingOre !== null && <small>Under grensen på {kr(settings.extraStoreThresholdOre)} for en ekstra butikk. Du kan likevel velge den.</small>}
-          </button>
-        ) : <div className="card alt muted"><strong>Beste kombinasjon</strong><span>Ingen komplett kombinasjon med priser for alle varer.</span></div>}
-      </div>
-      <p className="fine">«Laveste beregnede pris blant sammenlignede alternativer», ikke en garanti. Reisetid og drivstoff er ikke med.</p>
-      <button className="cta" onClick={() => { update((s) => ({ ...s, approved: true })); openList(); }}>{state.approved ? 'Åpne handlelista' : 'Godkjenn og handle'} ›</button>
+      <button className="cta" onClick={() => { update((s) => ({ ...s, option: alts.recommended })); setMode('trip'); }}>{state.approved ? 'Velg handletur på nytt' : 'Godkjenn og velg handletur'} ›</button>
       <button className="ghost" onClick={regenerate}>Lag ny uke (låste beholdes)</button>
 
       {sheetSlot && (
