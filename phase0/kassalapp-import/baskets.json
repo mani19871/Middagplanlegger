@@ -1,0 +1,9 @@
+{
+  "note": "Startsett. Utvid til ti prøvekurver fra reelle handler i ulike landsdeler.",
+  "baskets": [
+    { "id": "kurv-1", "region": "TODO (postnummer/landsdel)", "items": [
+      { "query": "spagetti 500 g" }, { "query": "hakkede tomater 400 g" },
+      { "query": "kjøttdeig 400 g" }, { "query": "jasminris 1 kg" }, { "query": "egg 12" }
+    ] }
+  ]
+}
