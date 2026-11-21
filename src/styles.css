@@ -79,3 +79,6 @@ header { display:flex; justify-content:space-between; align-items:center; }
 select.field { display:block; width:100%; }
 .tile { padding-bottom:40px; }
 .dealtxt { color:#8a3d1c; } .banner.deal { background:#fbe9de; color:#7a3615; }
+.pills { display:flex; gap:6px; margin-top:6px; } .pill.pick { border:1px solid var(--g); background:transparent; color:var(--g); cursor:pointer; font:inherit; font-size:.82rem; } .pill.pick.on { background:var(--g); color:#fff; }
+.weeknutr summary { cursor:pointer; font-weight:600; } .nrow { display:flex; justify-content:space-between; gap:8px; padding:4px 0; font-size:.88rem; } .nrow span:last-child { text-align:right; }
+.prow .ghost.sm { white-space:nowrap; padding:4px 10px; margin-left:auto; }

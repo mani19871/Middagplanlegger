@@ -3,6 +3,7 @@ import type { AppState } from '../store';
 import type { Basket } from '../engine/types';
 import type { Ctx } from '../engine/planner';
 import { amount } from '../engine/format';
+import { confirmRest, expectedRest } from '../engine/pantry';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; basket: Basket }
 export default function PantryView({ state, update, ctx, basket }: Props) {
@@ -13,7 +14,7 @@ export default function PantryView({ state, update, ctx, basket }: Props) {
   const [qty, setQty] = useState(500);
   const setP = (id: string, v: number) => update((s) => ({ ...s, approved: false, settings: { ...s.settings, pantry: { ...s.settings.pantry, [id]: Math.max(0, v) } } }));
   const have = items.filter((i) => (pantry[i.id] ?? 0) > 0);
-  const rest = basket.lines.filter((l) => l.leftover > 0.5 && l.productId);
+  const rest = expectedRest(basket);
   const doable = recipes.filter((r) => r.lines.filter((l) => !ingredients.find((i) => i.id === l.ingredient)?.staple).every((l) => (pantry[l.ingredient] ?? 0) >= l.amount));
   const unit = items.find((i) => i.id === ing)!.unit;
   return (
@@ -29,11 +30,12 @@ export default function PantryView({ state, update, ctx, basket }: Props) {
             <button className="x" aria-label={`Fjern ${i.name}`} onClick={() => setP(i.id, 0)}>✕</button></div>
         ))}
         {rest.map((l) => (
-          <div key={l.ingredient} className="prow"><strong>{l.name}</strong><span>{amount(l.leftover, l.unit)}</span>
-            <span className="pill warnp">⏲ Forventet rest</span></div>
+          <div key={l.ingredient} className="prow"><strong>{l.name}</strong><span>{amount(l.amount, l.unit)}</span>
+            <span className="pill warnp">⏲ Forventet rest</span>
+            <button className="ghost sm" onClick={() => update((s) => ({ ...s, approved: false, settings: { ...s.settings, pantry: confirmRest(s.settings.pantry, l) } }))}>Bekreft rest</button></div>
         ))}
       </div>
-      <p className="fine">«Forventet rest» er antatt overskudd fra pakninger i denne handelen. Det regnes ikke som beholdning før du bekrefter det.</p>
+      <p className="fine">«Forventet rest» er antatt overskudd fra pakninger i denne handelen. Det regnes ikke som beholdning før du bekrefter det. Bekreft først når du faktisk har resten hjemme: bekreftet mengde trekkes fra neste beregning av handelen.</p>
       <h3>Kan lages med det du har</h3>
       {doable.length === 0 ? <p className="fine">Ingen retter kan lages bare med skapet ennå.</p>
         : doable.map((r) => <div key={r.id} className="card"><strong>{r.name}</strong><br /><small>{r.minutes} min · alle ingredienser finnes i skapet</small></div>)}

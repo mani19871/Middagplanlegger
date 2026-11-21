@@ -1,6 +1,6 @@
 // Næring per porsjon, regnet ut fra Matvaretabellen (generelle matvarer, ikke ferdigvarer).
 // Ren funksjon. Sier ingenting om allergener, og salt/olje/krydder er ikke med.
-import type { Ingredient, Recipe } from './types';
+import type { Eater, Ingredient, Recipe, Slot } from './types';
 
 export interface NutritionItem {
   foodId: string; foodName: string; kcalPer100g: number; proteinPer100g: number | null; fatPer100g: number | null;
@@ -45,4 +45,53 @@ export function recipeNutrition(recipe: Recipe, ingredients: Ingredient[], table
   const n = recipe.baseServings;
   const r = (x: number) => Math.round((x / n) * 10) / 10;
   return { kcal: Math.round(total.kcal / n), protein: r(total.protein), fat: r(total.fat), carbs: r(total.carbs), fiber: r(total.fiber), salt: r(total.salt), missing, assumed };
+}
+
+const r1 = (x: number) => Math.round(x * 10) / 10;
+
+/** Næring for én spiser: oppskriftens verdier per voksenporsjon ganget med spiserens portion-faktor. */
+export function scaleNutrition(n: Nutrition, portion: number): Nutrition {
+  return { kcal: Math.round(n.kcal * portion), protein: r1(n.protein * portion), fat: r1(n.fat * portion), carbs: r1(n.carbs * portion), fiber: r1(n.fiber * portion), salt: r1(n.salt * portion) };
+}
+
+export interface EaterWeekNutrition {
+  id: string; label: string; portion: number;
+  /** Antall middagsdager i planen der spiseren er hjemme. */
+  days: number;
+  /** Sum for planlagte middager i uka. */
+  kcalTotal: number; proteinTotal: number;
+  /** Snitt per middagsdag spiseren er hjemme; null når spiseren ikke er hjemme noen planlagte dager. */
+  kcalPerDay: number | null; proteinPerDay: number | null;
+}
+export interface WeekNutrition {
+  eaters: EaterWeekNutrition[];
+  /** Reserverte ekstra porsjoner (matpakke/rester). Ikke fordelt på person, fordi planen ikke sier hvem som spiser dem. */
+  reserved: { portions: number; kcal: number; protein: number };
+}
+
+/**
+ * Veiledende næring i uka, bare for middagene i planen (ikke frokost, lunsj eller mellommåltid).
+ * Ren og deterministisk. `perPortion` gir næring per voksenporsjon for en rett.
+ */
+export function weekNutrition(
+  slots: Slot[], eaters: Eater[], perPortion: (recipeId: string) => Nutrition,
+): WeekNutrition {
+  const out: EaterWeekNutrition[] = eaters.map((e) => {
+    let days = 0, kcal = 0, protein = 0;
+    for (const s of slots) {
+      if (!e.daysHome[s.day]) continue;
+      const n = scaleNutrition(perPortion(s.recipeId), e.portion);
+      days += 1; kcal += n.kcal; protein += n.protein;
+    }
+    return { id: e.id, label: e.label, portion: e.portion, days, kcalTotal: kcal, proteinTotal: r1(protein),
+      kcalPerDay: days > 0 ? Math.round(kcal / days) : null, proteinPerDay: days > 0 ? r1(protein / days) : null };
+  });
+  let portions = 0, kcal = 0, protein = 0;
+  for (const s of slots) {
+    const x = s.extra ?? 0;
+    if (x <= 0) continue;
+    const n = perPortion(s.recipeId);
+    portions += x; kcal += n.kcal * x; protein += n.protein * x;
+  }
+  return { eaters: out, reserved: { portions, kcal: Math.round(kcal), protein: r1(protein) } };
 }

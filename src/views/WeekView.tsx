@@ -6,7 +6,7 @@ import { DAYS, kr } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import PlanForm from './PlanForm';
-import { recipeNutrition, type NutritionTable } from '../engine/nutrition';
+import { recipeNutrition, scaleNutrition, weekNutrition, type NutritionTable } from '../engine/nutrition';
 import nutritionData from '../data/nutrition.json';
 
 const NUTRITION = nutritionData.items as unknown as NutritionTable;
@@ -124,6 +124,9 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const closeSheet = () => { setSheet(null); setPick(null); };
   const patchSlot = (day: number, patch: object) => update((s) => ({ ...s, approved: false, slots: s.slots.map((x) => (x.day === day ? { ...x, ...patch } : x)) }));
   const withExtra = slots.filter((s) => (s.extra ?? 0) > 0);
+  const weekN = weekNutrition(slots, settings.eaters, (id) => nutr(id));
+  const groups = [...new Map(settings.eaters.map((e) => [e.portion, e.portion])).keys()].sort((a, b) => b - a)
+    .map((f) => ({ f, names: settings.eaters.filter((e) => e.portion === f).map((e) => e.label).join(', ') }));
 
   return (
     <>
@@ -144,8 +147,24 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
       })}
       {withExtra.map((s) => (
         <div key={`m${s.day}`} className="card matpakke">🥪 <span><strong>Matpakker</strong><br />
-          {s.extraFor !== undefined ? DAYS[s.extraFor] : 'Senere'} · {fmtP(s.extra ?? 0)} porsjon fra {DAYS[s.day].toLowerCase()}</span></div>
+          {s.extraFor !== undefined ? DAYS[s.extraFor] : 'Senere'} · {fmtP(s.extra ?? 0)} porsjon fra {DAYS[s.day].toLowerCase()}
+          <span className="pills" role="group" aria-label={`Pakkes i, matpakke fra ${DAYS[s.day].toLowerCase()}`}>
+            {(['termos', 'matboks'] as const).map((b) => (
+              <button key={b} className={`pill pick ${s.lunchBox === b ? 'on' : ''}`} aria-pressed={s.lunchBox === b}
+                onClick={() => patchSlot(s.day, { lunchBox: s.lunchBox === b ? undefined : b })}>{b === 'termos' ? 'Termos' : 'Matboks'}</button>
+            ))}
+          </span></span></div>
       ))}
+      <details className="card weeknutr">
+        <summary>Næring i uka (veiledende)</summary>
+        {weekN.eaters.map((e) => (
+          <div key={e.id} className="nrow"><span>{e.label} <small>({fmtP(e.portion)} porsjon)</small></span>
+            <span>{e.kcalPerDay === null ? 'ikke hjemme på middag' : `ca. ${e.kcalPerDay} kcal · ${fmtP(e.proteinPerDay ?? 0)} g protein per middagsdag`}</span></div>
+        ))}
+        {weekN.reserved.portions > 0 && <div className="nrow"><span>Reserverte porsjoner</span>
+          <span>{fmtP(weekN.reserved.portions)} porsjon, ca. {weekN.reserved.kcal} kcal totalt. Ikke fordelt på person.</span></div>}
+        <p className="fine">Gjelder bare middagene i planen, regnet fra generelle matvarer i Matvaretabellen, uten salt, olje og krydder. Veiledende tall for planlegging. Ikke kostråd eller anbefalt inntak.</p>
+      </details>
       {summary}
       {weekDealLines > 0 && <div className="banner deal">🏷 {weekDealLines} varer i uka er på tilbud{weekSaving > 0 ? `, ca. ${kr(weekSaving)} lavere enn førpris` : ''}. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</div>}
       {sugg.length > 0 && (
@@ -166,8 +185,12 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
               <small>⏱ {recipe(sheetSlot.recipeId).minutes} min</small></span></div>
             <details className="steps"><summary>Fremgangsmåte</summary><ol>{recipe(sheetSlot.recipeId).steps.map((t) => <li key={t}>{t}</li>)}</ol></details>
             {(() => { const n = nutr(sheetSlot.recipeId); return (
-              <p className="fine">Næring per voksenporsjon, ca.: {n.kcal} kcal · {n.protein} g protein · {n.fat} g fett · {n.carbs} g karbohydrat · {n.fiber} g fiber.
-                {n.assumed.length > 0 && ' Omtrentlig.'}</p>); })()}
+              <div className="fine">Næring per porsjonstype, ca. (veiledende):
+                {groups.map((g) => { const x = scaleNutrition(n, g.f); return (
+                  <div key={g.f} className="nrow"><span>{g.names} <small>({fmtP(g.f)} porsjon)</small></span>
+                    <span>{x.kcal} kcal · {fmtP(x.protein)} g protein · {fmtP(x.fat)} g fett · {fmtP(x.carbs)} g karbohydrat</span></div>); })}
+                {n.assumed.length > 0 && <div>Omtrentlig (mengde i ml regnet som gram).</div>}
+              </div>); })()}
             <div className="toggles">
               <label className="switch"><input type="checkbox" checked={sheetSlot.locked} onChange={() => patchSlot(sheetSlot.day, { locked: !sheetSlot.locked })} /> Lås denne retten</label>
               <label className="switch"><input type="checkbox" checked={(sheetSlot.extra ?? 0) > 0}
@@ -191,7 +214,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
               })}
             </div>
             {chosen && <div className="card total2"><span>Ny anslått handel{chosen.complete ? '' : ' (delsum)'}</span><strong>{kr(basket.totalOre + chosen.deltaOre)}</strong></div>}
-            <p className="fine">Næringsdata: Matvaretabellen (Mattilsynet). Generelle matvarer, ikke en bestemt vare; uten salt, olje og krydder. Sier ingenting om allergener.</p>
+            <p className="fine">Næringsdata: Matvaretabellen (Mattilsynet). Generelle matvarer, ikke en bestemt vare; uten salt, olje og krydder. Veiledende tall, ikke kostråd eller anbefalt inntak. Sier ingenting om allergener.</p>
             <button className="cta" disabled={!chosen} onClick={() => { patchSlot(sheetSlot.day, { recipeId: pick!, locked: true }); closeSheet(); }}>
               {chosen ? `Velg ${chosen.recipe.name.toLowerCase()} ›` : 'Velg en middag'}</button>
           </div>

@@ -29,7 +29,8 @@ export interface Settings {
   /** Absolutte kostkrav: retter med disse ingrediensene filtreres bort. */
   avoidFoods?: FoodTag[];
 }
-export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number }
+export type LunchBox = 'termos' | 'matboks';
+export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number; /** Hvordan den reserverte matpakken pakkes. Påvirker ikke planmotoren. */ lunchBox?: LunchBox }
 
 export interface BasketLine {
   ingredient: string; name: string; department: string; unit: Unit; need: number;
