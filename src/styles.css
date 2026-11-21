@@ -85,3 +85,6 @@ select.field { display:block; width:100%; }
 .offertotal { grid-column:1 / -1; margin-top:10px; padding-top:8px; border-top:1px dashed #e3c7b4; } .offertotal .drow { display:flex; justify-content:space-between; gap:8px; padding:4px 0; border:0; } .offertotal .drow strong { color:#7a3615; }
 .offertotal-card .drow { display:flex; justify-content:space-between; gap:8px; } .offertotal-card .drow strong { color:#7a3615; }
 .review { list-style:none; padding:0; margin:0; } .review-row { display:flex; flex-direction:column; gap:6px; } .review-row .row-field { flex-wrap:wrap; }
+.markbought { width:100%; margin:6px 0 14px; font-weight:600; }
+.list .main .pill { margin-top:4px; }
+.prow strong .sub { display:block; font-weight:400; color:var(--mut); font-size:.8rem; }

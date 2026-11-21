@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import type { AppState } from '../store';
+import { useMemo, useState } from 'react';
+import { stamp, type AppState } from '../store';
+import { lineStates, purchaseLineId, type InventoryEvent, type PurchaseState } from '../engine/inventory';
 import type { Basket, BasketLine } from '../engine/types';
 import { amount, kr } from '../engine/format';
 import { catalog } from '../data/catalog';
@@ -7,14 +8,36 @@ import { DEPT_EMOJI, ING_EMOJI } from './art';
 import OfferTotalNote from './OfferTotalNote';
 import type { OfferTotal } from '../engine/offerTotal';
 
-interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; basket: Basket; offerTotal: OfferTotal; approvedHints: number }
+interface Props {
+  state: AppState; update: (f: (s: AppState) => AppState) => void; record: (...e: InventoryEvent[]) => void; week: string;
+  basket: Basket; offerTotal: OfferTotal; approvedHints: number;
+}
 const statusText: Record<BasketLine['status'], string> = { ordinær: 'Ordinær pris', tilbud: 'Tilbud', estimat: 'Estimert pris', ukjent: 'Ukjent pris' };
 const storeName = (id: string | null) => catalog.stores.find((s) => s.id === id)?.name ?? 'Ukjent butikk';
 const recipeName = (id: string) => catalog.recipes.find((r) => r.id === id)?.name ?? id;
+/** Kjøpshendelse for en handlelinje. Linje-id-en gjør at to voksne som markerer samme linje gir ett kjøp. */
+export function purchaseEvent(l: BasketLine, week: string, packs?: number): InventoryEvent {
+  const known = l.productId !== null && l.packs > 0;
+  return {
+    type: 'kjøp', ...stamp(), week, line: purchaseLineId(week, l.storeId, l.ingredient, l.productId), ingredient: l.ingredient,
+    productId: l.productId, storeId: l.storeId, unit: l.unit,
+    // Uten kjent pakning antas det at mengden i planen ble kjøpt.
+    packs: packs ?? (known ? l.packs : 1), packSize: known ? l.packSize : Math.max(1, Math.ceil(l.need)),
+  };
+}
+const boughtPill = (p: PurchaseState | undefined, l: BasketLine) => {
+  if (!p || p.status === 'angret') return null;
+  if (p.status === 'konflikt') return <span className="pill warnp">⚠ Bekreft antall: {p.candidates.join(' eller ')}</span>;
+  const want = l.productId ? l.packs : 1;
+  return (p.packs ?? 0) >= want ? <span className="pill ok">✓ Handlet</span> : <span className="pill warnp">Delvis handlet ({p.packs} av {want})</span>;
+};
 const lineText = (l: BasketLine) => (l.productId ? (l.packs > 1 ? `${l.packs} × ${l.productName}` : l.productName!) : `${l.name}: ${amount(l.need, l.unit)}`);
 
-export default function ListView({ state, update, basket, offerTotal, approvedHints }: Props) {
+export default function ListView({ state, update, record, week, basket, offerTotal, approvedHints }: Props) {
   const [detail, setDetail] = useState<BasketLine | null>(null);
+  const purchases = useMemo(() => lineStates(state.inventory).purchases, [state.inventory]);
+  const purchaseOf = (l: BasketLine) => purchases.get(purchaseLineId(week, l.storeId, l.ingredient, l.productId));
+  const isBought = (l: BasketLine) => { const p = purchaseOf(l); return !!p && p.status !== 'angret'; };
   if (state.slots.length === 0) return <><h1 className="page">Handleliste</h1><section className="card"><p>Lag en ukeplan først.</p></section></>;
 
   if (detail) {
@@ -36,6 +59,7 @@ export default function ListView({ state, update, basket, offerTotal, approvedHi
             <p className="fine">Kilde: {l.source}, observert {l.observed}. Prisen er anslått og kan avvike i butikken.</p></div>
         ) : <div className="banner warn">Ingen pris funnet i valgte butikker for denne varen. Den teller ikke i summen, og kurven kan ikke bekreftes innenfor budsjett. Du kan kjøpe den hvor som helst.</div>}
         {l.costOre !== null && <div className="card total2"><span>Sum</span><strong>{kr(l.costOre)}</strong></div>}
+        <PurchaseCard l={l} p={purchaseOf(l)} week={week} record={record} />
       </>
     );
   }
@@ -53,7 +77,11 @@ export default function ListView({ state, update, basket, offerTotal, approvedHi
       {!state.approved && <p className="fine">Planen er ikke godkjent ennå, listen kan endre seg.</p>}
       <OfferTotalNote total={offerTotal} approvedHints={approvedHints} className="card offertotal-card" />
       {basket.unknownCount > 0 && <div className="banner warn">{basket.unknownCount} vare{basket.unknownCount === 1 ? '' : 'r'} mangler pris. Summen er en delsum.</div>}
-      {[...groups].map(([storeId, lines]) => (
+      {[...groups].map(([storeId, lines]) => {
+        const open = lines.filter((l) => !isBought(l));
+        const picked = open.filter((l) => state.checked[`${storeId}:${l.ingredient}`]);
+        const toMark = picked.length > 0 ? picked : open;
+        return (
         <section key={storeId}>
           <div className="storebar">🏪 <strong>{storeId === '—' ? 'Uten pris' : storeName(storeId)}</strong></div>
           {[...new Set(lines.map((l) => l.department))].sort().map((d) => (
@@ -68,6 +96,7 @@ export default function ListView({ state, update, basket, offerTotal, approvedHi
                       <button className="main" onClick={() => setDetail(l)}>
                         <b>{lineText(l)}</b>
                         <small>{l.productId ? `${amount(l.packs * l.packSize, l.unit)} · ${kr(l.costOre ?? 0)} · ${statusText[l.status].toLowerCase()}` : 'ukjent pris'}</small>
+                        {boughtPill(purchaseOf(l), l)}
                       </button>
                       <span className="ie" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>
                     </li>
@@ -76,8 +105,14 @@ export default function ListView({ state, update, basket, offerTotal, approvedHi
               </ul>
             </div>
           ))}
+          {toMark.length > 0 && (
+            <button className="ghost markbought" onClick={() => record(...toMark.map((l) => purchaseEvent(l, week)))}>
+              🧾 {picked.length > 0 ? `Marker ${picked.length} avkrysset${picked.length === 1 ? '' : 'e'} som handlet` : `Marker alt her som handlet (${open.length})`}
+            </button>
+          )}
         </section>
-      ))}
+        );
+      })}
       {state.manual.length > 0 && (
         <section>
           <div className="deptbar">🏷 <strong>Fra kundeaviser (ikke kontrollert)</strong></div>
@@ -92,8 +127,31 @@ export default function ListView({ state, update, basket, offerTotal, approvedHi
           </ul>
         </section>
       )}
-      <p className="fine">Avkrysninger lagres på enheten og virker uten nett. Trykk på en vare for å se hvorfor den koster det den gjør.</p>
+      <p className="fine">Avkrysninger lagres på enheten og virker uten nett. «Marker som handlet» lagrer et kjøp i matskapet, også uten nett.
+        Et kjøp registreres én gang selv om det trykkes to ganger eller to voksne markerer samme vare; er dere uenige om antall, må det bekreftes.
+        Et kjøp betyr ikke at middagen er laget. Trykk på en vare for å se hvorfor den koster det den gjør.</p>
       <button className="ghost" onClick={() => update((s) => ({ ...s, checked: {} }))}>Nullstill avkrysninger</button>
     </>
   );
+}
+
+function PurchaseCard({ l, p, week, record }: { l: BasketLine; p: PurchaseState | undefined; week: string; record: (...e: InventoryEvent[]) => void }) {
+  const line = purchaseLineId(week, l.storeId, l.ingredient, l.productId);
+  if (p?.status === 'konflikt') {
+    return (
+      <div className="card"><div className="banner warn">To markeringer er uenige om antall pakker. Velg det som stemmer:</div>
+        {p.candidates.map((n) => (
+          <button key={n} className="ghost" onClick={() => record({ type: 'løs', ...stamp(), line, packs: n })}>{n} pakke{n === 1 ? '' : 'r'}</button>
+        ))}
+      </div>
+    );
+  }
+  if (p && p.status === 'kjøpt') {
+    return (
+      <div className="card"><div className="drow"><span>🧾 Handlet</span><b>{p.packs} pakke{p.packs === 1 ? '' : 'r'}</b></div>
+        <p className="fine">Markert av {p.claims.length} enhet{p.claims.length === 1 ? '' : 'er'}.</p>
+        <button className="ghost" onClick={() => record({ type: 'angre', ...stamp(), line })}>Angre «handlet»</button></div>
+    );
+  }
+  return <button className="cta" onClick={() => record(purchaseEvent(l, week))}>🧾 Marker som handlet</button>;
 }

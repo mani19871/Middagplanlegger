@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { catalog } from './data/catalog';
 import { alternatives, generatePlan } from './engine/planner';
-import { usePersistentState } from './store';
+import { recordEvent, usePersistentState } from './store';
+import { deriveStock, type InventoryEvent } from './engine/inventory';
 import WeekView from './views/WeekView';
 import ListView from './views/ListView';
 import PapersView from './views/PapersView';
 import PantryView from './views/PantryView';
 import { Leaf, icons } from './views/art';
-import { shopDate, weekLabel, weekStart } from './views/dates';
+import { isoDate, shopDate, weekLabel, weekStart } from './views/dates';
 import { fetchLiveOffers } from './offers/client';
 import { toHints } from './offers/hints';
 import type { OfferHint } from './engine/deals';
@@ -39,7 +40,17 @@ export default function App() {
     return () => { stop = true; clearTimeout(timer); };
   }, []);
   const day = shopDate();
-  const ctx = useMemo(() => ({ catalog, settings: state.settings, offers: hints, shopDate: day }), [state.settings, hints, day]);
+  const week = isoDate(weekStart());
+  // Beholdningen planen trekker fra: bekreftet hjemme + kjøpt og ikke brukt, uten ukas egen handel (se inventory.ts).
+  const stockJson = JSON.stringify(deriveStock(state.inventory, { planWeek: week }).total);
+  const ctx = useMemo(() => ({ catalog, settings: state.settings, offers: hints, shopDate: day, stock: JSON.parse(stockJson) as Record<string, number> }),
+    [state.settings, hints, day, stockJson]);
+  /** Lagrer beholdningshendelser lokalt og i utboksen. Endres planens beholdning, må planen godkjennes på nytt. */
+  const record = (...events: InventoryEvent[]) => update((s) => {
+    const next = events.reduce(recordEvent, s);
+    const changed = JSON.stringify(deriveStock(next.inventory, { planWeek: week }).total) !== JSON.stringify(deriveStock(s.inventory, { planWeek: week }).total);
+    return changed ? { ...next, approved: false } : next;
+  });
   const alts = useMemo(() => alternatives(state.slots, ctx), [state.slots, ctx]);
   const useCombo = state.option === 'combo' && alts.combo;
   const activeStores = useCombo ? alts.combo!.storeIds : [state.settings.regularStoreId];
@@ -62,8 +73,8 @@ export default function App() {
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} />}
-        {tab === 'Handleliste' && <ListView state={state} update={update} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} />}
-        {tab === 'Matskap' && <PantryView state={state} update={update} ctx={ctx} basket={basket} />}
+        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} />}
+        {tab === 'Matskap' && <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} />}
       </main>
       <nav role="tablist">
         {TABS.map((t) => (
