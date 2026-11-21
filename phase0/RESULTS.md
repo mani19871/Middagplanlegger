@@ -1,6 +1,6 @@
 # Fase 0 – resultater
 
-Status: **delvis**. Kassalapp-importtesten er kjørt (2026-11-21). De øvrige delprøvene (Tjek, kjedeavtaler, kundeavis-rettigheter) er ikke startet, og to av portkriteriene krever data vi ikke har (se «Port»).
+Status: **delvis**. Kassalapp-importtesten og Tjek-dekningsmålingen er kjørt (2026-11-21). Kjedeavtaler og kundeavis-rettigheter er ikke startet, og to av portkriteriene krever data vi ikke har (se «Port»).
 
 ## 1. Kassalapp-importtest
 
@@ -80,9 +80,62 @@ Full utskrift (per kurv, per vare og kjede): kjør `probe.mjs`; rådata skrives 
 
 «Velg pilotområder» støttes ikke av disse tallene, siden Kassalapp-prisene ikke varierer per område. Områdevalg bør heller bygge på hvor ferske data (kvitteringer, avtaler) kan skaffes. Det er ikke avgjort.
 
+## 2. Tjek
+
+Kjørt 2026-11-21 (én kjøring, 24 API-kall, 0 feil). Skript: `phase0/tjek-probe/probe.mjs`. Bare tellinger er lagret; ingen tilbudstekst eller bilder.
+
+### Tillatelse og vilkår (ikke dokumentert)
+Brukeren har opplyst **muntlig** at Tjek har gitt tillatelse til å bruke dataene. Det er ikke dokumentert her. **Skriftlig avtale/vilkår fra Tjek må innhentes** (lisens for visning og viderebruk, rate limit, krediteringskrav) før noe brukes utover denne målingen. API-et svarte uten nøkkel (HTTP 200) og peker med `Link`-headeren til `https://tjek.com/terms`; de vilkårene er ikke lest her. For å nå verten ble `api.etilbudsavis.dk` lagt til i tillatte verter i miljøet «Default» (etter godkjenning); det gjelder også senere sesjoner i det miljøet til det fjernes.
+
+### Metode
+- Endepunkter etter repoet olgasafonova/tilbudstrolden-mcp (MIT): `GET /v2/dealers`, `GET /v2/offers/search?query=…&country_id=NO&limit=100`. Felt: `pricing.price`, `quantity.size.from` + `quantity.unit.symbol` eller `quantity.pieces.from`, `run_from`, `run_till`, `dealer.name`, `dealer.country.id`.
+- **`/dealers` ga ingen norske dealere** (306 oppføringer: 302 danske, 4 tyske). Norske dealere er derfor funnet via treffene i `offers/search` (dealernavn i hvert tilbud), ikke fra et dealerregister. Antall dealere under er en nedre grense.
+- Ett åpent søk per vare (24 søkeord, samme varer og treffregler som Kassalapp-testen), ingen dealerfilter. Ingen søk traff sidegrensen (100 treff per side, maks fem sider). 408 treff fra ikke-norske dealere ble ignorert.
+- «Gyldig nå» = `run_from` ≤ kjøretidspunkt < `run_till`. «Pris og mengde» = `price` > 0 og størrelse med enhet eller stykketall, nok til å regne pakningspris.
+- Kurvene er de samme ti som i Kassalapp-testen (konstruert fra planens oppskrifter, ikke kvitteringer).
+
+### Funn
+- **Dealere sett:** 31 norske dealere ga treff. Alle kjedene vi lette etter er representert (REMA 1000, KIWI, Coop Extra, Prix, Mega, Obs, Marked, Meny, SPAR, Joker, Bunnpris), pluss bl.a. Europris, Matkroken og Nærbutikken.
+- **Hele utvalget:** 203 treff fra norske dealere, 69 relevante etter ordreglene, 57 av dem gyldige nå, 12 kommende, 0 utløpt. **Alle 57 gyldige hadde pris og mengde**, så pakningspris kan regnes for dem.
+- **Dekning per kjede** (andel av 154 varelinjer med minst ett gyldig, relevant tilbud nå):
+
+| Kjede | Linjer med gyldig tilbud nå | Med pris og mengde |
+| --- | --- | --- |
+| REMA 1000 | 37 (24 %) | 37 |
+| KIWI | 50 (32 %) | 50 |
+| Coop Extra | 24 (16 %) | 24 |
+| Coop Prix | 13 (8 %) | 13 |
+| Coop Mega | 0 (0 %) | 0 |
+| Coop Obs | 33 (21 %) | 33 |
+| Coop Marked | 13 (8 %) | 13 |
+| Meny | 7 (5 %) | 7 |
+| SPAR | 24 (16 %) | 24 |
+| Joker | 9 (6 %) | 9 |
+| Bunnpris | 28 (18 %) | 28 |
+
+  Coop Prix og Coop Marked hadde relevante tilbud på henholdsvis 38 og 22 linjer, men bare 13 og 13 er gyldige nå (resten er kommende). Coop Mega ga ingen relevante treff.
+- Per kurv varierer andelen mellom 0 og 40 % (full tabell i `phase0/tjek-probe/out/coverage.md` etter kjøring). Tjek-søket skiller ikke på utsalg, så forskjellen mellom kurvene kommer av ulike varer, ikke av landsdel (se begrensning 2).
+
+### Sammenligning med Kassalapp
+| Kjede | Kassalapp (ordinærpris, 154 linjer) | Tjek (tilbud nå, 154 linjer) |
+| --- | --- | --- |
+| Rema 1000 | 85 % med pris, ingen fersk | 24 % har gyldig tilbud |
+| Kiwi | 100 % med pris, 34 linjer (22 %) ferske | 32 % har gyldig tilbud |
+| Coop (Extra, Prix, Mega, Obs, Marked) | 100 % med pris, ingen fersk | 0–21 % per format |
+
+Tjek fyller **ikke** Kassalapps hull for ordinærpris: det er tilbud (tidsavgrensede kampanjer), ikke hyllepris. At en vare mangler i Tjek betyr bare at ingen kampanje ble funnet. Til gjengjeld er alle gyldige Tjek-tilbud ferske i definisjonens forstand (innenfor kampanjeperioden) og har pris og mengde, noe Kassalapp for Rema og Coop ikke har. Tjek er dermed et mulig supplement for tilbud hos Rema, Kiwi og Coop, men ikke en erstatning for en kilde til dagens ordinærpris.
+
+### Begrensninger
+1. Tilbud, ikke ordinærpriser. Vilkår som «3 for 2», medlemspris og minimumskjøp er ikke undersøkt; «pris og mengde» betyr bare at feltene er fylt ut.
+2. Ingen geografi: vi har ikke undersøkt om tilbud gjelder alle utsalg eller bare noen områder, så dekning per landsdel er ukjent.
+3. Treffene er vurdert automatisk med de samme ordreglene som for Kassalapp (øvre/nedre grense ukjent). Hvor godt Tjeks søk finner varer (recall) er ikke målt.
+4. Én kjøring på én dag; ikke målt over to kampanjeperioder.
+5. Dealerlisten er en nedre grense (bare dealere med treff på våre 24 varer).
+6. Rettigheter (visning, viderebruk, avisbilder) er ikke avklart (se over).
+
 ## Port – Fase 0
 
-- [ ] Kildedekning dokumentert per område og kjede, med mangelliste — **delvis**: Kassalapp dokumentert (over); Tjek, kjedeavtaler og Open Prices ikke vurdert.
+- [ ] Kildedekning dokumentert per område og kjede, med mangelliste — **delvis**: Kassalapp og Tjek (tilbud) dokumentert (over); kjedeavtaler og Open Prices ikke vurdert.
 - [ ] Ti prøvekurver sammenlignet med faktiske kjøp i ulike landsdeler — **ikke gjort**: kurvene er laget og kjørt mot Kassalapp, men det finnes ingen kvitteringer å sammenligne med.
 - [ ] Prisgrunnlag for en reell prøvehandel — **ikke gjort**: avhenger av kvitteringer og en kilde med fersk Rema/Kiwi/Coop-pris.
 - [ ] Tillatt visningsmåte avklart for hver kundeavis — **ikke startet**.
