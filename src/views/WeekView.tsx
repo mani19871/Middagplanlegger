@@ -6,6 +6,10 @@ import { DAYS, kr } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import PlanForm from './PlanForm';
+import { recipeNutrition, type NutritionTable } from '../engine/nutrition';
+import nutritionData from '../data/nutrition.json';
+
+const NUTRITION = nutritionData.items as unknown as NutritionTable;
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; alts: Alternatives;
@@ -23,6 +27,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const start = weekStart();
   const recipe = (id: string) => ctx.catalog.recipes.find((r) => r.id === id)!;
   const portions = (day: number) => settings.eaters.filter((e) => e.daysHome[day]).reduce((a, e) => a + e.portion, 0);
+  const nutr = (id: string) => recipeNutrition(recipe(id), ctx.catalog.ingredients, NUTRITION);
   const fmtP = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 
   if (slots.length === 0 || mode === 'edit') {
@@ -150,6 +155,9 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
             <div className="row inner"><Thumb id={sheetSlot.recipeId} /><span className="rinfo"><strong>{recipe(sheetSlot.recipeId).name}</strong>
               <small>⏱ {recipe(sheetSlot.recipeId).minutes} min</small></span></div>
             <details className="steps"><summary>Fremgangsmåte</summary><ol>{recipe(sheetSlot.recipeId).steps.map((t) => <li key={t}>{t}</li>)}</ol></details>
+            {(() => { const n = nutr(sheetSlot.recipeId); return (
+              <p className="fine">Næring per voksenporsjon, ca.: {n.kcal} kcal · {n.protein} g protein · {n.fat} g fett · {n.carbs} g karbohydrat · {n.fiber} g fiber.
+                {n.assumed.length > 0 && ' Omtrentlig.'}</p>); })()}
             <div className="toggles">
               <label className="switch"><input type="checkbox" checked={sheetSlot.locked} onChange={() => patchSlot(sheetSlot.day, { locked: !sheetSlot.locked })} /> Lås denne retten</label>
               <label className="switch"><input type="checkbox" checked={(sheetSlot.extra ?? 0) > 0}
@@ -165,12 +173,14 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                     <input type="radio" name="swap" checked={pick === o.recipe.id} onChange={() => setPick(o.recipe.id)} />
                     <Thumb id={o.recipe.id} size={48} />
                     <span className="rinfo"><strong>{o.recipe.name}</strong>
+                      <small>ca. {nutr(o.recipe.id).kcal} kcal · {nutr(o.recipe.id).protein} g protein</small>
                       {o.complete ? <span className={p.c}>{p.t}</span> : <span className="pill warnp">ufullstendig pris</span>}</span>
                   </label>
                 );
               })}
             </div>
             {chosen && <div className="card total2"><span>Ny anslått handel{chosen.complete ? '' : ' (delsum)'}</span><strong>{kr(basket.totalOre + chosen.deltaOre)}</strong></div>}
+            <p className="fine">Næringsdata: Matvaretabellen (Mattilsynet). Generelle matvarer, ikke en bestemt vare; uten salt, olje og krydder. Sier ingenting om allergener.</p>
             <button className="cta" disabled={!chosen} onClick={() => { patchSlot(sheetSlot.day, { recipeId: pick!, locked: true }); closeSheet(); }}>
               {chosen ? `Velg ${chosen.recipe.name.toLowerCase()} ›` : 'Velg en middag'}</button>
           </div>
