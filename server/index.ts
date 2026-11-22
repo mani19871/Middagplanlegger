@@ -24,7 +24,7 @@ if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskode
 // husstanders hendelser samlet (vern mot full disk). Se docs/sikkerhet.md.
 const dbExisted = DB !== ':memory:' && existsSync(DB);
 const totalMb = Number(process.env.SYNC_MAX_TOTAL_MB ?? 0);
-// Husstander uten aktivitet i SYNC_RETENTION_DAYS dager slettes automatisk (standard 365, 0 = av). Se server/retention.ts.
+// Husstander uten aktivitet i SYNC_RETENTION_DAYS dager slettes automatisk (standard 730, 0 = av). Se server/retention.ts.
 const retentionDays = retentionDaysFrom(process.env.SYNC_RETENTION_DAYS);
 const storage = new SqliteStorage(DB);
 // Oppstartskontroll uten innhold: feil eller manglende volum gir ellers en stille, tom database.

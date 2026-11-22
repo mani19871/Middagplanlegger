@@ -1,14 +1,15 @@
 // Personvern-arket skal ikke love mer enn koden gjør: tallene må stemme med standardene i server/retention.ts (730 dager).
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_TOKEN_IDLE_DAYS } from '../../server/retention';
+import { DEFAULT_RETENTION_DAYS, DEFAULT_TOKEN_IDLE_DAYS } from '../../server/retention';
 import { retentionText, tokenIdleText, TOKEN_IDLE_DEFAULT_DAYS } from './PrivacySheet';
 
 describe('personvern-arket: tidsfrister', () => {
-  it('reservetekst uten kjent oppbevaringstid foreslår 730 dager, ikke «12 måneder»', () => {
+  it('reservetekst uten kjent oppbevaringstid sier standard 730 dager (samme som serverens standard), ikke «12 måneder»', () => {
     const t = retentionText(undefined, false);
-    expect(t).toMatch(/730 dager/);
+    expect(t).toMatch(/Standard er 730 dager/);
     expect(t).not.toMatch(/12 måneder/);
-    expect(t).toMatch(/ikke endelig bestemt|ikke bestemt/);
+    expect(t).toMatch(/annerledes/); // serveren kan være satt opp med en annen frist; arket lover ikke mer enn det
+    expect(DEFAULT_RETENTION_DAYS).toBe(730);
   });
 
   it('serverens oppgitte oppbevaringstid vises ordrett; 730 dager = «2 år (730 dager)»; 0 = ingen automatisk sletting', () => {

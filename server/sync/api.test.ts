@@ -576,18 +576,31 @@ describe('oppbevaringstid (automatisk sletting etter inaktivitet)', () => {
     expect(srv.storage.counts().households).toBe(0);
   });
 
-  it('0 = av; standard 365; ugyldig verdi gir standard (aldri av ved en skrivefeil)', async () => {
+  it('0 = av; standard 730; ugyldig verdi gir standard (aldri av ved en skrivefeil)', async () => {
     await household();
     srv.advance(10_000 * DAY);
     expect(await runRetention(srv.storage, 0, srv.now())).toBe(0);
     expect(srv.storage.counts().households).toBe(1);
     const warn: string[] = [];
     expect(retentionDaysFrom(undefined)).toBe(DEFAULT_RETENTION_DAYS);
-    expect(DEFAULT_RETENTION_DAYS).toBe(365);
+    expect(DEFAULT_RETENTION_DAYS).toBe(730);
+    expect(retentionDaysFrom('')).toBe(730);
     expect(retentionDaysFrom('0')).toBe(0);
     expect(retentionDaysFrom(' 90 ')).toBe(90);
-    for (const v of ['-1', 'av', '1.5', 'NaN']) expect(retentionDaysFrom(v, (m) => warn.push(m))).toBe(365);
+    for (const v of ['-1', 'av', '1.5', 'NaN']) expect(retentionDaysFrom(v, (m) => warn.push(m))).toBe(730);
     expect(warn).toHaveLength(4);
+    expect(warn[0]).toMatch(/SYNC_RETENTION_DAYS.*730/);
+  });
+
+  it('standarden (730 dager) styrer slettingen: 729 dager uten aktivitet står, 731 slettes', async () => {
+    await household();
+    const days = retentionDaysFrom(undefined);
+    srv.advance(729 * DAY);
+    expect(await runRetention(srv.storage, days, srv.now())).toBe(0);
+    expect(srv.storage.counts().households).toBe(1);
+    srv.advance(2 * DAY);
+    expect(await runRetention(srv.storage, days, srv.now())).toBe(1);
+    expect(srv.storage.counts().households).toBe(0);
   });
 
   it('jobben kjører ved oppstart og periodisk med injisert klokke; loggen får bare antall', async () => {

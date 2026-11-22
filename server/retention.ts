@@ -1,4 +1,4 @@
-// Oppbevaringstid: sletter husstander uten aktivitet i SYNC_RETENTION_DAYS dager (standard 365, 0 = av). Samme sletting
+// Oppbevaringstid: sletter husstander uten aktivitet i SYNC_RETENTION_DAYS dager (standard 730, 0 = av). Samme sletting
 // som «Slett husstanden» (kaskade, secure_delete, WAL-checkpoint; se SqliteStorage.deleteInactive). Kjøres ved oppstart og
 // deretter periodisk. Klokken settes inn (ingen Date.now her), så jobben kan testes med injisert klokke.
 //
@@ -7,7 +7,7 @@
 // ingen kontaktinformasjon, så ingen kan varsles før slettingen. Loggen får bare antall, aldri hvilke husstander.
 import type { SyncStorage } from './storage/types';
 
-export const DEFAULT_RETENTION_DAYS = 365;
+export const DEFAULT_RETENTION_DAYS = 730;
 /** Tokenutløp (SYNC_TOKEN_IDLE_DAYS): samme som oppbevaringstiden for inaktive husstander i piloten (730 dager), så en
  *  husstand kan åpnes, eksporteres og slettes i appen så lenge den ligger på serveren. */
 export const DEFAULT_TOKEN_IDLE_DAYS = 730;
