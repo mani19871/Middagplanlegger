@@ -33,7 +33,7 @@ Svar ja, nei eller «vet ikke» på hvert punkt. Svarene føres her med dato som
 | # | Spørsmål | Svar (dato) |
 | --- | --- | --- |
 | 1 | Tillater avtalen at vi **lagrer priser og tilbud** fra Tjek (for eksempel hurtigbuffer, historikk eller i husstandens handleliste)? Hvis ja: hvor lenge? | **Ja**, lagring av priser er tillatt (brukerens opplysning, 2026-11-22). Hvor lenge: ikke oppgitt |
-| 2 | Tillater avtalen at vi viser **bilder** (produktbilder, kjedelogoer)? | **Ja**, bilder er tillatt (brukerens opplysning, 2026-11-22). Om kjedelogoer er med: ikke oppgitt; vi viser bare produktbilder og avissider fra Tjek |
+| 2 | Tillater avtalen at vi viser **bilder** (produktbilder, kjedelogoer)? | **Ja**, bilder er tillatt (brukerens opplysning, 2026-11-22). Om kjedelogoer er med: ikke oppgitt. **Beslutning 2026-11-22: ingen kjedelogoer før Tjek bekrefter at logoer er med**; vi viser bare produktbilder og avissider fra Tjek |
 | 3 | Tillater avtalen at vi viser **avissider** (hele kundeaviser eller sider fra dem)? | **Ja**, avissider er tillatt (brukerens opplysning, 2026-11-22) |
 | 4 | Dekker avtalen **alle kjedene** vi ser i Tjek (Rema 1000, Kiwi, Coop Extra/Prix/Mega/Obs/Marked, Meny, SPAR, Joker, Bunnpris, Europris m.fl.)? Hvis ikke: hvilke? | **Ja**, alle kjeder Tjek har (brukerens opplysning, 2026-11-22) |
 | 5 | Er **appen vår** (nettstedet til AVVR AS) den plattformen avtalen gjelder for, og er **AVVR AS** avtaleparten? | **Ja**, avtalen dekker at AVVR AS bruker API-et i appen for andre brukere (brukerens opplysning, 2026-11-22) |
