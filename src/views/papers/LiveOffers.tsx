@@ -9,8 +9,20 @@ interface Props {
   live: LiveResponse | null; err: boolean; ingName: (id: string) => string; onPick: (l: LiveOffer) => void;
 }
 const dm = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
+const when = (iso: string) => new Date(iso).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+/** Kildelinje: kilde, når tilbudene sist ble hentet, og eldste observasjon når lagrede tilbud er sett tidligere. */
+export function sourceLine(live: LiveResponse): string {
+  const read = live.observed ? when(live.observed) : 'ukjent tid';
+  if (!live.stored) return `Kilde: Tjek (ekte tilbud, ikke demodata). Lest ${read}.`;
+  const oldest = live.oldestObserved && live.observed && live.oldestObserved.slice(0, 10) < live.observed.slice(0, 10)
+    ? ` Noen priser ble sist sett ${when(live.oldestObserved)}.` : '';
+  return `Kilde: Tjek (ekte tilbud, ikke demodata). Sist hentet ${read}.${oldest}`;
+}
 
-/** «Tilbud nå»: live tilbud (lagres aldri), gruppert per kjede eller vare, med søk og «Vis flere». */
+/**
+ * «Tilbud nå»: tilbud fra Tjek, gruppert per kjede eller vare, med søk og «Vis flere». Lagret på serveren når den har dem
+ * (/api/offers/lagret), ellers live. Lagres aldri i appen og synkes ikke. Datoen er når prisen ble sett hos Tjek.
+ */
 export default function LiveOffers({ live, err, ingName, onPick }: Props) {
   const [q, setQ] = useState('');
   const [by, setBy] = useState<GroupBy>('kjede');
@@ -29,8 +41,8 @@ export default function LiveOffers({ live, err, ingName, onPick }: Props) {
       {!err && (!live || live.status === 'loading') && <p className="card">Henter tilbud … det kan ta et halvt minutt første gang.</p>}
       {live?.status === 'error' && <div className="banner warn">Tilbudskilden svarte ikke ({live.error}). Prøver igjen ved neste besøk.</div>}
       {live?.status === 'ok' && (
-        <p className="fine" role="status">Kilde: Tjek (ekte tilbud, ikke demodata). Lest {new Date(live.observed!).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}.
-          {' '}Viser {page.shown} av {page.total} tilbud koblet til varer i oppskriftene{q.trim() ? ` (søk: «${q.trim()}»)` : ''}. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</p>
+        <p className="fine" role="status">{sourceLine(live)}
+          {' '}Viser {page.shown} av {page.total} tilbud koblet til varer i oppskriftene{q.trim() ? ` (søk: «${q.trim()}»)` : ''}. Tilbud regnes ikke inn i summen før vilkår er kontrollert.{live.truncated ? ' Ikke alle tilbud fikk plass.' : ''}</p>
       )}
       {live?.status === 'ok' && page.total === 0 && <p className="card">Ingen tilbud passer søket.</p>}
       {page.groups.map((g) => (

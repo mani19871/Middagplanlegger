@@ -7,7 +7,7 @@ const URL_ = 'http://localhost:4179/';
 let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`); if (!c) fails++; };
 (async () => {
   const srv = process.env.BUILT_SERVER === '1'
-    ? spawn(process.execPath, ['dist-server/index.mjs'], { stdio: 'ignore', env: { ...process.env, PORT: '4179', SYNC_DB: ':memory:', SYNC_SECRET: 'pwa-sjekk' } })
+    ? spawn(process.execPath, ['dist-server/index.mjs'], { stdio: 'ignore', env: { ...process.env, PORT: '4179', SYNC_DB: ':memory:', SYNC_SECRET: 'pwa-sjekk', OFFER_DB: ':memory:', TJEK_FETCH: '0' } })
     : spawn('npx', ['vite', 'preview', '--port', '4179', '--strictPort'], { stdio: 'ignore' });
   try {
     for (let i = 0; i < 50; i++) { try { if ((await fetch(URL_)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }

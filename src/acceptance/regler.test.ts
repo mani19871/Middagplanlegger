@@ -100,10 +100,10 @@ describe('regel 6: bare avtalte kilder, ingen egen henting av kundeaviser', () =
     for (const f of tracked.filter((x) => /^server\/(storage|sync)\//.test(x) && code(x) && !isTest(x))) {
       expect(stripComments(text(f)), f).not.toMatch(/from '[^']*offers[^']*'|LiveOffer|tjek/i);
     }
-    // Tilbudslagringen kjenner ikke husstandene: ingen import fra synk-lagringen eller synk-koden.
+    // Tilbudslagringen kjenner ikke husstandene: ingen import fra synk-lagringen eller synk-koden (bare den generelle ratebegrenseren).
     const offerFiles = tracked.filter((x) => /^server\/offers\//.test(x) && code(x) && !isTest(x));
     expect(offerFiles.length).toBeGreaterThan(0);
-    for (const f of offerFiles) expect(stripComments(text(f)), f).not.toMatch(/from '[^']*(storage|sync)\/[^']*'/);
+    for (const f of offerFiles) expect(stripComments(text(f)), f).not.toMatch(/from '[^']*(storage\/|sync\/(?!rateLimit'))[^']*'/);
     // Klientens synk (src/sync/) tar aldri med tilbud: de synkes ikke mellom enheter.
     for (const f of tracked.filter((x) => /^src\/sync\//.test(x) && code(x) && !isTest(x))) {
       expect(stripComments(text(f)), f).not.toMatch(/from '[^']*offers[^']*'|LiveOffer|NormalizedOffer/);

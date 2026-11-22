@@ -18,7 +18,7 @@ Ikke med ennå: ekte kontoer (e-post/magisk lenke, se `docs/synk.md`), ekte pris
 
 ## Live tilbud (Tjek)
 `npm run build && npm run server` (bak proxy: `NODE_USE_ENV_PROXY=1`) starter appen og tilbudsserveren på http://localhost:8787.
-Under `npm run dev` proxyes `/api` til serveren (start den i en egen terminal). Tilbud holdes bare i minnet i seks timer.
+Under `npm run dev` proxyes `/api` til serveren (start den i en egen terminal). Tilbud fra Tjek hentes hver sjette time og lagres i en egen fil (`data/tilbud.sqlite`, ikke synk-databasen); `TJEK_FETCH=0` slår av henting. Se `docs/synk.md`, «Tilbud fra Tjek».
 
 ## Drift
 Beslutningsguide for hosting: `docs/hosting.md` (utkast). Docker: `docker build -t middagsplanlegger .` og `docker run -p 127.0.0.1:8787:8787 -v middag-data:/data middagsplanlegger` (miljøvariabler i `docs/hosting.md`; imaget har bare `node`, den bygde serveren og appen, ca. 200 MB utpakket). CI (`.github/workflows/ci.yml`) typesjekker, tester, bygger appen og serveren, røyktester produksjonsbygget og kjører `npm audit --omit=dev` (blokkerer ikke); den deployer ikke. Personverndokumenter (utkast, ikke juridisk rådgivning): `docs/personvern/`.

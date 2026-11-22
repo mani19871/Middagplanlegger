@@ -1,7 +1,8 @@
-// Samler gyldige tilbud fra en OfferSource og kobler dem til ingredienser. Ingen lagring; kilden og klokken sendes inn.
+// Samler gyldige tilbud fra en OfferSource og kobler dem til ingredienser. Ingen lagring her (lagringen er server/offers/);
+// kilden og klokken sendes inn.
 import type { Ingredient } from '../engine/types';
 import { matchOffer, OFFER_TERMS, validOn, type MatchedOffer } from './match';
-import type { OfferSource } from './types';
+import type { NormalizedOffer, OfferSource } from './types';
 import { OFFER_RULES, type OfferRule } from './rules';
 
 export interface LiveOffer extends MatchedOffer { phase: 'nå' | 'kommende' }
@@ -26,14 +27,27 @@ export async function collectOffers(source: OfferSource, ingredients: Ingredient
       const offers = await source.searchOffers({ query: term, country: o.country, limit: o.limit ?? 20 });
       for (const offer of offers) {
         if (out.has(offer.id)) continue;
-        const from = offer.validFrom.slice(0, 10);
-        const phase: LiveOffer['phase'] | null = validOn(offer, o.today) ? 'nå' : from > o.today && from <= addDays(o.today, 7) ? 'kommende' : null;
-        if (!phase) continue; // utløpte og fjerne tilbud tas ikke med
-        const m = matchOffer(offer, ingredients, phase === 'nå' ? o.today : from, terms, o.rules ?? OFFER_RULES);
-        if (m) out.set(offer.id, { ...m, phase });
+        const l = toLiveOffer(offer, ingredients, o.today, terms, o.rules ?? OFFER_RULES);
+        if (l) out.set(offer.id, l);
       }
       await sleep(o.delayMs ?? 500); // vær snill mot kilden
     }
   }
-  return [...out.values()].sort((a, b) => Number(a.needsReview) - Number(b.needsReview) || a.ingredient.localeCompare(b.ingredient) || (a.unitPriceOre ?? 1e9) - (b.unitPriceOre ?? 1e9) || a.offer.id.localeCompare(b.offer.id));
+  return sortLive([...out.values()]);
 }
+
+/**
+ * Et tilbud som treff for «Tilbud nå»: gyldig i dag («nå») eller fra innen 7 dager («kommende»), koblet til en ingrediens.
+ * Utløpte, fjerne og ukoblede gir null. Brukes både ved henting og når serveren leser lagrede tilbud (server/offers/api.ts).
+ */
+export function toLiveOffer(offer: NormalizedOffer, ingredients: Ingredient[], today: string, terms = OFFER_TERMS, rules: OfferRule[] = OFFER_RULES): LiveOffer | null {
+  const from = offer.validFrom.slice(0, 10);
+  const phase: LiveOffer['phase'] | null = validOn(offer, today) ? 'nå' : from > today && from <= addDays(today, 7) ? 'kommende' : null;
+  if (!phase) return null; // utløpte og fjerne tilbud tas ikke med
+  const m = matchOffer(offer, ingredients, phase === 'nå' ? today : from, terms, rules);
+  return m ? { ...m, phase } : null;
+}
+
+/** Fast rekkefølge: uavklarte sist, så ingrediens, enhetspris og id. */
+export const sortLive = (list: LiveOffer[]) =>
+  list.sort((a, b) => Number(a.needsReview) - Number(b.needsReview) || a.ingredient.localeCompare(b.ingredient) || (a.unitPriceOre ?? 1e9) - (b.unitPriceOre ?? 1e9) || a.offer.id.localeCompare(b.offer.id));

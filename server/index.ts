@@ -1,4 +1,5 @@
-// Liten server: henter tilbud live fra Tjek, holder dem i minnet (ingen lagring) og serverer dem til appen.
+// Liten server: henter tilbud fra Tjek, lagrer dem i en egen tilbudsdatabase (server/offers/, ikke synk-databasen) og
+// serverer dem til appen (/api/offers/lagret), med live-visningen i minnet som reserve (/api/offers).
 // Serverer også synk-API-et for delt husstand (server/sync/api.ts, docs/synk.md) og appen (dist/).
 // Sikkerhetshoder, statiske filer og krasjvern ligger i server/app.ts (docs/sikkerhet.md).
 // Start: npm run server  (NODE_USE_ENV_PROXY=1 hvis du er bak proxy). Port: PORT (standard 8787).
@@ -9,6 +10,10 @@ import { ingredients } from '../src/data/catalog';
 import { collectOffers, type LiveOffer } from '../src/offers/service';
 import { TjekSource } from '../src/offers/tjek';
 import { createApp } from './app';
+import { createOffersApi } from './offers/api';
+import { CallBudget, startOfferCollector, type OfferCollector } from './offers/collector';
+import { offerConfigFrom } from './offers/config';
+import { SqliteOfferStore } from './offers/sqlite';
 import { retentionDaysFrom, startRetention, tokenIdleMsFrom } from './retention';
 import { SqliteStorage } from './storage/sqlite';
 import { createSyncApi } from './sync/api';
@@ -16,7 +21,7 @@ import { createSyncApi } from './sync/api';
 const PORT = Number(process.env.PORT ?? 8787);
 // Synk: husstand, hendelser og dokumenter i en lokal SQLite-fil (SYNC_DB, ellers $DATA_DIR/middag.sqlite,
 // ellers data/middag.sqlite).
-// Tilbud fra Tjek lagres aldri her; de holdes bare i minnet under.
+// Tilbud fra Tjek lagres aldri her, men i en egen fil (OFFER_DB, under).
 const DB = process.env.SYNC_DB ?? join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'middag.sqlite');
 if (DB !== ':memory:') mkdirSync(dirname(DB), { recursive: true });
 if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskoder blir ugyldige når serveren startes på nytt.');
@@ -43,24 +48,46 @@ const TTL_MS = 6 * 60 * 60 * 1000;
 const RETRY_MS = 5 * 60 * 1000;
 const oslo = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' });
 
+// Tilbud og priser fra Tjek: lagres i en egen SQLite-fil uten persondata (brukerens opplysning: avtalen tillater lagring
+// av priser; phase0/tjek-avtale.md). Kallbudsjettet teller alle kall mot Tjek, også fra live-visningen.
+const offerCfg = offerConfigFrom(process.env);
+const budget = new CallBudget(offerCfg.maxCallsPerDay, oslo);
 const source = new TjekSource(
   // Tidsavbrudd per kall: et Tjek som henger skal gi feil (og nedkjøling), ikke «loading» i mange minutter.
-  (url, init) => fetch(url, { headers: { ...init?.headers, 'User-Agent': 'Middagsplanlegger/0.1' }, signal: AbortSignal.timeout(15_000) }),
+  (url, init) => { budget.take(); return fetch(url, { headers: { ...init?.headers, 'User-Agent': 'Middagsplanlegger/0.1' }, signal: AbortSignal.timeout(15_000) }); },
   () => new Date().toISOString(),
 );
+const collectNow = () => collectOffers(source, ingredients, { country: 'NO', today: oslo() });
 
 interface Cache { offers: LiveOffer[]; observed: string; day: string }
 let cache: Cache | null = null;
 let refreshing: Promise<void> | null = null;
 let failedAt = 0;
 
+if (offerCfg.db !== ':memory:' && offerCfg.store) mkdirSync(dirname(offerCfg.db), { recursive: true });
+const offerStore = offerCfg.store ? new SqliteOfferStore(offerCfg.db) : null;
+let collector: OfferCollector | null = null;
+if (offerStore) {
+  void offerStore.counts().then((n) => console.log(`Tilbudslagring: ${offerCfg.db === ':memory:' ? 'bare i minnet' : offerCfg.db} (${n.observations} observasjoner, ${n.chains} kjeder).`));
+  if (offerCfg.fetch) {
+    // Periodisk henting med bakoff; den holder også live-visningen i minnet oppdatert, så /api/offers ikke henter selv.
+    collector = startOfferCollector({
+      collect: collectNow, store: offerStore, country: 'NO', now: () => new Date().toISOString(),
+      intervalMs: offerCfg.refreshMs, retryMs: RETRY_MS, retentionDays: offerCfg.retentionDays,
+      onCollected: (offers, at) => { cache = { offers, observed: at, day: oslo() }; },
+    });
+  }
+}
+if (!offerCfg.fetch) console.log('Tilbud: henting fra Tjek er av (TJEK_FETCH=0).');
+
 function refresh() {
-  if (refreshing || Date.now() - failedAt < RETRY_MS) return;
+  // Med innsamleren henter den; ellers hentes det ved behov (uten lagring, som før).
+  if (collector || !offerCfg.fetch || refreshing || Date.now() - failedAt < RETRY_MS) return;
   const day = oslo();
-  refreshing = collectOffers(source, ingredients, { country: 'NO', today: day })
+  refreshing = collectNow()
     .then((offers) => { cache = { offers, observed: new Date().toISOString(), day }; failedAt = 0; })
-    // Detaljen (statuskode og sti hos Tjek) logges her, men sendes ikke til appen.
-    .catch((e: unknown) => { failedAt = Date.now(); console.error('tilbud-feil:', e instanceof Error ? e.message : String(e)); })
+    // Bare navnet på feilen logges (meldingen har statuskode og sti hos Tjek); ingenting av det sendes til appen.
+    .catch((e: unknown) => { failedAt = Date.now(); console.error(`tilbud-feil: ${e instanceof Error ? e.name : typeof e}`); })
     .finally(() => { refreshing = null; });
 }
 
@@ -72,7 +99,7 @@ function offers(req: IncomingMessage, res: ServerResponse): boolean {
     return true;
   }
   if (!cache || Date.now() - Date.parse(cache.observed) > TTL_MS || cache.day !== oslo()) refresh();
-  const failed = !cache && failedAt > 0;
+  const failed = !cache && (failedAt > 0 || (collector?.state().failures ?? 0) > 0 || !offerCfg.fetch);
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify({
@@ -82,9 +109,10 @@ function offers(req: IncomingMessage, res: ServerResponse): boolean {
   return true;
 }
 
-// Rekkefølge: synk-API, så tilbud (bare i minnet), så statiske filer. Tilbud når aldri synk-lagringen.
+// Rekkefølge: synk-API, lagrede tilbud, live-tilbud (minnet), statiske filer. Tilbud når aldri synk-lagringen.
 const handlers = [
   syncApi,
+  ...(offerStore ? [createOffersApi({ store: offerStore, ingredients, collector: () => collector?.state() ?? { failures: offerCfg.fetch ? 0 : 1 }, trustProxy: process.env.TRUST_PROXY === '1' })] : []),
   offers,
 ];
 const app = createApp({ dist: join(process.cwd(), 'dist'), handlers, hsts: process.env.HSTS === '1' });
@@ -106,7 +134,12 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     console.log(`${sig}: avslutter.`);
     const force = setTimeout(() => process.exit(1), 8_000);
     force.unref();
-    server.close(() => { storage.close().catch(() => {}).finally(() => process.exit(0)); });
+    collector?.stop();
+    server.close(() => {
+      const closing = [storage.close()];
+      if (offerStore) closing.push(offerStore.close());
+      Promise.allSettled(closing).finally(() => process.exit(0));
+    });
     server.closeAllConnections();
   });
 }

@@ -57,7 +57,8 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
     const o = l.offer;
     setLiveId(o.id); setJustAdded(false);
     const pack = o.amount ? amount(o.amount, o.unit ?? 'g') : o.pieces ? `${o.pieces} stk` : 'mengde ukjent';
-    const terms = `Gyldig ${o.validFrom.slice(8, 10)}.${o.validFrom.slice(5, 7)}.–${o.validUntil.slice(8, 10)}.${o.validUntil.slice(5, 7)}.${o.prePriceOre ? ` Før ${kr(o.prePriceOre)}.` : ''}`;
+    const seen = Number.isFinite(Date.parse(o.observed)) ? ` Pris sett hos Tjek ${new Date(o.observed).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit' })}.` : '';
+    const terms = `Gyldig ${o.validFrom.slice(8, 10)}.${o.validFrom.slice(5, 7)}.–${o.validUntil.slice(8, 10)}.${o.validUntil.slice(5, 7)}.${o.prePriceOre ? ` Før ${kr(o.prePriceOre)}.` : ''}${seen}`;
     setEdition({ id: o.dealerId, sender: o.dealerName, title: 'Tilbud', scope: 'nasjonal', validFrom: o.validFrom.slice(0, 10), validUntil: o.validUntil.slice(0, 10), validTo: o.validUntil.slice(0, 10), branch: 'dagligvare', rights: 'lenke' } as unknown as Edition);
     setOffer({ editionId: 'live', text: o.heading, ingredient: l.ingredient, priceOre: o.priceOre, pack, terms });
   };
@@ -82,7 +83,7 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
       const st = stamp();
       update((s) => hasManualLine(manualLines(s.list), key) ? s
         : recordList(s, { type: 'manuell', ...st, line: liveId
-          // Tilbud fra Tjek lagres og synkes ikke (bare live-visning): lista får varen og kjeden, ikke overskrift eller pris.
+          // Tilbud fra Tjek lagres aldri i appens data og synkes ikke: lista får varen og kjeden, ikke overskrift eller pris.
           ? { id: manualLineId(key, st.id), text: ing.name.slice(0, 200), note: `tilbud hos ${edition.sender}`.slice(0, 200) }
           : { id: manualLineId(key, st.id), text: offer.text.slice(0, 200), note: `${edition.sender}, ${priceText}`.slice(0, 200) } }));
       setJustAdded(true);

@@ -32,7 +32,7 @@ function harness(collect: () => Promise<LiveOffer[]>, extra: { retentionDays?: n
 
 describe('startOfferCollector', () => {
   it('henter ved oppstart, lagrer med observasjonstiden fra kilden og planlegger neste runde etter intervallet', async () => {
-    const h = harness(async () => [live(offer('a', '2026-11-23T08:00:01.000Z'))]);
+    const h = harness(async () => [live(offer('a', '2026-11-23T07:59:30.000Z'))]);
     await h.job.idle();
     expect(h.delays).toEqual([6 * 3_600_000]);
     expect(h.job.state().lastOk).toBe('2026-11-23T08:00:00.000Z');
@@ -40,7 +40,7 @@ describe('startOfferCollector', () => {
     // Tre dager senere uten ny henting: observasjonen har fortsatt dagen prisen ble sett.
     h.advance(3 * 86_400_000);
     const [r] = await h.store.current({ today: '2026-11-26', observedSince: '2026-11-12', limit: 10 });
-    expect(r.lastObserved).toBe('2026-11-23T08:00:01.000Z');
+    expect(r.lastObserved).toBe('2026-11-23T07:59:30.000Z');
   });
 
   it('pent bakoff ved feil: 5, 10, 20 … minutter, aldri over intervallet, og tilbake til intervallet etter suksess', async () => {

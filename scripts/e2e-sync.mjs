@@ -30,7 +30,7 @@ const SECRET = randomBytes(16).toString('hex');
 let log = '';
 const startServer = () => {
   const p = spawn(process.execPath, process.env.BUILT_SERVER === '1' ? ['dist-server/index.mjs'] : ['node_modules/tsx/dist/cli.mjs', 'server/index.ts'], {
-    env: { ...process.env, PORT: String(PORT), SYNC_DB: DB, SYNC_SECRET: SECRET }, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, PORT: String(PORT), SYNC_DB: DB, SYNC_SECRET: SECRET, OFFER_DB: ':memory:', TJEK_FETCH: '0' }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   p.stdout.on('data', (d) => { log += d; });
   p.stderr.on('data', (d) => { log += d; });

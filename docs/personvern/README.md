@@ -18,7 +18,8 @@ Se også [`../pilot-sjekkliste.md`](../pilot-sjekkliste.md) (alt som må være p
 ## Kort fasit: hva som lagres (avstemt mot koden)
 
 - **På serveren, bare med husstand:** husstands-id, medlemmer (tilfeldig offentlig enhets-id, etikett ≤ 24 tegn, rolle, sha256 av token, tidspunkter), invitasjoner (HMAC av kode), hendelseslogg (beholdning, avkrysning og egne handlelinjer, utsolgt/fant ikke) og to dokumenter (plan, innstillinger med etiketter, porsjoner, butikker, budsjett).
-- **Aldri på serveren:** postnummer, allergier og kostkrav (valg A), tilbud fra Tjek, planhistorikk, passord, e-post, navn, posisjon.
+- **Tilbud fra Tjek** lagres på serveren i en egen fil uten persondata (ikke husstandsdata).
+- **Aldri på serveren:** postnummer, allergier og kostkrav (valg A), planhistorikk, passord, e-post, navn, posisjon.
 - **På enheten:** alt over pluss kostkrav, postnummer og **enhetstokenet i klartekst i `localStorage`**.
 - **Sletting:** eier sletter husstanden med kaskade; spor kan ligge kort i `-wal` og i sikkerhetskopier. Fjernede medlemmer ligger igjen som rad til husstanden slettes (svakhet).
 - **Bygget siden første utkast:** eksport («Last ned mine data»), automatisk sletting etter inaktivitet (`SYNC_RETENTION_DAYS`), arket «Personvern» i appen (utkast). **Ikke bygget:** samtykkeskjerm (ikke nødvendig i piloten).

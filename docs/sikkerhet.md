@@ -38,6 +38,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 | S18 | Info | Tidsavbrudd mot trege klienter | Rettet |
 | S19 | Middels | Slettede data blir liggende i `-wal` til neste checkpoint | Rettet |
 | S20 | Lav | Feil eller manglende volum gir en stille, tom database | Rettet (varsel ved oppstart) |
+| S21 | Info | Ny lagring og nytt anonymt endepunkt for tilbud fra Tjek (`/api/offers/lagret`) | Bygget med grenser (2026-11-22); se under |
 
 ### S1 Kritisk: ugyldig URL krasjet hele serveren
 
@@ -156,6 +157,14 @@ Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å s
 
 `SYNC_SECRET`: tap eller bytte av hemmeligheten gjør bare aktive invitasjonskoder ugyldige (de er HMAC med hemmeligheten). Enhetstokenene er vanlig sha256 og virker videre; ingen data går tapt.
 
+### S21 Info: lagring av tilbud og `GET /api/offers/lagret`
+
+- **Hva:** tilbud og priser fra Tjek lagres i en egen SQLite-fil (`OFFER_DB`, `server/offers/`), ikke i synk-databasen (brukerens opplysning 2026-11-22: avtalen tillater lagring av priser; `phase0/tjek-avtale.md`). Ingen persondata: ingen husstand, enhet, token, etikett eller IP i tabellene (testet). Tilbudskoden importerer ikke synk-lagringen, og synk-koden kjenner ikke tilbudene (testet i `src/acceptance/regler.test.ts`).
+- **Endepunkt:** anonymt (tilbud er ikke husstandsdata), bare `GET`/`HEAD` (`405` med `Allow` ellers), ingen spørreparametre (`400`), **60 kall per minutt per IP** (`429 for_mange_forespørsler` med `Retry-After`; IPv6 per /64, `TRUST_PROXY` som synk-API-et), høyst **1500 tilbud** per svar (`truncated`), `Cache-Control: no-store`, API-CSP (`default-src 'none'`). Svaret bygges én gang per (dag, siste henting) og gjenbrukes, så mange kall gir ikke mange spørringer. Lagringsfeil gir `500 serverfeil` med fast tekst; loggen får bare feilens navn (testet i `server/offers/api.test.ts`).
+- **Lagringsgrenser:** id høyst 100 tegn (ellers avvist), overskrift 200, beskrivelse 500, forhandler 100 (kortes ned), pris i hele øre ≥ 0, mengder endelige og positive, gyldighet som dato; høyst 5000 per runde og **200 000 rader totalt** (nye avvises over taket; eksisterende oppdateres). Oppbevaring sletter utløpte rader som ikke er sett på `OFFER_RETENTION_DAYS` dager.
+- **Mot Tjek:** kallbudsjett per norsk døgn (`OFFER_MAX_CALLS_PER_DAY`, standard 1000) for alle kall, bakoff ved feil (5 min doblet, høyst intervallet), tidsavbrudd 15 s per kall. Loggen får bare feilens navn, aldri sti eller statuskode fra Tjek. `TJEK_FETCH=0` slår av alle kall (brukt i røyktest, e2e og CSP-sjekk, så de ikke kaller eksterne tjenester).
+- **Gjenstår:** ratebegrensningen er i minnet (S16). Tilbudsfila tas ikke med i `docs/drift/backup.sh` (kan hentes på nytt, men prishistorikken går tapt ved tap av volumet); avgjøres sammen med oppbevaringstiden når avtalens grense er kjent.
+
 ### S18 Rettet: trege klienter
 
 `server.headersTimeout = 15 s`, `requestTimeout = 30 s`, `keepAliveTimeout = 5 s` (`server/index.ts`). Proxyen foran bør ha egne grenser.
@@ -178,6 +187,7 @@ Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å s
 | `SYNC_MAX_TOTAL_MB` | 4096 | Tak for alle husstanders hendelser samlet |
 | `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
 | `TRUST_PROXY` | av | `1` bak nøyaktig én proxy; siste adresse i `X-Forwarded-For` brukes |
+| `OFFER_MAX_CALLS_PER_DAY` | 1000 | Kallbudsjett mot Tjek per norsk døgn (alle kall). Øvrige tilbudsinnstillinger: `docs/synk.md`, «Drift» |
 
 Kvoter og ratebegrensninger per husstand ligger i `DEFAULT_QUOTAS` og `DEFAULT_RATES` i `server/sync/api.ts`.
 
@@ -195,5 +205,6 @@ Kvoter og ratebegrensninger per husstand ligger i `DEFAULT_QUOTAS` og `DEFAULT_R
 ## Tester
 
 - `server/sync/security.test.ts`: path traversal (16 varianter over rå socket), skjulte filer, metoder, ugyldig URL (krasj), ugyldig JSON og kropper, feil typer, injeksjon, `__proto__`, serverfeil uten lekkasje i svar og logg, sikkerhetshoder og CSP, CORS, hodeinjeksjon, lik `401` og `404`, glidende utløp og eierskap, `X-Forwarded-For`, IPv6 /64, samlet gjettegrense, kodeentropi, alle kvoter, klokkeklipp og idempotens, anonymisering, Unicode i etiketter.
+- `server/offers/api.test.ts`, `server/offers/store.test.ts`, `server/offers/collector.test.ts`: lese-endepunktet (metoder, parametre, ratebegrensning, størrelsesgrense, feil uten lekkasje), lagringens grenser og at den ikke har persondata, bakoff og kallbudsjett.
 - `npm run check:csp` (Playwright, krever bygg): appen under ekte CSP uten brudd eller konsollfeil.
 - Eksisterende `server/sync/api.test.ts` og `src/sync/engine.test.ts` er uendret og grønne.

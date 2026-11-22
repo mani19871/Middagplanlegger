@@ -53,12 +53,12 @@ Tabellene i `server/storage/sqlite.ts`, en SQLite-fil (`middag.sqlite`, med `-wa
 | `events` | strøm, hendelsens JSON, hvilken enhet som sendte den, mottatt-tidspunkt | Fire strømmer: `beholdning`, `liste` (avkrysning/manuelle linjer), `endring` (utsolgt/fant ikke) og `planversjon` (godkjente lister, uforanderlige og idempotente på id; opptil 48 KB hver). Vokser uten tak |
 | `docs` | JSON for `plan` og `innstillinger`, versjon, hvem som endret sist (offentlig id), tidspunkt | Etiketter for spiseprofiler (fritekst ≤ 40) ligger her |
 
-**Lagres aldri på serveren** (verifisert i `server/sync/api.ts` og `src/sync/docs.ts`; serveren avviser dokumenter med ukjente felt): postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`), det gamle matskapsfeltet, tilbud fra Tjek (holdes bare i serverens minne i seks timer og lagres ikke på disk), passord, e-post, navn og posisjon.
+**Lagres aldri på serveren** (verifisert i `server/sync/api.ts` og `src/sync/docs.ts`; serveren avviser dokumenter med ukjente felt): postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`), det gamle matskapsfeltet, passord, e-post, navn og posisjon.
 
 **Vær ærlig om det indirekte:** at kostkrav ikke er et felt på serveren, betyr ikke at serveren ikke kan si noe om kosthold. Planen (hvilke retter), handlelisten og beholdningen viser hva husstanden spiser og kjøper, og manuelle linjer og etiketter er fritekst. En husstand som bare planlegger vegetarmiddager, eller kjøper «glutenfri» pasta, avslører det til den som leser databasen. Dette er et skjønnsspørsmål for fagpersonen (se avsnitt 3 og 8).
 
 ### Data som ikke er persondata om brukerne
-Tilbud hentes av **serveren** fra Tjek på varenavn. Ingen brukerdata sendes til Tjek, og Tjek ser bare serverens IP-adresse. Katalogdata og demodata (butikker, priser, oppskrifter) er ikke personopplysninger. Merk: demodata skal alltid være merket som demodata (CLAUDE.md regel 5).
+Tilbud hentes av **serveren** fra Tjek på varenavn, periodisk, uavhengig av hvem som bruker appen. Ingen brukerdata sendes til Tjek, og Tjek ser bare serverens IP-adresse. Tilbud og priser lagres på serveren i en egen fil (`OFFER_DB`) uten persondata: ingen husstand, enhet, IP eller tidspunkt for når noen så på dem (`docs/synk.md`, «Tilbud fra Tjek»). Lese-endepunktet `/api/offers/lagret` er anonymt; ratebegrensningen holder IP-adresser bare i minnet i ett minutt. Katalogdata og demodata (butikker, priser, oppskrifter) er ikke personopplysninger. Merk: demodata skal alltid være merket som demodata (CLAUDE.md regel 5).
 
 ## 3. Når artikkel 9 kommer inn
 
@@ -107,7 +107,7 @@ Beholdningsloggen er en hendelseslogg (`src/engine/inventory.ts`). Sletting av h
 | Utvikler | Kode og testdata, **ikke** produksjonsdata som hovedregel | Feilsøking i produksjon bare når nødvendig og dokumentert |
 | Redaktør (oppskrifter, varekoblinger) | Katalog, ikke husstandsdata | Egen rolle uten tilgang til husstander |
 | Hostingleverandør (databehandler) | Teknisk tilgang til infrastruktur | Underlagt databehandleravtale |
-| Tjek, Kassalapp | Ingen husstandsdata | Serveren sender bare varesøk. Tilbud lagres aldri |
+| Tjek, Kassalapp | Ingen husstandsdata | Serveren sender bare varesøk. Tilbud og priser fra Tjek lagres på serveren i en egen fil uten persondata (`docs/synk.md`, «Tilbud fra Tjek») |
 
 Prinsipp: minst mulig tilgang, navngitte personer, og en liste over hvem som har tilgang som oppdateres ved endringer. **[Eier fører listen.]**
 

@@ -83,7 +83,7 @@ Valgene tilsvarer alternativene i `docs/hosting.md`.
 | Feilsporing/logging som tjeneste | Hvis brukt | Kan inneholde IP, feildata | Unngå eller vurder som databehandler; ikke send kostkrav |
 | Betaling/abonnement | Fase 2–3 | Ja | Egen vurdering før den bygges. Leverandør kan være egen behandlingsansvarlig |
 | KI-leverandør | Fase 3 | Ja | Egen vurdering (minst mulig kontekst, ingen trening på våre data) |
-| Tjek | Live tilbud | **Nei** (serveren sender bare varesøk) | Dette er en datakilde, ikke en databehandler. Rettighetsavtalen er et eget spor |
+| Tjek | Tilbud og priser (hentes periodisk og lagres på serveren uten persondata) | **Nei** (serveren sender bare varesøk) | Dette er en datakilde, ikke en databehandler. Rettighetsavtalen er et eget spor |
 | Kassalapp | Prisdata | Nei | Samme |
 
 ## 4. Register

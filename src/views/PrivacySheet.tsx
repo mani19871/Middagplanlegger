@@ -85,7 +85,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
       </ul>
       <p className="fine">Etiketter og egne handlelinjer er fritekst. Skriv ikke navn eller helseopplysninger der. Planen og handlelista
         kan likevel si noe om hva dere spiser.</p>
-      <p className="fine">Tilbud hentes av serveren fra Tjek og holdes bare i minnet. Ingenting om deg eller husstanden sendes med.</p>
+      <p className="fine">Tilbud hentes av serveren fra Tjek og lagres der uten noe om deg eller husstanden. Ingenting om deg eller husstanden sendes til Tjek.</p>
 
       <h3>Hvem ser det</h3>
       <ul className="plain">

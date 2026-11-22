@@ -9,7 +9,7 @@ const URL_ = `http://127.0.0.1:${PORT}/`;
 let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`); if (!c) fails++; };
 (async () => {
   // Direkte med node (ikke npx), så kill() stopper selve serveren og porten blir ledig.
-  const srv = spawn(process.execPath, process.env.BUILT_SERVER === '1' ? ['dist-server/index.mjs'] : ['--import', 'tsx', 'server/index.ts'], { stdio: 'ignore', env: { ...process.env, PORT: String(PORT), SYNC_DB: ':memory:', SYNC_SECRET: 'csp-sjekk' } });
+  const srv = spawn(process.execPath, process.env.BUILT_SERVER === '1' ? ['dist-server/index.mjs'] : ['--import', 'tsx', 'server/index.ts'], { stdio: 'ignore', env: { ...process.env, PORT: String(PORT), SYNC_DB: ':memory:', SYNC_SECRET: 'csp-sjekk', OFFER_DB: ':memory:', TJEK_FETCH: process.env.TJEK_FETCH ?? '0' } });
   try {
     for (let i = 0; i < 100; i++) { try { if ((await fetch(URL_)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
     const head = await fetch(URL_);

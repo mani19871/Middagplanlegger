@@ -32,9 +32,9 @@ AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for op
 | Hvilke enheter som er med: en tilfeldig enhets-id, en etikett du velger («Voksen 2»), når enheten ble med og sist var i bruk (avrundet til minutt), og en kode som bare lagres i uleselig form (sha256) | Koble enhetene til samme husstand og vite hvem som har krysset av | Til husstanden slettes. Fjernes en enhet, blir en tom «rad» med id og etikett liggende til husstanden slettes [dette skal endres] |
 | Tidspunkt for hver endring, satt av enheten din (enhetens klokke), og når serveren mottok den | Riktig rekkefølge når enheter har vært uten nett | Samme |
 
-**Bare på enheten din (sendes ikke til oss):** postnummer, allergier og kostkrav (vegetar, valgte allergener, matvarer som skal unngås), tilbud, og en kopi av alt over. Enheten din lagrer også nøkkelen som viser at den er med i husstanden.
+**Bare på enheten din (sendes ikke til oss):** postnummer, allergier og kostkrav (vegetar, valgte allergener, matvarer som skal unngås), og en kopi av alt over. Enheten din lagrer også nøkkelen som viser at den er med i husstanden.
 
-**Vi lagrer ikke:** e-post, passord, navn, adresse, posisjon, bilder, kvitteringer, tilbud fra butikkenes aviser.
+**Vi lagrer ikke:** e-post, passord, navn, adresse, posisjon, bilder, kvitteringer. Tilbud og priser fra Tjek lagres på serveren, men de handler om varer og sier ingenting om deg eller husstanden.
 
 | Annet | Hvorfor | Hvor lenge |
 | --- | --- | --- |

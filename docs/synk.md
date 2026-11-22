@@ -48,7 +48,7 @@ Planmotoren (`src/engine/`) er uendret og kjenner ikke synk.
 
 Alle tabeller har `ON DELETE CASCADE` fra `households`, og `PRAGMA secure_delete` er på, så sletting overskriver innholdet i databasefilen.
 
-**Lagres aldri på serveren:** tilbud fra Tjek (bare i minnet i `server/index.ts`), postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`, mulige helseopplysninger, se `docs/personvern/06-samtykke-helsekost.md`), passord, e-post, navn, posisjon. Serveren avviser dokumenter med ukjente felt.
+**Lagres aldri i synk-databasen:** tilbud fra Tjek (de lagres i en egen tilbudsdatabase uten husstandsdata, se «Tilbud fra Tjek» under, og synkes aldri mellom enheter). **Lagres aldri på serveren:** postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`, mulige helseopplysninger, se `docs/personvern/06-samtykke-helsekost.md`), passord, e-post, navn, posisjon. Serveren avviser dokumenter med ukjente felt.
 
 ## API
 
@@ -118,6 +118,18 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 - **Fjernet, forlatt eller slettet:** neste synk får `401`; enheten kobles fra, beholder dataene sine og viser en melding. «Slett husstanden» kan også slette alt lokalt.
 - **Handlemodus:** knapp i Handlelista for stor tekst og store avkrysningsfelt.
 
+## Tilbud fra Tjek (egen lagring, ikke synk)
+
+Brukeren opplyser (2026-11-22) at Tjek-avtalen tillater lagring av priser (`phase0/tjek-avtale.md`; avtalen er fortrolig, og hvor lenge priser kan lagres, er ikke kjent for oss). Tilbudene lagres derfor på serveren, men **helt utenfor synk-modellen**:
+
+- **Egen fil og egen tabell:** `OFFER_DB` (standard `$DATA_DIR/tilbud.sqlite`), tabellene `offer_observations` og `offer_meta` (`server/offers/sqlite.ts`, grensesnitt `OfferStore` i `server/offers/types.ts`, async som `SyncStorage`, så en annen database kan settes inn). Ingen husstand, enhet, token, etikett, IP eller annen persondata (testet i `server/offers/store.test.ts` og `src/acceptance/regler.test.ts`). Ikke med i husstandens eksport (det er ikke husstandsdata) og ikke i sikkerhetskopien av `middag.sqlite`.
+- **Én rad per observasjon, idempotent på (kilde, id):** kilde, id, kjede (normalisert), land (geografisk omfang: kjeden i hele landet; Tjek skiller ikke på utsalg), forhandler, overskrift og beskrivelse (trengs for kobling og vilkårsord), pris og førpris i øre, mengde/enhet/stykk, gyldighet (norske datoer), status (`tilbud` med kjent pris, ellers `ukjent`), første og siste observasjon. Samme innhold på nytt flytter bare «sist sett» fram; nytt innhold (f.eks. ny pris) under samme id får ny første observasjon; en eldre observasjon overskriver aldri en nyere.
+- **Observasjonsdato** er når Tjek viste prisen (`observed` fra `TjekSource`, aldri lesetiden), klippet til mottakstid hvis den ligger fram i tid. Lese-endepunktet tar bare med priser sett innenfor `MAX_PRICE_AGE_DAYS` (14) dager, og klienten (`toHints` med handledag) dropper hint fra priser sett mer enn 14 dager før handledagen. En gammel pris blir aldri dagens tilbud (regel 2).
+- **Periodisk henting** (`server/offers/collector.ts`): ved oppstart og hver `OFFER_REFRESH_HOURS` (standard 6). Feil gir bakoff 5, 10, 20 … minutter, aldri lenger enn intervallet. Alle kall mot Tjek (også fra live-visningen) går gjennom et kallbudsjett (`OFFER_MAX_CALLS_PER_DAY`, standard 1000 per norsk døgn; én runde er ca. 80 kall med 0,5 s mellom); er det brukt opp, ventes et helt intervall. Tjeks offentlige tak er 8 000 000 kall per måned per land (§ 8.5); vår avtales grense er ikke kjent for oss.
+- **Oppbevaring:** etter hver vellykkede runde slettes utløpte rader som ikke er sett på `OFFER_RETENTION_DAYS` dager (standard 180, `0` = aldri). Gyldige tilbud slettes aldri.
+- **Lese-endepunkt:** `GET /api/offers/lagret` (anonymt, se `docs/sikkerhet.md`, S21) gir samme form som live (`LiveResponse`) med `stored: true`, `observed` (siste vellykkede henting), `oldestObserved` og `truncated`. Klienten (`fetchLiveOffers` i `src/offers/client.ts`) bruker det når svaret er `ok`, ellers live (`/api/offers`, i minnet). Med lagring på holdes live-visningen oppdatert av innsamleren og henter ikke selv. `OFFER_STORE=0` gir oppførselen fra før (bare minnet); `TJEK_FETCH=0` slår av alle kall til Tjek (tester og røyktest), men serverer det som er lagret.
+- **Synkes aldri:** tilbud ligger aldri i `AppState`, utboksen eller noen synkstrøm. En linje fra et tilbud i handlelista har bare varen og kjeden (`PapersView`).
+
 ## Sikkerhet
 
 - Enhetstoken: 32 tilfeldige byte (base64url). Bare sha256 lagres; oppslag på hash. Sendes i `Authorization: Bearer`, aldri i URL. Ingen informasjonskapsler, så CSRF er ikke relevant; serveren sender ingen CORS-hoder (bare samme opprinnelse).
@@ -160,6 +172,12 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 | `SYNC_MAX_TOTAL_MB` | 4096 | Tak for alle husstanders hendelser samlet |
 | `SYNC_RETENTION_DAYS` | 730 | Husstander uten aktivitet i så mange dager slettes automatisk (`0` = av; ugyldig verdi gir 730 og en advarsel). Eierens valg for piloten (2026-11-22): `730`, nå også standarden i koden og satt i `docs/drift/env.eksempel`. Se «Oppbevaringstid» |
 | `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
+| `OFFER_DB` | `$DATA_DIR/tilbud.sqlite` | Egen databasefil for tilbud fra Tjek (`:memory:` for test). Aldri synk-databasen |
+| `OFFER_STORE` | på | `0` slår av lagringen (tilbud bare i minnet, som før) |
+| `TJEK_FETCH` | på | `0` slår av alle kall til Tjek; det som er lagret, serveres fortsatt |
+| `OFFER_REFRESH_HOURS` | 6 | Timer mellom henting (minst 1) |
+| `OFFER_RETENTION_DAYS` | 180 | Utløpte tilbud som ikke er sett på så mange dager, slettes (`0` = aldri). Hvor lenge avtalen tillater, er ikke kjent for oss |
+| `OFFER_MAX_CALLS_PER_DAY` | 1000 | Kallbudsjett mot Tjek per norsk døgn |
 
 `node:sqlite` er innebygd i Node 22 og er eksperimentell (skriver en «ExperimentalWarning» ved start; versjonen er festet i `Dockerfile`, se `docs/hosting.md`, «node:sqlite»). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører, aldri `cp` av bare hovedfilen (WAL); krypter kopien. Ferdig skript (`VACUUM INTO` + age-kryptering), Docker Compose med Caddy og gjenopprettingsprosedyre: `docs/drift/` og `docs/hosting.md`, avsnitt 8.
 

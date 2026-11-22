@@ -63,7 +63,8 @@ export default function App() {
       try {
         const r = await fetchLiveOffers();
         if (stop) return;
-        if (r.status === 'ok') setHints(toHints(r.offers, catalog.ingredients));
+        // Med handledagen: en lagret pris som ikke er sett på over MAX_PRICE_AGE_DAYS dager, gir ikke hint (prices.ts).
+        if (r.status === 'ok') setHints(toHints(r.offers, catalog.ingredients, undefined, shopDate()));
         else if (r.status === 'loading') timer = setTimeout(load, 5000);
       } catch { /* ingen tilbudsserver: planlegg uten tilbud */ }
     };
