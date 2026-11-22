@@ -1,0 +1,9 @@
+HUSVETT · LOGOPAKKE A · 1.0
+Hustak med pipe over handlekurv. Vektorformene følger det opprinnelige designarket. Bokstavene er tegnet som kurver og krever ingen installert skrifttype.
+Farger: skoggrønn #103E28 og varm krem #FAF6EE. Bruk grønn på lys bakgrunn, hvit på mørk bakgrunn, sort ved ensfarget gjengivelse.
+SVG: logo med navn, symbol alene og kvadratiske ikonoriginaler. PNG: transparent logo og symbol. Appikoner har heldekkende krembakgrunn.
+Trykk: vektor-PDF i RGB. Be trykkeriet konvertere med profil for papir og trykkmetode.
+Nett: kopier ikonfilene, slå icons-listen sammen med eksisterende manifest og bruk apple-touch-icon.png og favicon.ico i sidens head.
+iOS: legg AppIcon.appiconset i Assets.xcassets. Settet inneholder en heldekkende universell original på 1024 piksler.
+Android: flett res-mappene inn i appens ressurser. Launcherikonet heter @mipmap/ic_launcher. Sett også roundIcon til dette hvis appen bruker en separat rund ikonreferanse.
+Anbefalt frirom rundt logoen: minst en fjerdedel av symbolhøyden. Bruk symbolet alene i svært små flater. Skaler alltid proporsjonalt.
