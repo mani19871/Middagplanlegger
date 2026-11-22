@@ -4,7 +4,7 @@ Dato: 2026-11-22 (oppdatert samme dag etter Plattform-prosjektets kartlegging). 
 
 ## Kort svar
 
-Husvett skal installeres nå på samme server som plattformprosjektet (eierens beslutning 2026-11-22; eieren har bekreftet at alle tilganger er hans egne). Port 80 og 443 er ledige, så Husvett får sin egen Caddy (**vei A**), bundet til serverens **offentlige** adresse alene (`PUBLIC_BIND_IP`), fordi Plattforms testmiljø skal bruke port 443 på WireGuard-adressen. Husvett har fem deler som må være på plass: isolasjon, eget domene, egen backup, en tilgangsliste og en avtale om vedlikehold. I tillegg er serveren i dag behandlet som **testserver** (se «STOPP» under).
+Husvett skal installeres nå på samme server som plattformprosjektet (eierens beslutning 2026-11-22; eieren har bekreftet at alle tilganger er hans egne). Port 80 og 443 er ledige, så Husvett får sin egen Caddy (**vei A**), bundet til serverens **offentlige** adresse alene (`PUBLIC_BIND_IP`), fordi Plattforms testmiljø skal bruke port 443 på WireGuard-adressen. Husvett har fem deler som må være på plass: isolasjon, eget domene, egen backup, en tilgangsliste og en avtale om vedlikehold. I tillegg er serveren i dag behandlet som **testserver** (se «STOPP» under). **Status 2026-11-22 (sent):** installasjonen er påbegynt av en økt på eierens PC (vei A, bruker `husvett-drift`, ikke fullført; **rapportert, ikke kontrollert av oss**), og eieren har akseptert risikoen ved testserveren skriftlig (C17). Se `installasjon-ubuntu.md` 0B for status og navneavvik (`husvett_…` i stedet for `middagsplanlegger_…`). Plattform-koordinatoren følger ikke lenger opp Husvett: spørsmål går via eieren.
 
 Min anbefaling står fast: bruk den delte serveren i en kort test med familie, og flytt Husvett til en egen server før andre inviteres. Husvett er pakket i Docker, så flytting er enkel (guidens 0A.4), og backup tas uavhengig av plattformen.
 
@@ -22,6 +22,7 @@ Min anbefaling står fast: bruk den delte serveren i en kort test med familie, o
 - **Ikke kartlagt ennå:** ledig disk og minne, IPv6, tidssone, planlagte Docker-oppryddingsjobber. Lesepakke for eieren: guidens 0A.2.
 - Fra eierens skjermbilde (før kartleggingen): servere i Europa, **land og datasenter ikke bekreftet**; «additional resources active» er ikke avklart.
 - IP-adressen skal ikke skrives i repoet eller i delte dokumenter.
+- **Nye funn fra installasjonsøkta (2026-11-22; rapportert, ikke kontrollert av oss; stemmer ikke med det Plattform opplyste):** `administrator` har `sudo` **uten passord** i `sudoers.d`; `AllowUsers` står i **to linjer** (én med bare `mani`, én med `mani koordinator husvett-drift`); og det finnes en ny bruker `husvett-drift` (eier `/srv/husvett`, tilgangsnivå ikke opplyst). Kontroller med T1 i lesepakken.
 
 Ressursmessig er serveren mer enn stor nok. Husvett er begrenset til 2 GB minne og 2 kjerner i oppsettet vårt.
 
@@ -34,6 +35,8 @@ Ressursmessig er serveren mer enn stor nok. Husvett er begrenset til 2 GB minne 
 | **Port 22 er åpen mot hele internett** | Alle med root kan lese Husvetts database; SSH er døren dit. Nøkkel-innlogging og `fail2ban` demper, men flaten er stor. Pilot-sjekkliste C1 sier «22 bare fra kjente adresser» | Begrens SSH til kjente adresser (one.coms brannmur eller `ufw`), eller bare over WireGuard; behold nøkkel-innlogging og `fail2ban`. Prøv ny regel i en ekstra SSH-økt før den gamle lukkes, og ha one.coms nettkonsoll som reservevei |
 | **`koordinator` har full `sudo` uten passord** (til 29.11.2026) | En Claude-økt for et annet prosjekt kan lese og endre Husvetts data uten passord. Må føres i tilgangslisten | Fjern brukeren (eller `sudo`-retten og `AllowUsers`-linjen) **før** ekte familiedata, senest 29.11.2026. Kontroller etterpå med T1 i lesepakken |
 | **`administrator` har aktivt passord og `sudo`** | Et passord som kan brukes lokalt (one.coms nettkonsoll) gir root. Slipper ikke inn over SSH (opplyst) | Lås passordet (`passwd -l administrator`) eller fjern `sudo`, etter avklaring med one.com om de trenger brukeren; ellers sterkt, unikt passord i passordhåndtereren og to-faktor på one.com-kontoen. **Før** passordet låses: kontroller at `mani` kan logge inn i one.coms nettkonsoll (reserveveien hvis SSH stenger deg ute) |
+
+**Eierens beslutning 2026-11-22 (kl. 18:15 UTC, artifact-spørsmål 40):** «Jeg aksepterer risikoen skriftlig og inviterer familie nå», uten kommentar. Ført inn i pilot-sjekklisten C17 som **eierens aksept av risikoen** i de tre forholdene over (og funnet om `administrator` uten passord). **Tiltakene står som anbefalt, ikke utført.** Aksepten gjelder bare C17.
 
 **I tillegg:** Husvett inviterer ingen ekte familier før **alle** andre STOPP-punkter i pilot-sjekklisten er krysset av eller avtalt bort skriftlig (bl.a. personvern, databehandleravtale, backup og gjenopprettingsøvelse).
 
@@ -71,7 +74,7 @@ Guiden har eksakte oppsett for både Nginx og Caddy, og sier at du skal ta sikke
 
 ## 5. Det som blir felles, og risikoen
 
-- **Administratortilgang:** alle med root eller Docker-tilgang på serveren kan lese Husvett-data. De må føres på en tilgangsliste, og det er et stopp-punkt (pilot-sjekklisten C16). Tilgangslisten etter Plattforms opplysning (ikke kontrollert av oss): `mani` (eier), `koordinator` (Plattforms Claude-økt, full `sudo` uten passord, midlertidig til 29.11.2026), `administrator` (one.coms standardbruker, passord og `sudo`, ikke SSH) og **one.com** som leverandør (konsoll og maskinvare). Se også STOPP i 1b.
+- **Administratortilgang:** alle med root eller Docker-tilgang på serveren kan lese Husvett-data. De må føres på en tilgangsliste, og det er et stopp-punkt (pilot-sjekklisten C16). Tilgangslisten etter Plattforms opplysning (ikke kontrollert av oss): `mani` (eier), `koordinator` (Plattforms Claude-økt, full `sudo` uten passord, midlertidig til 29.11.2026), `administrator` (one.coms standardbruker, passord og `sudo`; installasjonsøkta rapporterer `sudo` uten passord, ikke SSH ifølge Plattform), **`husvett-drift`** (ny, rapportert av installasjonsøkta; tilgangsnivå ikke opplyst) og **one.com** som leverandør (konsoll og maskinvare). Se også STOPP i 1b.
 - **Felles feil:** en omstart eller en oppdatering av serveren tar ned begge tjenester. `unattended-upgrades` er aktiv. Omstarter avtales med eieren, og **eieren varsles** før planlagte omstarter og Docker-oppgraderinger (guidens 0A.3). Husvett starter selv igjen (`restart: unless-stopped`), men kontrolleres etter hver omstart.
 - **Port 80/443 og Plattforms planer:** Plattform planla å stenge 80/443 etter testfasen. Det går ikke så lenge Husvett ligger der. Merk at en `ufw`-regel ikke stenger Husvett (Docker-porter går forbi `ufw`), mens en stenging i one.coms brannmur gjør det.
 - **Sikkerhetshull i plattformen** kan nå Husvett. Isolasjonen i guiden reduserer risikoen, men er ikke et skille som en egen server gir.
@@ -122,7 +125,7 @@ Disse står også i artifacten «Beslutninger» (spørsmål 33–37):
 
 1. Resultatet av lesepakken (guidens 0A.2): disk, minne, IPv6/NAT, tidssone, oppryddingsjobber, tilgang og `unattended-upgrades`.
 2. ~~Godtar plattformprosjektet deling?~~ Besvart: eieren har bekreftet installasjonen; eieren varsles før endringer og omstarter. Gjenstår: er Plattform innforstått med at 80/443 ikke kan stenges mens Husvett ligger der?
-3. Tilgang er opplyst (`mani`, `koordinator` til 29.11.2026, `administrator`, one.com). Hvilke herdingstiltak (1b) gjøres før ekte familiedata, og når?
+3. Tilgang er opplyst (`mani`, `koordinator` til 29.11.2026, `administrator`, `husvett-drift`, one.com). Eieren har akseptert risikoen skriftlig (2026-11-22); hvilke herdingstiltak (1b) gjøres likevel, og når? Har `husvett-drift` `sudo` eller `docker`?
 4. Skriftlig databehandleravtale med one.com, og hvor ligger serveren og eventuelle øyeblikksbilder?
 5. Er domenet registrert i AVVR AS sitt navn?
 6. Hvem er de to nøkkelholderne for backup, og hvor skal kopiene ligge?
