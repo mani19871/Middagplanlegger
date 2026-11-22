@@ -265,8 +265,10 @@ describe('historikk og planversjoner', () => {
   };
 
   it('utløpt tilbud: opprinnelig anslag står i historikken, nytt anslag vises som avvik til brukeren velger', () => {
-    const before = ctx({}, { shopDate: '2026-11-23' });
-    const after = ctx({}, { shopDate: '2026-11-24' });
+    // Demokatalogens laksetilbud er satt til 2099; her utløper det 23.11.
+    const expiring: Catalog = { ...testCatalog, prices: testCatalog.prices.map((p) => (p.productId === 'laks400' && p.storeId === 'demoA' ? { ...p, validUntil: '2026-11-23' } : p)) };
+    const before = ctx({}, { catalog: expiring, shopDate: '2026-11-23' });
+    const after = ctx({}, { catalog: expiring, shopDate: '2026-11-24' });
     const v1 = v(before, 'v1', t(1), 'godkjent');
     const laks1 = v1.lines.find((l) => l.ingredient === 'laks')!;
     expect(laks1).toMatchObject({ status: 'tilbud', costOre: 9990, validUntil: '2026-11-23' });

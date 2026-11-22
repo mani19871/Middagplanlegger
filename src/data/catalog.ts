@@ -175,6 +175,8 @@ export const stores: Store[] = [
 ];
 
 const OBS = '2026-11-17';
+// Demodata: laksetilbudet er oppdiktet og settes langt frem, så demoen ikke mister laks når handledagen passerer. Ekte tilbud har ekte utløpsdato.
+const DEMO_OFFER_UNTIL = '2099-12-31';
 const o = (productId: string, storeId: string, ore: number, status: PriceObs['status'] = 'ordinær', validUntil?: string): PriceObs =>
   ({ productId, storeId, ore, status, source: 'Demodata', observed: OBS, validUntil });
 const priceTable: [string, number, number | null][] = [
@@ -191,7 +193,7 @@ const priceTable: [string, number, number | null][] = [
   ['blk600', 3490, 2990], ['kal1000', 2290, 1890], ['soya150', 2490, 2190], ['nud250', 1990, 1590],
 ];
 export const prices: PriceObs[] = priceTable.flatMap(([p, a, b]) => [
-  o(p, 'demoA', a, p === 'laks400' ? 'tilbud' : 'ordinær', p === 'laks400' ? '2026-11-23' : undefined),
+  o(p, 'demoA', a, p === 'laks400' ? 'tilbud' : 'ordinær', p === 'laks400' ? DEMO_OFFER_UNTIL : undefined),
   ...(b === null ? [] : [o(p, 'demoB', b, p === 'spin200' ? 'estimat' : 'ordinær')]),
 ]);
 

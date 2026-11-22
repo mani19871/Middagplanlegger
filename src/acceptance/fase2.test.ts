@@ -131,15 +131,22 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
   });
 
   // ---- Rettet hull og kjente hull. ----
-  it('utløpt katalog-tilbud (PriceObs.validUntil < handledagen) brukes ikke som dagens pris (rettet i planner.ts etter melding fra kontrollør)', () => {
-    // Demodata: laks i butikk A er «tilbud» til og med 2026-11-23.
-    const priceOn = (day: string) => buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: day })).lines.find((x) => x.ingredient === 'laks')!;
-    expect(priceOn('2026-11-23').status).toBe('tilbud'); // siste gyldige dag
-    const expired = priceOn('2026-11-24');
-    expect(expired.status).toBe('ukjent'); // aldri «tilbud», og ikke stilltiende en annen pris
+  it('utløpt katalog-tilbud (PriceObs.validUntil < handledagen) brukes ikke som dagens pris, og uten handledag er oppførselen uendret', () => {
+    const c = (shopDate?: string) => ({ catalog: miniCatalog({ prices: [['pa', 'S1', 3000, 'tilbud', '2026-11-23'], ['pb', 'S1', 2000]] }), settings: miniSettings(), shopDate });
+    const line = (shopDate?: string) => buildBasket(R1, ['S1'], c(shopDate)).lines.find((x) => x.ingredient === 'a')!;
+    expect(line('2026-11-23').status).toBe('tilbud'); // siste gyldige dag
+    expect(line().status).toBe('tilbud'); // uten handledag: som før
+    const expired = line('2026-11-24');
+    expect(expired.status).toBe('ukjent'); // aldri «tilbud», og ikke nedgradert til estimat
     expect(expired.costOre).toBeNull();
-    expect(buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2026-11-24' })).complete).toBe(false);
+    expect(buildBasket(R1, ['S1'], c('2026-11-24')).complete).toBe(false);
+    expect(budgetAnswer(buildBasket(R1, ['S1'], c('2026-11-24')), 1_000_000)).toBe('ufullstendig');
   });
+  it('demokatalogens laksetilbud er satt langt frem (demodata), så laks ikke forsvinner fra demoen', () => {
+    const l = buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2027-06-01' })).lines.find((x) => x.ingredient === 'laks')!;
+    expect(l.status).toBe('tilbud');
+  });
+  it.todo('Tilbud med validFrom etter handledagen hoppes over: PriceObs har ingen validFrom i dag, så kommende katalogtilbud kan ikke uttrykkes ennå');
   it.todo('HULL: tilbud fra en kjede/region som ikke dekker husstandens butikker gir ingen rabatt (OfferHint har ingen butikk eller område)');
 });
 

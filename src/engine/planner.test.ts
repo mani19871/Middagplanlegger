@@ -34,8 +34,9 @@ describe('planmotor', () => {
     expect(alt.combo === null || alt.combo.complete).toBe(true);
   });
   it('en pris med utløpt gyldighet (utløpt tilbud) brukes aldri på handledagen', () => {
-    // Laks i Demo Nærbutikk er demotilbud til 23.11. og har ingen annen pris der.
-    const laks = (shopDate: string) => buildBasket([slot(0, 'lakseris')], ['demoA'], { ...ctx(), shopDate }).lines.find((l) => l.ingredient === 'laks')!;
+    // Demokatalogens laksetilbud er satt til 2099; her gjøres det om til et tilbud som utløper 23.11. (ingen annen pris i butikken).
+    const expiring = { ...catalog, prices: catalog.prices.map((p) => (p.productId === 'laks400' && p.storeId === 'demoA' ? { ...p, validUntil: '2026-11-23' } : p)) };
+    const laks = (shopDate: string) => buildBasket([slot(0, 'lakseris')], ['demoA'], { ...ctx(), catalog: expiring, shopDate }).lines.find((l) => l.ingredient === 'laks')!;
     expect(laks('2026-11-23')).toMatchObject({ status: 'tilbud', costOre: 9990 });
     expect(laks('2026-11-24')).toMatchObject({ status: 'ukjent', costOre: null });
   });
