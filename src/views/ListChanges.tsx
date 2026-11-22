@@ -28,8 +28,8 @@ export interface ChangeKit {
 export function useChangeKit(
   state: AppState, update: (f: (s: AppState) => AppState) => void, ctx: Ctx, storeIds: string[], base: Basket, week: string,
 ): { basket: AdjustedBasket; kit: ChangeKit } {
-  const log = state.listChanges;
-  const history = state.planHistory;
+  const log = useMemo(() => state.listChanges ?? [], [state.listChanges]);
+  const history = useMemo(() => state.planHistory ?? [], [state.planHistory]);
   const changes = useMemo(() => activeChanges(log, week), [log, week]);
   const pin = activePin(history, week, state.slots, state.approved);
   const basket = useMemo(() => applyChanges(base, changes, week, ctx, pin), [base, changes, week, ctx, pin]);
@@ -39,22 +39,23 @@ export function useChangeKit(
   const needs = needsApprovalVersion(history, week, state.slots, state.approved);
   useEffect(() => {
     if (!needs) return;
-    update((s) => (needsApprovalVersion(s.planHistory, week, s.slots, s.approved)
-      ? { ...s, planHistory: addVersion(s.planHistory, snapshot(unpinned, s.slots, { ...stamp(), week, reason: 'godkjent' }, ctx)) }
+    update((s) => (needsApprovalVersion(s.planHistory ?? [], week, s.slots, s.approved)
+      ? { ...s, planHistory: addVersion(s.planHistory ?? [], snapshot(unpinned, s.slots, { ...stamp(), week, reason: 'godkjent' }, ctx)) }
       : s));
   }, [needs, unpinned, week, ctx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const record: ChangeKit['record'] = (e, reason, note, slots) => update((s) => {
-    const nextLog = applyChange(s.listChanges, e);
-    if (nextLog === s.listChanges) return s; // samme hendelse to ganger: ingen endring
+    const prevLog = s.listChanges ?? [];
+    const nextLog = applyChange(prevLog, e);
+    if (nextLog === prevLog) return s; // samme hendelse to ganger: ingen endring
     const ss = slots ?? s.slots;
     const b = applyChanges(buildBasket(ss, storeIds, ctx), activeChanges(nextLog, week), week, ctx, pin);
-    return { ...s, slots: ss, listChanges: nextLog, planHistory: addVersion(s.planHistory, snapshot(b, ss, { ...stamp(), week, reason, note }, ctx)) };
+    return { ...s, slots: ss, listChanges: nextLog, planHistory: addVersion(s.planHistory ?? [], snapshot(b, ss, { ...stamp(), week, reason, note }, ctx)) };
   });
   const acceptPrices = () => update((s) => ({
-    ...s, planHistory: addVersion(s.planHistory, snapshot(unpinned, s.slots, { ...stamp(), week, reason: 'nye-priser', note: driftNote(drift) }, ctx)),
+    ...s, planHistory: addVersion(s.planHistory ?? [], snapshot(unpinned, s.slots, { ...stamp(), week, reason: 'nye-priser', note: driftNote(drift) }, ctx)),
   }));
-  const keepPrices = () => { if (pin) update((s) => ({ ...s, planHistory: addVersion(s.planHistory, keepVersion(pin, drift, { ...stamp(), note: driftNote(drift) })) })); };
+  const keepPrices = () => { if (pin) update((s) => ({ ...s, planHistory: addVersion(s.planHistory ?? [], keepVersion(pin, drift, { ...stamp(), note: driftNote(drift) })) })); };
   return { basket, kit: { week, ctx, storeIds, slots: state.slots, base, changes, pin, unpinned, drift, history, record, acceptPrices, keepPrices } };
 }
 

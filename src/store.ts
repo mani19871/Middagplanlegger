@@ -36,7 +36,7 @@ export interface AppState {
   /** Melding til brukeren om synk (f.eks. at enheten er fjernet fra husstanden). */
   syncNotice: string | null;
   /** «Utsolgt / fant ikke»-valg i handlelista (idempotent på id) og planversjoner med årsak. Se engine/substitution.ts. */
-  listChanges: ListChange[]; planHistory: PlanVersion[];
+  listChanges?: ListChange[]; planHistory?: PlanVersion[];
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
