@@ -113,3 +113,4 @@ main:focus { outline:none; }
 .bigbtn b { display:block; } .bigbtn small { display:block; color:var(--mut); font-size:.85rem; margin-top:2px; }
 .bigbtn .warntext, .warntext { color:#6b4500; }
 .driftlist { margin:6px 0; padding-left:18px; } .driftlist li { margin:4px 0; }
+.list .main { min-width:0; } .list .main .pill { max-width:100%; white-space:normal; }
