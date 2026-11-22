@@ -74,7 +74,7 @@ export class SqliteStorage implements SyncStorage {
   }
 
   async members(householdId: string): Promise<DeviceRow[]> {
-    return (this.db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE household_id = ? ORDER BY created_at, id`).all(householdId) as unknown as DeviceDb[]).map(toDevice);
+    return (this.db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE household_id = ? ORDER BY created_at, rowid`).all(householdId) as unknown as DeviceDb[]).map(toDevice);
   }
 
   async setLabel(householdId: string, deviceId: string, label: string): Promise<void> {
@@ -134,7 +134,7 @@ export class SqliteStorage implements SyncStorage {
     return this.tx(() => {
       const me = this.device(deviceId);
       this.db.prepare("UPDATE devices SET token_hash = NULL, revoked_at = ?, role = 'voksen' WHERE id = ? AND household_id = ?").run(now, deviceId, householdId);
-      const rest = this.db.prepare('SELECT id, role FROM devices WHERE household_id = ? AND revoked_at IS NULL ORDER BY created_at, id')
+      const rest = this.db.prepare('SELECT id, role FROM devices WHERE household_id = ? AND revoked_at IS NULL ORDER BY created_at, rowid')
         .all(householdId) as { id: string; role: string }[];
       if (rest.length === 0) {
         this.db.prepare('DELETE FROM households WHERE id = ?').run(householdId);
@@ -189,6 +189,13 @@ export class SqliteStorage implements SyncStorage {
         updated_by = excluded.updated_by, updated_at = excluded.updated_at`).run(householdId, name, version + 1, body, seq, updatedBy, now);
       return { ok: true, version: version + 1 };
     });
+  }
+
+  /** Antall rader per tabell (til tester og drift; inneholder ikke data). */
+  counts(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const t of ['households', 'devices', 'invites', 'events', 'docs']) out[t] = (this.db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n;
+    return out;
   }
 
   async close(): Promise<void> { this.db.close(); }
