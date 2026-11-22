@@ -3,6 +3,10 @@
 **Status:** research, 2026-11-22. Ikke juridisk rådgivning. Ingen avtale er inngått, ingen henvendelse er sendt, og ingen oppskrifter er lagt inn eller endret.
 **Bakgrunn:** Eieren har bestemt (2026-11-22) at Husvett skal skrive egne oppskrifter og utvide i omganger, og ba om research på oppskrifter vi kan bruke («Matprat ol.; kan selvfølgelig referere til dem eventuelt»). Appen har i dag 31 enkle demooppskrifter (`src/data/catalog.ts`, se `docs/fase1-status.md`). Regel 6 i `CLAUDE.md`: bare avtalte eller lisensierte oppskrifter.
 
+## Eierens beslutning etter researchen (2026-11-22)
+
+Eieren har bestemt at Husvett kan bruke oppskrifter fra nettet, og vil selv innhente tillatelsene som trengs. Inntil en kilde har gitt skriftlig tillatelse, kopieres ingenting fra den kilden (regel 6). Søknadspakken, importrutinen og status for egne oppskrifter står i `docs/oppskrifter-tillatelser.md`. Omgang 1 med 25 egne oppskrifter er lagt inn som KI-utkast som ikke er testkokt. Spørsmål 1 i kapittel 7 er dermed besvart for omgang 1: Claude-utkast godtas, og de merkes med opphav.
+
 ## Kort oppsummert
 
 **Hovedfunn**

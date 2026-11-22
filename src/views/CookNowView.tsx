@@ -9,6 +9,7 @@ import { portionsOnDay, type Ctx } from '../engine/planner';
 import { amount, kr, num } from '../engine/format';
 import { manualLines } from '../sync/list';
 import { recipeAllergenText } from './allergenText';
+import { RecipeOriginNote, recipeBaseText } from './RecipeOrigin';
 import { isoDate } from './dates';
 import { priceStatusText } from './priceText';
 import { ING_EMOJI } from './art';
@@ -183,8 +184,8 @@ export default function CookNowView({ state, update, ctx }: Props) {
       </div>
 
       <h2>Forslag</h2>
-      <p className="fine">Oppskriftsbasen er liten: {result.recipeCount} enkle demooppskrifter laget for denne demoen, ingen fra andre kilder.
-        Forslagene blir derfor få.{result.excludedByRequirement > 0 && ` ${result.excludedByRequirement} rett${result.excludedByRequirement === 1 ? '' : 'er'} er skjult av allergi- eller kostfilteret.`}
+      <p className="fine">{recipeBaseText(catalog.recipes)}
+        {' '}Forslagene blir derfor få.{result.excludedByRequirement > 0 && ` ${result.excludedByRequirement} rett${result.excludedByRequirement === 1 ? '' : 'er'} er skjult av allergi- eller kostfilteret.`}
         {result.excludedByTime > 0 && ` ${result.excludedByTime} tar for lang tid.`}</p>
       <div role="status" aria-live="polite">
         {result.empty === 'ingen-varer' && <div className="notice">Ingen varer er krysset av. Kryss av eller legg til det dere har hjemme, så kommer forslagene.</div>}
@@ -232,6 +233,7 @@ export default function CookNowView({ state, update, ctx }: Props) {
               </>
             ) : <p className="pill ok">Alt finnes hjemme</p>}
             <p className="allergen">{recipeAllergenText(s.recipe, catalog)}</p>
+            <RecipeOriginNote recipe={s.recipe} />
             {s.recipe.steps.length > 0 && (
               <details className="steps"><summary>Slik lager du den</summary>
                 <ol>{s.recipe.steps.map((t, i) => <li key={i}>{t}</li>)}</ol></details>

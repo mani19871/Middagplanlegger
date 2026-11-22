@@ -449,6 +449,117 @@
       "fiberPer100g": 3,
       "saltPer100g": 0,
       "ediblePercent": 100
+    },
+    "hodekal": {
+      "foodId": "06.037",
+      "foodName": "Hodekål, norsk, rå",
+      "kcalPer100g": 27,
+      "proteinPer100g": 1.2,
+      "fatPer100g": 0,
+      "carbsPer100g": 4.5,
+      "fiberPer100g": 2,
+      "saltPer100g": 0,
+      "ediblePercent": 92
+    },
+    "purre": {
+      "foodId": "06.284",
+      "foodName": "Purreløk, rå",
+      "kcalPer100g": 29,
+      "proteinPer100g": 1.5,
+      "fatPer100g": 0,
+      "carbsPer100g": 3.8,
+      "fiberPer100g": 4,
+      "saltPer100g": 0,
+      "ediblePercent": 83
+    },
+    "erter": {
+      "foodId": "06.027",
+      "foodName": "Erter, fryst",
+      "kcalPer100g": 65,
+      "proteinPer100g": 4.9,
+      "fatPer100g": 0.4,
+      "carbsPer100g": 6,
+      "fiberPer100g": 9,
+      "saltPer100g": 0,
+      "ediblePercent": 100
+    },
+    "sotpotet": {
+      "foodId": "06.136",
+      "foodName": "Søtpotet, rå",
+      "kcalPer100g": 80,
+      "proteinPer100g": 1.6,
+      "fatPer100g": 0.1,
+      "carbsPer100g": 16.8,
+      "fiberPer100g": 3,
+      "saltPer100g": 0.1,
+      "ediblePercent": 72
+    },
+    "kyllinglar": {
+      "foodId": "03.332",
+      "foodName": "Kylling, lår (overlår og lårklubbe), uten skinn, rå",
+      "kcalPer100g": 131,
+      "proteinPer100g": 18,
+      "fatPer100g": 6.6,
+      "carbsPer100g": 0,
+      "fiberPer100g": 0,
+      "saltPer100g": 0.2,
+      "ediblePercent": 74
+    },
+    "svinefilet": {
+      "foodId": "03.209",
+      "foodName": "Svin, indrefilet, rå",
+      "kcalPer100g": 124,
+      "proteinPer100g": 23,
+      "fatPer100g": 3.5,
+      "carbsPer100g": 0.2,
+      "fiberPer100g": 0,
+      "saltPer100g": 0.1,
+      "ediblePercent": 100
+    },
+    "farikalkjott": {
+      "foodId": "03.218",
+      "foodName": "Lam, fårikålkjøtt, rå",
+      "kcalPer100g": 194,
+      "proteinPer100g": 18.4,
+      "fatPer100g": 13.4,
+      "carbsPer100g": 0.1,
+      "fiberPer100g": 0,
+      "saltPer100g": 0.2,
+      "ediblePercent": 80
+    },
+    "kjottpolse": {
+      "foodId": "03.145",
+      "foodName": "Kjøttpølse, kjøpt",
+      "kcalPer100g": 201,
+      "proteinPer100g": 10.2,
+      "fatPer100g": 16.5,
+      "carbsPer100g": 2.3,
+      "fiberPer100g": 1,
+      "saltPer100g": 2.2,
+      "ediblePercent": 100
+    },
+    "matflote": {
+      "foodId": "01.175",
+      "foodName": "Matfløte, 18 % fett",
+      "kcalPer100g": 189,
+      "proteinPer100g": 3,
+      "fatPer100g": 18,
+      "carbsPer100g": 3.7,
+      "fiberPer100g": 0,
+      "saltPer100g": 0.1,
+      "ediblePercent": 100,
+      "gramsPerMl": 1
+    },
+    "tomatpure": {
+      "foodId": "06.080",
+      "foodName": "Tomatpuré",
+      "kcalPer100g": 84,
+      "proteinPer100g": 4.8,
+      "fatPer100g": 0.2,
+      "carbsPer100g": 14.5,
+      "fiberPer100g": 2,
+      "saltPer100g": 1,
+      "ediblePercent": 100
     }
   }
 }

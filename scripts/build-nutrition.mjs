@@ -12,11 +12,14 @@ const MAP = {
   svinekotelett: '03.083', svinedeig: '03.348', flesk: '03.090', lammedeig: '03.479', reker: '04.098', sei: '04.029',
   hyse: '04.110', sild: '04.382', makrell: '04.378', kikerter: '06.128', tofu: '06.704', sopp: '06.062', blomkal: '06.016',
   kalrot: '06.041', soyasaus: '10.126', nudler: '05.222',
+  // Egne oppskrifter, omgang 1. Kyllinglår og fårikålkjøtt er med ben (spiselig andel fra Matvaretabellen).
+  hodekal: '06.037', purre: '06.284', erter: '06.027', sotpotet: '06.136', kyllinglar: '03.332', svinefilet: '03.209',
+  farikalkjott: '03.218', kjottpolse: '03.145', matflote: '01.175', tomatpure: '06.080',
 };
 // Omregning til gram, hentet fra matvarens egne porsjonsopplysninger der de finnes.
 // Oppskriftene bruker filet, ikke hel fisk, så spiselig andel settes til 100 %.
 const EDIBLE_OVERRIDE = { torsk: 100, sei: 100, hyse: 100, sild: 100 };
-const PORTION = { lok: ['stk', 'stk'], paprika: ['stk', 'stk'], egg: ['stk', 'stk'], tortilla: ['stk (liten)', 'stk'], kokosmelk: ['desiliter', 'dl'], romme: ['desiliter', 'dl'], soyasaus: ['desiliter', 'dl'] };
+const PORTION = { lok: ['stk', 'stk'], paprika: ['stk', 'stk'], egg: ['stk', 'stk'], tortilla: ['stk (liten)', 'stk'], kokosmelk: ['desiliter', 'dl'], romme: ['desiliter', 'dl'], soyasaus: ['desiliter', 'dl'], matflote: ['desiliter', 'dl'] };
 
 // FOODS_JSON=<fil> bruker en lokal kopi av foods.json (nyttig bak proxy der Node-fetch ikke virker).
 let data;

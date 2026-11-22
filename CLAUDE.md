@@ -22,6 +22,11 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Fase 0 er en port: uten dokumentert dekning bygger vi ikke videre som planlagt. Rapporter funn ærlig, også når dekningen er dårlig.
 - Commit på brukerens utviklingsbranch. Ikke lag PR uten å bli bedt om det. Kjør `npm run check:git` før push: den feiler på usporede eller ignorerte filer under `src/`, `server/`, `scripts/`, `public/` (`.gitignore` ignorerer bare `/data/` i rota).
 
+## Oppskrifter (`src/data/catalog.ts`, `docs/oppskrifter-tillatelser.md`)
+- Hver oppskrift har `origin` (`RecipeOrigin`): `demo`, `egen` (egne ord og mengder, ikke kopiert) eller `lisensiert` (krever `credit`, https-`url`, `license` og et avsnitt for rettighetshaveren i `THIRD_PARTY.md`; testet med `originProblems`). Status `utkast` til testkokt, `godkjent` først når en redaktør har kontrollert, også allergener. `by` er rolle eller «KI-utkast (Claude)», aldri personnavn.
+- Eieren (2026-11-22): oppskrifter fra nettet kan brukes når eieren har innhentet skriftlig tillatelse fra kilden. Før det kopieres ingenting (tekst, ingredienslister, bilder) og ingen nettsider skrapes. Import følger rutinen i `docs/oppskrifter-tillatelser.md`. Allergener settes alltid av oss ut fra varene, aldri fra kildens tekst.
+- Nye varer trenger produkt, demopris (regel 5) og næring (`scripts/build-nutrition.mjs`).
+
 ## Tilbudskilder (`src/offers/`)
 - Eksterne tilbud går gjennom `OfferSource` og normaliseres til øre og standardenheter. Planmotoren kjenner ikke kildene.
 - Et tilbud gir bare rabatt når det er gyldig på **handledagen** og vare, pris, mengde og vilkår er kjent. Uavklart går til kontroll (`needsReview`).

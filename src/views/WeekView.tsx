@@ -13,6 +13,7 @@ import { DAYS, kr, num } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import { recipeAllergenText } from './allergenText';
+import { RecipeOriginNote } from './RecipeOrigin';
 import PlanForm from './PlanForm';
 import OfferTotalNote from './OfferTotalNote';
 import { ChangesNote, type ChangeKit } from './ListChanges';
@@ -271,6 +272,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
               <small>⏱ {recipe(sheetSlot.recipeId).minutes} min</small>
               <small className="allergen">{allergens(sheetSlot.recipeId)}</small></span></div>
             <details className="steps"><summary>Fremgangsmåte</summary><ol>{recipe(sheetSlot.recipeId).steps.map((t) => <li key={t}>{t}</li>)}</ol></details>
+            <RecipeOriginNote recipe={recipe(sheetSlot.recipeId)} />
             {(() => { const n = nutr(sheetSlot.recipeId); return (
               <div className="fine">Næring per porsjonstype, ca. (veiledende):
                 {groups.map((g) => { const x = scaleNutrition(n, g.f); return (

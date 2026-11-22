@@ -30,7 +30,7 @@ describe('Lag nå (visning)', () => {
   it('uten varer: tydelig tom tilstand og ærlig om den lille oppskriftsbasen', () => {
     const t = render();
     expect(t).toContain('Ingen varer er krysset av');
-    expect(t).toContain(`Oppskriftsbasen er liten: ${catalog.recipes.length} enkle demooppskrifter`);
+    expect(t).toContain(`Oppskriftsbasen er liten: ${catalog.recipes.length} oppskrifter skrevet for Husvett, ingen fra andre kilder.`);
     expect(t).toContain('lagres på denne enheten');
   });
 
@@ -44,6 +44,8 @@ describe('Lag nå (visning)', () => {
     expect(t).toContain('Demopriser, ikke en garanti for sluttpris');
     expect(t).toContain('Legg manglende på handlelista');
     expect(t).toContain('Inneholder: gluten'); // allergentekst på hver rett
+    expect(t).toContain('Demooppskrift (utkast, ikke testkokt)'); // opphav på hver rett (regel 6)
+    expect(t).toContain('Husvett-oppskrift (utkast, ikke testkokt)');
     // Samme regel som regler.test.ts, men på teksten brukeren faktisk ser: løfteord står bare i benektende setninger.
     const promises = t.split(/(?<=[.!?])\s+/).filter((x) => /garant|allergenfri|fri for allergener|sluttpris|billigst/i.test(x));
     expect(promises.length).toBeGreaterThan(0);

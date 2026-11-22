@@ -9,9 +9,26 @@ export type Allergen =
 export type FoodTag = 'storfe' | 'svin' | 'lam' | 'kylling' | 'fisk' | 'skalldyr' | 'belgvekster' | 'notter';
 export interface Ingredient { id: string; name: string; unit: Unit; department: string; staple?: boolean; tags?: FoodTag[] }
 export interface RecipeLine { ingredient: string; amount: number }
+/**
+ * Hvor en oppskrift kommer fra (regel 6). Motoren bruker det ikke; det vises i appen og kontrolleres i catalog.test.ts.
+ * - `demo`: laget for demoen. `egen`: skrevet for Husvett med egne ord og mengder, ikke kopiert fra noen kilde.
+ * - `lisensiert`: fra en kilde med skriftlig tillatelse; krever `credit`, `url` og `license`, og en oppføring i THIRD_PARTY.md.
+ */
+export interface RecipeOrigin {
+  kind: 'demo' | 'egen' | 'lisensiert';
+  /** Hvem som skrev den (rolle eller «KI-utkast (Claude)», aldri personnavn), eller rettighetshaver for `lisensiert`. */
+  by: string;
+  /** ISO-dato da oppskriften ble skrevet eller tillatelsen gjelder fra. */
+  date: string;
+  /** `utkast`: ikke testkokt. `testkokt`: laget minst én gang. `godkjent`: kontrollert av redaktør, også allergener. */
+  status: 'utkast' | 'testkokt' | 'godkjent';
+  /** Bare for `lisensiert`: kreditering slik kilden krever den, lenke til originalen og kort vilkårstekst. */
+  credit?: string; url?: string; license?: string;
+}
 export interface Recipe {
   id: string; name: string; minutes: number; baseServings: number;
   vegetarian: boolean; protein: string; allergens: Allergen[]; steps: string[]; lines: RecipeLine[];
+  origin?: RecipeOrigin;
 }
 export interface Product { id: string; ingredient: string; name: string; size: number; allergens: Allergen[]; allergenKnown: boolean }
 export interface PriceObs {

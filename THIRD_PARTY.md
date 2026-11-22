@@ -11,3 +11,6 @@ Tilbud, priser, produktbilder og avissider fra Tjek/etilbudsavis brukes etter sk
 `src/data/nutrition.json` er generert fra https://www.matvaretabellen.no/api/ med `scripts/build-nutrition.mjs`.
 Matvaretabellen ber om å bli oppgitt som kilde, og oppdateres hver høst. Regenerer data etter hver årlige oppdatering.
 Dataene gjelder generelle matvarer, ikke bestemte ferdigvarer, og brukes ikke til allergenstatus.
+
+## Oppskrifter
+Ingen oppskrifter fra andre kilder er tatt inn (per 2026-11-22). Alle oppskrifter i `src/data/catalog.ts` er demooppskrifter eller egne oppskrifter skrevet for Husvett, og hver har `origin`. En oppskrift med `origin.kind: 'lisensiert'` krever et avsnitt her for rettighetshaveren (testet i `catalog.test.ts`). Avsnittet skal si hva tillatelsen dekker, kreditering, varighet og om det er brukerens opplysning eller avtaletekst vi har sett. Se `docs/oppskrifter-tillatelser.md`.

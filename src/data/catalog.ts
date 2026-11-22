@@ -1,6 +1,6 @@
 // DEMODATA: oppdiktede butikker og priser for å vise hvordan appen fungerer.
 // Ekte prisdata avklares i fase 0 (Kassalapp, Tjek, kjedeavtaler).
-import type { Catalog, FoodTag, Ingredient, PriceObs, Product, Recipe, Store } from '../engine/types';
+import type { Catalog, FoodTag, Ingredient, PriceObs, Product, Recipe, RecipeOrigin, Store } from '../engine/types';
 
 const I = (id: string, name: string, unit: Ingredient['unit'], department: string, staple = false, tags: FoodTag[] = []): Ingredient =>
   ({ id, name, unit, department, staple, tags });
@@ -26,19 +26,29 @@ export const ingredients: Ingredient[] = [
   I('sopp', 'Sjampinjong', 'g', 'Frukt og grønt'), I('blomkal', 'Blomkål', 'g', 'Frukt og grønt'),
   I('kalrot', 'Kålrot', 'g', 'Frukt og grønt'), I('soyasaus', 'Soyasaus', 'ml', 'Krydder'),
   I('nudler', 'Hvetenudler (tørre)', 'g', 'Tørrvarer'),
+  // Lagt til 2026-11-22 for de egne oppskriftene (omgang 1).
+  I('hodekal', 'Hodekål', 'g', 'Frukt og grønt'), I('purre', 'Purre', 'g', 'Frukt og grønt'),
+  I('erter', 'Grønne erter (frosne)', 'g', 'Frysevarer'), I('sotpotet', 'Søtpotet', 'g', 'Frukt og grønt'),
+  I('kyllinglar', 'Kyllinglår (med ben, uten skinn)', 'g', 'Kjøtt og fisk', false, ['kylling']),
+  I('svinefilet', 'Svinefilet', 'g', 'Kjøtt og fisk', false, ['svin']),
+  I('farikalkjott', 'Fårikålkjøtt (lam, med ben)', 'g', 'Kjøtt og fisk', false, ['lam']),
+  I('kjottpolse', 'Kjøttpølse', 'g', 'Kjøtt og fisk', false, ['svin', 'storfe']),
+  I('matflote', 'Matfløte', 'ml', 'Meieri'), I('tomatpure', 'Tomatpuré', 'g', 'Hermetikk'),
   I('salt', 'Salt og pepper', 'g', 'Krydder', true), I('olje', 'Matolje', 'ml', 'Tørrvarer', true),
 ];
 
 // Allergenmerking (demodata): `allergens` er typiske allergener etter EUs 14-liste. `allergenKnown: false` betyr at
 // innholdet ikke er avklart og kan ha flere allergener enn oppgitt; slike varer godkjennes aldri ved aktivt allergifilter.
 // En rett skal alltid dekke allergenene til alle varer den bruker (testet i catalog.test.ts). Ved tvil: allergenKnown=false.
+// Opphav (regel 6, se RecipeOrigin og docs/oppskrifter-research.md). Ingen oppskrift her er kopiert fra en annen kilde.
+const DEMO: RecipeOrigin = { kind: 'demo', by: 'Demodata (skrevet for demoen)', date: '2026-11-22', status: 'utkast' };
 const R = (
   id: string, name: string, minutes: number, vegetarian: boolean, protein: string,
-  allergens: Recipe['allergens'], lines: [string, number][], steps: string[],
+  allergens: Recipe['allergens'], lines: [string, number][], steps: string[], origin: RecipeOrigin = DEMO,
 ): Recipe => ({ id, name, minutes, baseServings: 4, vegetarian, protein, allergens, steps,
-  lines: lines.map(([ingredient, amount]) => ({ ingredient, amount })) });
+  lines: lines.map(([ingredient, amount]) => ({ ingredient, amount })), origin });
 
-export const recipes: Recipe[] = [
+const demoRecipes: Recipe[] = [
   R('bolognese', 'Spagetti bolognese', 35, false, 'storfe', ['gluten'],
     [['pasta', 400], ['kjottdeig', 400], ['tomat', 800], ['lok', 1], ['olje', 20], ['salt', 5]],
     ['Stek løk og kjøttdeig.', 'Tilsett tomat og la småkoke i 20 min.', 'Kok pasta og server.']),
@@ -135,6 +145,114 @@ export const recipes: Recipe[] = [
     ['Del blomkål og poteter i biter og bak 25 min på 200 °C.', 'Strø over revet ost og bak 8 min til.']),
 ];
 
+// Egne oppskrifter, omgang 1 (2026-11-22): vanlige norske hverdagsretter skrevet med egne ord og egne mengder etter
+// eierens beslutning. KI-utkast, ikke testkokt og ikke godkjent av redaktør; mengder og tider må kontrolleres ved testkoking.
+const OWN1: RecipeOrigin = { kind: 'egen', by: 'KI-utkast (Claude)', date: '2026-11-22', status: 'utkast' };
+const E = (...a: Parameters<typeof R>) => R(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], OWN1);
+const ownRecipes: Recipe[] = [
+  E('farikal', 'Fårikål', 150, false, 'lam', [],
+    [['farikalkjott', 1500], ['hodekal', 1200], ['poteter', 1000], ['salt', 15]],
+    ['Del kålen i båter.', 'Legg kjøtt og kål lagvis i en vid gryte, med salt og hel pepper mellom lagene.',
+      'Hell på vann til det står et stykke opp i gryta, og la det småkoke under lokk i ca. 2 timer, til kjøttet slipper beinet.',
+      'Kok poteter og server sammen med kraften.']),
+  E('lapskaus', 'Lys lapskaus med flesk', 70, false, 'svin', [],
+    [['flesk', 400], ['poteter', 1000], ['gulrot', 400], ['kalrot', 400], ['purre', 200], ['lok', 1], ['salt', 5]],
+    ['Skjær flesket i terninger og la det koke i lettsaltet vann i 20 min.', 'Skrell og del poteter, gulrot og kålrot i terninger, og hakk løk og purre.',
+      'Ha grønnsakene i gryta og kok videre til potetene blir møre og noe av dem koker ut, ca. 30 min.', 'Smak til med salt og pepper.']),
+  E('polsegryte', 'Pølsegryte med ris', 25, false, 'svin', ['gluten', 'melk'],
+    [['kjottpolse', 500], ['tomat', 400], ['matflote', 200], ['lok', 1], ['paprika', 1], ['ris', 300], ['olje', 15]],
+    ['Sett ris på koking.', 'Skjær pølse, løk og paprika i biter og stek dem i en gryte.', 'Tilsett tomat og fløte og la det putre i 10 min.', 'Server med ris.']),
+  E('pyttipanne', 'Pytt i panne med speilegg', 25, false, 'svin', ['gluten', 'melk', 'egg'],
+    [['poteter', 1000], ['kjottpolse', 400], ['lok', 2], ['egg', 4], ['olje', 30], ['salt', 5]],
+    ['Kok potetene nesten møre, eller bruk kokte poteter fra dagen før.', 'Skjær poteter, pølse og løk i små terninger.',
+      'Stek alt i en stor panne til potetene får farge, ca. 15 min.', 'Stek speilegg og legg på toppen.']),
+  E('kyllinglar', 'Ovnsbakte kyllinglår med søtpotet', 50, false, 'kylling', [],
+    [['kyllinglar', 1200], ['sotpotet', 800], ['brokkoli', 300], ['olje', 30], ['salt', 5]],
+    ['Skjær søtpotet i båter og vend dem i olje, salt og pepper.', 'Legg kyllinglår og søtpotet i en langpanne og bak i ca. 40 min på 200 °C.',
+      'Legg brokkoli i langpanna de siste 10 minuttene.', 'Kjøttet er ferdig når kjøttsaften er klar ved beinet.']),
+  E('kyllingpurre', 'Kylling i fløtesaus med purre', 35, false, 'kylling', ['melk'],
+    [['kylling', 500], ['purre', 300], ['gulrot', 300], ['matflote', 300], ['ris', 300], ['olje', 15]],
+    ['Sett ris på koking.', 'Skjær kylling i biter og brun dem i en gryte.', 'Tilsett purre og gulrot i skiver og stek et par minutter.',
+      'Hell på fløte og la det putre i 10 min, til kyllingen er gjennomstekt.']),
+  E('kyllingsuppe', 'Kyllingsuppe med grønnsaker', 40, false, 'kylling', [],
+    [['kylling', 400], ['poteter', 500], ['gulrot', 300], ['purre', 200], ['lok', 1], ['salt', 10]],
+    ['Kok opp ca. 1,5 liter vann med salt.', 'Ha i kylling i biter, løk og poteter og gulrot i terninger, og la det småkoke i 20 min.',
+      'Tilsett purre i ringer og kok 5 min til.', 'Smak til med salt og pepper.']),
+  E('sotpotetsuppe', 'Søtpotetsuppe med kikerter', 35, true, 'belgvekster', [],
+    [['sotpotet', 800], ['kikerter', 400], ['kokosmelk', 400], ['gulrot', 200], ['lok', 1], ['olje', 15], ['salt', 5]],
+    ['Fres hakket løk i olje.', 'Ha i søtpotet og gulrot i terninger og vann så det dekker, og kok til alt er mørt, ca. 20 min.',
+      'Kjør suppa jevn med kokosmelk.', 'Vend inn avrente kikerter, varm opp og smak til.']),
+  E('fiskegrateng', 'Fiskegrateng', 60, false, 'fisk', ['fisk', 'gluten', 'melk', 'egg'],
+    [['hyse', 500], ['pasta', 250], ['melk', 600], ['mel', 60], ['egg', 2], ['ost', 100], ['olje', 30], ['salt', 5]],
+    ['Kok pastaen litt kortere enn pakken sier.', 'Lag en jevning: varm olje og mel, spe med melk og kok til en tykk saus. Avkjøl litt og rør inn eggene.',
+      'Legg pasta og fisk i biter i en smurt form og hell sausen over.', 'Strø over revet ost og bak i ca. 35 min på 200 °C.']),
+  E('ovnslaks', 'Ovnsbakt laks med poteter og purre', 35, false, 'fisk', ['fisk'],
+    [['laks', 600], ['poteter', 800], ['purre', 300], ['olje', 20], ['salt', 5]],
+    ['Del poteter i båter og bak dem med olje og salt i 15 min på 220 °C.', 'Legg purre i skiver og laks i stykker over potetene.',
+      'Bak 12–15 min til, til laksen så vidt er gjennomstekt.']),
+  E('kokttorsk', 'Kokt torsk med poteter og gulrøtter', 30, false, 'fisk', ['fisk'],
+    [['torsk', 700], ['poteter', 900], ['gulrot', 400], ['salt', 30]],
+    ['Kok poteter og gulrøtter.', 'Kok opp vann med godt med salt, legg i torsken i stykker og trekk gryta av platen.',
+      'La fisken trekke i 6–8 min, til den flaker seg.', 'Server med poteter og gulrøtter.']),
+  E('seibiff', 'Seibiff med løk', 35, false, 'fisk', ['fisk', 'gluten'],
+    [['sei', 700], ['lok', 3], ['poteter', 900], ['mel', 40], ['olje', 40], ['salt', 5]],
+    ['Kok poteter.', 'Skjær løk i skiver og stek den myk og gyllen, og ta den ut av panna.',
+      'Vend seistykkene i mel med salt og pepper og stek dem 3–4 min på hver side.', 'Legg løken over og la det småkoke med en skvett vann i 2–3 min.']),
+  E('fiskegryte', 'Fiskegryte med tomat og paprika', 30, false, 'fisk', ['fisk'],
+    [['torsk', 500], ['tomat', 800], ['paprika', 1], ['lok', 1], ['ris', 300], ['olje', 15], ['salt', 5]],
+    ['Sett ris på koking.', 'Fres løk og paprika i olje.', 'Tilsett tomat og la det putre i 10 min.',
+      'Legg i fisken i biter og la den trekke under lokk i 6–8 min.']),
+  E('hysepurre', 'Hyse i fløtesaus med purre', 30, false, 'fisk', ['fisk', 'melk'],
+    [['hyse', 600], ['purre', 300], ['matflote', 300], ['poteter', 800], ['salt', 5]],
+    ['Kok poteter.', 'Skjær purre i ringer og la den surre myk i en vid panne.', 'Hell på fløte og kok opp.',
+      'Legg fisken i sausen og la den trekke under lokk i 6–8 min.']),
+  E('fiskekakererter', 'Fiskekaker med ertestuing', 30, false, 'fisk', ['fisk', 'gluten', 'melk', 'egg'],
+    [['fiskekaker', 500], ['erter', 400], ['melk', 400], ['mel', 40], ['poteter', 800], ['olje', 30], ['salt', 5]],
+    ['Kok poteter.', 'Lag en hvit saus: varm olje og mel, spe med melk og kok i 5 min.', 'Ha i ertene og varm dem i sausen.',
+      'Stek eller varm fiskekakene.']),
+  E('chili', 'Chili con carne', 45, false, 'storfe', [],
+    [['kjottdeig', 500], ['bonner', 400], ['tomat', 800], ['paprika', 1], ['lok', 1], ['ris', 300], ['olje', 15], ['salt', 5]],
+    ['Brun kjøttdeigen med hakket løk og paprika.', 'Tilsett tomat, bønner og chili eller krydder etter smak.',
+      'La det småkoke i 25 min.', 'Server med ris.']),
+  E('kjottdeigform', 'Kjøttdeigform med potetmos', 60, false, 'storfe', ['melk'],
+    [['kjottdeig', 500], ['gulrot', 300], ['tomatpure', 70], ['lok', 1], ['poteter', 1000], ['melk', 200], ['ost', 100], ['salt', 5]],
+    ['Kok poteter.', 'Brun kjøttdeig med hakket løk og revet gulrot, rør inn tomatpuré og litt vann og la det koke i 10 min.',
+      'Mos potetene med varm melk og salt.', 'Ha kjøttsausen i en form, legg mosen over, strø over ost og bak i 20 min på 200 °C.']),
+  E('kalgryte', 'Kålgryte med kjøttdeig og ris', 40, false, 'storfe', [],
+    [['kjottdeig', 500], ['hodekal', 600], ['tomat', 400], ['lok', 1], ['ris', 300], ['olje', 15], ['salt', 5]],
+    ['Sett ris på koking.', 'Brun kjøttdeig og løk.', 'Tilsett kål i strimler og tomat, og la det småkoke under lokk i 15 min, til kålen er myk.',
+      'Smak til og server med ris.']),
+  E('svinefilet', 'Svinefilet med søtpotet og brokkoli', 35, false, 'svin', [],
+    [['svinefilet', 600], ['sotpotet', 800], ['brokkoli', 300], ['olje', 30], ['salt', 5]],
+    ['Del søtpotet i biter og bak dem med olje og salt i 25 min på 200 °C.', 'Brun svinefileten på alle sider i en panne.',
+      'Legg den i langpanna de siste 12–15 minuttene, sammen med brokkoli.', 'La kjøttet hvile i 5 min før du skjærer det.']),
+  E('svinesopp', 'Svinefilet i fløtesaus med sopp', 30, false, 'svin', ['melk'],
+    [['svinefilet', 600], ['sopp', 250], ['matflote', 300], ['poteter', 800], ['olje', 15], ['salt', 5]],
+    ['Kok poteter.', 'Skjær svinefileten i medaljonger og stek dem 2–3 min på hver side, og ta dem ut.',
+      'Stek sopp i samme panne, hell på fløte og kok opp.', 'Legg kjøttet tilbake og la det trekke i 5 min.']),
+  E('lammekikert', 'Lammedeig med kikerter og tomat', 30, false, 'lam', [],
+    [['lammedeig', 500], ['kikerter', 400], ['tomat', 400], ['lok', 1], ['ris', 300], ['olje', 15], ['salt', 5]],
+    ['Sett ris på koking.', 'Brun lammedeig og løk.', 'Tilsett tomat og kikerter og la det putre i 15 min.', 'Server med ris.']),
+  E('vegtaco', 'Bønnetaco', 25, true, 'belgvekster', ['gluten', 'melk'],
+    [['bonner', 400], ['mais', 200], ['tortilla', 8], ['paprika', 1], ['ost', 150], ['romme', 200], ['olje', 15]],
+    ['Varm bønnene med litt olje og tacokrydder etter smak, og mos dem lett.', 'Del opp paprika og varm maisen.',
+      'Sett frem med lefser, ost og rømme.']),
+  E('frittata', 'Ovnsomelett med poteter og spinat', 30, true, 'egg', ['egg', 'melk'],
+    [['egg', 8], ['poteter', 500], ['spinat', 150], ['ost', 100], ['lok', 1], ['olje', 15], ['salt', 5]],
+    ['Kok potetene, eller bruk kokte poteter, og skjær dem i skiver.', 'Stek løk og poteter i en ildfast panne, og vend inn spinat.',
+      'Pisk egg med salt og hell over, og strø over ost.', 'Stek på svak varme i 5 min og bak ferdig i ovnen i ca. 10 min på 200 °C.']),
+  E('tofukarri', 'Tofu i kokoskarri med ris', 25, true, 'tofu', ['soya'],
+    [['tofu', 400], ['kokosmelk', 400], ['brokkoli', 300], ['paprika', 1], ['ris', 300], ['olje', 15]],
+    ['Sett ris på koking.', 'Stek tofu i terninger gyllen.', 'Tilsett paprika, brokkoli, karri og kokosmelk, og la det putre i 8 min.',
+      'Server med ris.']),
+  E('soppsuppe', 'Kremet soppsuppe', 30, true, 'sopp', ['melk'],
+    [['sopp', 500], ['poteter', 300], ['matflote', 300], ['melk', 400], ['lok', 1], ['olje', 15], ['salt', 5]],
+    ['Fres hakket løk og sopp i skiver i en gryte.', 'Ha i poteter i små terninger og melk, og la det småkoke i 15 min.',
+      'Rør inn fløte, og kjør gjerne halve suppa jevn.', 'Smak til med salt og pepper.']),
+];
+
+export const recipes: Recipe[] = [...demoRecipes, ...ownRecipes];
+
 const P = (id: string, ingredient: string, name: string, size: number, allergens: Product['allergens'] = [], allergenKnown = true): Product =>
   ({ id, ingredient, name, size, allergens, allergenKnown });
 export const products: Product[] = [
@@ -167,6 +285,13 @@ export const products: Product[] = [
   P('kal1000', 'kalrot', 'Kålrot 1 kg', 1000), P('soya150', 'soyasaus', 'Soyasaus 150 ml', 150, ['soya', 'gluten']),
   // Hvetenudler: ofte eggnudler; egg er ikke avklart.
   P('nud250', 'nudler', 'Hvetenudler 250 g', 250, ['gluten', 'egg'], false),
+  P('kal1200', 'hodekal', 'Hodekål 1 stk (ca. 1,2 kg)', 1200), P('purre300', 'purre', 'Purre 1 stk (ca. 300 g)', 300),
+  P('erter450', 'erter', 'Grønne erter, frosne 450 g', 450), P('sotp800', 'sotpotet', 'Søtpotet 800 g', 800),
+  P('kyll1000', 'kyllinglar', 'Kyllinglår 1 kg', 1000), P('svf600', 'svinefilet', 'Svinefilet 600 g', 600),
+  P('fari1500', 'farikalkjott', 'Fårikålkjøtt 1,5 kg', 1500),
+  // Kjøttpølse: innholdet varierer mellom merker (ofte melk, noen ganger hvete, sennep eller selleri); ikke avklart.
+  P('polse500', 'kjottpolse', 'Kjøttpølse 500 g', 500, ['gluten', 'melk'], false),
+  P('flote300', 'matflote', 'Matfløte 300 ml', 300, ['melk']), P('pure140', 'tomatpure', 'Tomatpuré 140 g', 140),
 ];
 
 export const stores: Store[] = [
@@ -191,6 +316,9 @@ const priceTable: [string, number, number | null][] = [
   ['reker300', 8990, null], ['sei400', 7490, 6990], ['hyse400', 8490, 7990], ['sild400', 5490, null],
   ['mak170', 2790, 2290], ['kik400', 1590, 1190], ['tofu400', 3290, null], ['sopp250', 3290, 2790],
   ['blk600', 3490, 2990], ['kal1000', 2290, 1890], ['soya150', 2490, 2190], ['nud250', 1990, 1590],
+  ['kal1200', 2990, 2490], ['purre300', 1990, 1690], ['erter450', 2490, 2190], ['sotp800', 3290, 2790],
+  ['kyll1000', 6990, 5990], ['svf600', 9990, 8990], ['fari1500', 29990, null], ['polse500', 4490, 3990],
+  ['flote300', 2490, 2190], ['pure140', 1490, 1190],
 ];
 export const prices: PriceObs[] = priceTable.flatMap(([p, a, b]) => [
   o(p, 'demoA', a, p === 'laks400' ? 'tilbud' : 'ordinær', p === 'laks400' ? DEMO_OFFER_UNTIL : undefined),

@@ -5,7 +5,10 @@ import { defaultSettings } from './defaults';
 import { recipeNutrition, type NutritionTable } from '../engine/nutrition';
 import { generatePlan, recipeTags } from '../engine/planner';
 import { ALLERGENS } from '../engine/allergens';
-import type { FoodTag, Settings } from '../engine/types';
+import type { FoodTag, Recipe, Settings } from '../engine/types';
+import { readFileSync } from 'node:fs';
+import { originProblems } from './recipeOrigin';
+import { recipeBaseText } from '../views/RecipeOrigin';
 
 const t = table.items as unknown as NutritionTable;
 const week = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 60 }));
@@ -84,5 +87,37 @@ describe('katalog (demodata)', () => {
       expect(n.kcal, r.id).toBeGreaterThan(150);
       expect(n.kcal, r.id).toBeLessThan(1100);
     }
+  });
+});
+
+describe('opphav (regel 6)', () => {
+  const thirdParty = readFileSync(new URL('../../THIRD_PARTY.md', import.meta.url), 'utf8');
+  const licensed: Recipe = { ...recipes[0], id: 'x', origin: { kind: 'lisensiert', by: 'Eksempelkilden AS', date: '2026-12-01', status: 'utkast',
+    credit: 'Oppskriften er hentet fra Eksempelkilden.', url: 'https://example.com/oppskrift', license: 'Skriftlig avtale 2026-12-01' } };
+
+  it('hver oppskrift har gyldig opphav, og ingen er lisensiert uten oppføring i THIRD_PARTY.md', () => {
+    for (const r of recipes) expect(originProblems(r, thirdParty), r.id).toEqual([]);
+  });
+  it('de egne oppskriftene er merket som KI-utkast som ikke er testkokt, og ingen har kilde eller lenke', () => {
+    const own = recipes.filter((r) => r.origin?.kind === 'egen');
+    expect(own.length).toBeGreaterThanOrEqual(25);
+    for (const r of own) {
+      expect(r.origin, r.id).toMatchObject({ by: 'KI-utkast (Claude)', status: 'utkast' });
+      expect(r.origin?.url, r.id).toBeUndefined();
+    }
+  });
+  it('en lisensiert oppskrift avvises uten kreditering, https-lenke, vilkår eller rettighetshaver i THIRD_PARTY.md', () => {
+    expect(originProblems(licensed, 'Eksempelkilden AS: avtale')).toEqual([]);
+    expect(originProblems(licensed, thirdParty).join()).toContain('står ikke i THIRD_PARTY.md');
+    const o = licensed.origin!;
+    expect(originProblems({ ...licensed, origin: { ...o, credit: '' } }, o.by).join()).toContain('uten kreditering');
+    expect(originProblems({ ...licensed, origin: { ...o, url: 'http://example.com/x' } }, o.by).join()).toContain('https-lenke');
+    expect(originProblems({ ...licensed, origin: { ...o, license: undefined } }, o.by).join()).toContain('uten vilkår');
+    expect(originProblems({ ...recipes[0], origin: undefined }, '').join()).toContain('mangler opphav');
+    expect(originProblems({ ...recipes[0], origin: { ...recipes[0].origin!, url: 'https://example.com/x' } }, '').join()).toContain('skal ikke ha kilde');
+  });
+  it('teksten om oppskriftsbasen sier hvor mange som er utkast og om noen er fra andre kilder', () => {
+    expect(recipeBaseText(recipes)).toBe(`Oppskriftsbasen er liten: ${recipes.length} oppskrifter skrevet for Husvett, ingen fra andre kilder. ${recipes.length} av dem er utkast som ikke er testkokt.`);
+    expect(recipeBaseText([...recipes, licensed])).toContain('og 1 fra kilder med tillatelse.');
   });
 });
