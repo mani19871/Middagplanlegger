@@ -10,7 +10,12 @@ import type { Settings, Slot } from '../engine/types';
 export type DocName = 'plan' | 'innstillinger';
 export const DOC_NAMES: DocName[] = ['plan', 'innstillinger'];
 export interface PlanDoc { slots: Slot[]; approved: boolean; option: 'regular' | 'combo' }
-export type SettingsDoc = Omit<Settings, 'pantry'>;
+/**
+ * Kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`) kan avsløre helseopplysninger (GDPR art. 9) og synkes
+ * ikke: de blir på hver enhet (docs/personvern/06-samtykke-helsekost.md). Serveren avviser dem i dokumentet.
+ */
+export const LOCAL_ONLY_SETTINGS = ['avoid', 'avoidFoods', 'vegetarian'] as const;
+export type SettingsDoc = Omit<Settings, 'pantry' | (typeof LOCAL_ONLY_SETTINGS)[number]>;
 export type DocBody = PlanDoc | SettingsDoc;
 
 /** Stabil JSON (sorterte nøkler), så like verdier alltid gir lik tekst. */
@@ -30,9 +35,9 @@ export function fieldsOf(name: DocName, body: DocBody): Record<string, unknown> 
     for (const s of p.slots) out[`slot:${s.day}`] = s;
     return out;
   }
-  const { ...rest } = body as SettingsDoc & { pantry?: unknown };
-  delete rest.pantry;
-  return rest as Record<string, unknown>;
+  const rest: Record<string, unknown> = { ...(body as SettingsDoc) };
+  for (const k of ['pantry', ...LOCAL_ONLY_SETTINGS]) delete rest[k];
+  return rest;
 }
 
 export function fromFields(name: DocName, f: Record<string, unknown>): DocBody {
@@ -74,7 +79,7 @@ const DAY_NAMES = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'
 const FIELD_TEXT: Record<string, string> = {
   approved: 'godkjenning', option: 'valg av handletur', eaters: 'hvem som spiser', days: 'dager og tid', budgetOre: 'budsjett',
   storeIds: 'butikker', regularStoreId: 'vanlig butikk', maxStops: 'antall stopp', extraStoreThresholdOre: 'grense for ekstra butikk',
-  vegetarian: 'vegetar', avoid: 'allergener', avoidFoods: 'kostkrav', useOffers: 'tilbud',
+  useOffers: 'tilbud',
 };
 /** Lesbar tekst for et felt, til konfliktvisningen. */
 export const fieldText = (k: string) => (k.startsWith('slot:') ? `middagen ${DAY_NAMES[Number(k.slice(5))] ?? k}` : FIELD_TEXT[k] ?? k);
@@ -87,8 +92,6 @@ const str = (v: unknown, max: number) => typeof v === 'string' && v.length >= 1 
 const int = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
 const num = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 const bool = (v: unknown) => typeof v === 'boolean';
-const ALLERGENS = ['gluten', 'melk', 'egg', 'fisk', 'skalldyr', 'blotdyr', 'soya', 'peanotter', 'notter', 'selleri', 'sennep', 'sesam', 'lupin', 'sulfitt'];
-const FOODS = ['storfe', 'svin', 'lam', 'kylling', 'fisk', 'skalldyr', 'belgvekster', 'notter'];
 
 function validSlot(s: unknown): boolean {
   if (!isObj(s) || !onlyKeys(s, ['day', 'recipeId', 'locked', 'extra', 'extraFor', 'lunchBox'])) return false;
@@ -111,20 +114,18 @@ export function isValidDoc(name: string, body: unknown): body is DocBody {
       && bool(body.approved) && (body.option === 'regular' || body.option === 'combo');
   }
   if (name === 'innstillinger') {
-    const keys = ['eaters', 'days', 'budgetOre', 'storeIds', 'regularStoreId', 'maxStops', 'extraStoreThresholdOre', 'vegetarian', 'avoid', 'useOffers', 'avoidFoods', 'pantry'];
+    // Ingen kostkrav eller allergier (LOCAL_ONLY_SETTINGS) og ingen matskap: de lagres aldri på serveren.
+    const keys = ['eaters', 'days', 'budgetOre', 'storeIds', 'regularStoreId', 'maxStops', 'extraStoreThresholdOre', 'useOffers'];
     if (!onlyKeys(body, keys)) return false;
-    if (body.pantry !== undefined && !(isObj(body.pantry) && Object.keys(body.pantry).length === 0)) return false;
-    const eaters = body.eaters, days = body.days, stores = body.storeIds, avoid = body.avoid, foods = body.avoidFoods;
+    const eaters = body.eaters, days = body.days, stores = body.storeIds;
     return Array.isArray(eaters) && eaters.length <= 12 && eaters.every((e) => isObj(e) && onlyKeys(e, ['id', 'label', 'portion', 'daysHome'])
         && str(e.id, 40) && str(e.label, 40) && num(e.portion, 0, 5)
         && Array.isArray(e.daysHome) && e.daysHome.length === 7 && e.daysHome.every(bool))
       && Array.isArray(days) && days.length === 7 && days.every((d) => isObj(d) && onlyKeys(d, ['enabled', 'maxMinutes']) && bool(d.enabled) && int(d.maxMinutes, 0, 600))
       && int(body.budgetOre, 0, 100_000_000)
       && Array.isArray(stores) && stores.length <= 20 && stores.every((s) => str(s, 40)) && str(body.regularStoreId, 40)
-      && (body.maxStops === 1 || body.maxStops === 2) && int(body.extraStoreThresholdOre, 0, 10_000_000) && bool(body.vegetarian)
-      && Array.isArray(avoid) && avoid.every((a) => ALLERGENS.includes(a as string))
-      && (body.useOffers === undefined || bool(body.useOffers))
-      && (foods === undefined || (Array.isArray(foods) && foods.every((f) => FOODS.includes(f as string))));
+      && (body.maxStops === 1 || body.maxStops === 2) && int(body.extraStoreThresholdOre, 0, 10_000_000)
+      && (body.useOffers === undefined || bool(body.useOffers));
   }
   return false;
 }

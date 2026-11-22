@@ -56,6 +56,8 @@ export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
       {more && (
         <div className="more">
           <label><input type="checkbox" checked={s.useOffers !== false} onChange={() => set({ useOffers: s.useOffers === false })} /> Planlegg rundt tilbud (når tilbudsdata er tilgjengelig)</label>
+          {state.sync && <p className="banner warn">Kostkrav og allergier deles ikke med husstanden (de kan være helseopplysninger) og
+            lagres bare på denne enheten. Legg dem inn på hver voksen enhet som lager eller endrer planen.</p>}
           <label><input type="checkbox" checked={s.vegetarian} onChange={() => set({ vegetarian: !s.vegetarian })} /> Bare vegetar (absolutt krav)</label>
           <p>Unngå allergener (absolutt krav):</p>
           {ALLERGENS.map((a) => (

@@ -7,6 +7,9 @@ import { SyncApi } from './api';
 import { connect, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { merge3 } from './docs';
 import { startTestServer } from '../../server/sync/testkit';
+import { createHash } from 'node:crypto';
+
+const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
 type Srv = Awaited<ReturnType<typeof startTestServer>>;
 let srv: Srv;
@@ -243,6 +246,19 @@ describe('plan og innstillinger', () => {
     const mine = { ...base, approved: false };
     const theirs = { ...base, approved: false, option: 'combo' as const };
     expect(merge3('plan', base, mine, theirs)).toEqual({ merged: { ...base, approved: false, option: 'combo' }, conflicts: [] });
+  });
+  it('kostkrav og allergier synkes ikke: de blir på hver enhet og når aldri serveren', async () => {
+    const { a, b } = await pair();
+    a.state = { ...a.state, settings: { ...a.state.settings, avoid: ['melk'], avoidFoods: ['svin'], vegetarian: true, budgetOre: 70_000 } };
+    b.state = { ...b.state, settings: { ...b.state.settings, avoid: ['peanotter'] } };
+    await a.sync(); await b.sync(); await a.sync();
+    expect(b.state.settings.budgetOre).toBe(70_000);
+    expect(b.state.settings).toMatchObject({ avoid: ['peanotter'], vegetarian: false });
+    expect(a.state.settings).toMatchObject({ avoid: ['melk'], avoidFoods: ['svin'], vegetarian: true });
+    const household = (await srv.storage.authenticate(sha(a.state.sync!.token), srv.now()))!.householdId;
+    const stored = await srv.storage.readSince(household, 0, 100);
+    expect(stored.docs.map((d) => d.name).sort()).toEqual(['innstillinger', 'plan']);
+    expect(stored.docs.map((d) => d.body).join('')).not.toMatch(/melk|svin|peanotter|vegetarian|avoid/);
   });
   it('ignorerer ugyldige eller eldre dokumentversjoner', async () => {
     const { b } = await withPlan();

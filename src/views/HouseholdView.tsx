@@ -59,7 +59,8 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
         <p>Del ukeplan, handleliste og matskap med en annen voksen på deres egne enheter. Appen virker som før uten husstand,
           og alt virker uten nett: endringer sendes når enheten er på nett igjen.</p>
         <p className="fine">Ingen passord eller e-post. Hver voksen enhet får en egen nøkkel. Vi lagrer bare det som trengs for å dele:
-          plan, innstillinger (etiketter som «Barn 1», porsjoner, dager), avkrysninger og matskap. Postnummeret blir på denne enheten.
+          plan, innstillinger (etiketter som «Barn 1», porsjoner, dager, budsjett, butikker), avkrysninger og matskap. Postnummer,
+          kostkrav og allergier blir på denne enheten.
           Bruk etiketter, ikke barns navn. Barn og gjester trenger ingen konto.</p>
         <label className="big" htmlFor="lbl">Hva skal denne enheten hete i husstanden? (valgfritt)</label>
         <input id="lbl" maxLength={24} placeholder="F.eks. Voksen 1" value={label} onChange={(e) => setLabel(e.target.value)} />
@@ -76,8 +77,8 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
           <label className="big" htmlFor="code">Invitasjonskode</label>
           <input id="code" autoComplete="off" autoCapitalize="characters" maxLength={20} placeholder="ABCDE-FGHJK" value={code}
             onChange={(e) => setCode(e.target.value)} style={{ fontSize: '1.3rem', letterSpacing: '.1em' }} />
-          <p className="fine">Husstandens ukeplan og innstillinger erstatter dem på denne enheten. Matskap og avkrysninger herfra
-            legges til husstanden, uten doble rader.</p>
+          <p className="fine">Husstandens ukeplan og innstillinger erstatter dem på denne enheten (kostkrav og allergier her beholdes).
+            Matskap og avkrysninger herfra legges til husstanden, uten doble rader.</p>
           <button className="cta" disabled={busy || code.replace(/[^a-z0-9]/gi, '').length !== 10} onClick={join}>Bli med</button>
         </div>
       </>

@@ -14,13 +14,15 @@ export interface SyncIO { get(): AppState; set(f: (s: AppState) => AppState): vo
 
 export function docBody(s: AppState, name: DocName): DocBody {
   if (name === 'plan') return { slots: s.slots, approved: s.approved, option: s.option };
-  const { pantry: _pantry, ...rest } = s.settings;
-  void _pantry;
+  // Uten matskap og uten kostkrav/allergier (LOCAL_ONLY_SETTINGS): de blir på enheten.
+  const { pantry: _p, avoid: _a, avoidFoods: _f, vegetarian: _v, ...rest } = s.settings;
+  void _p; void _a; void _f; void _v;
   return rest;
 }
 export function withDoc(s: AppState, name: DocName, body: DocBody): AppState {
   if (name === 'plan') { const p = body as PlanDoc; return { ...s, slots: p.slots, approved: p.approved, option: p.option }; }
-  return { ...s, settings: { ...defaultSettings, ...(body as SettingsDoc), pantry: {} } };
+  const local = { avoid: s.settings.avoid, avoidFoods: s.settings.avoidFoods, vegetarian: s.settings.vegetarian };
+  return { ...s, settings: { ...defaultSettings, ...(body as SettingsDoc), ...local, pantry: {} } };
 }
 export const isDirty = (s: AppState, name: DocName) => {
   const m = s.sync?.docs[name];

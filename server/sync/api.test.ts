@@ -225,6 +225,12 @@ describe('dokumenter', () => {
     expect(await code(A.putDoc('plan', 0, { ...plan('x'), ekstra: 'felt' } as never))).toBe('400 ugyldig_dokument');
     expect(await code(A.putDoc('innstillinger', 0, { eaters: [{ id: 'b1', label: 'x'.repeat(41), portion: 1, daysHome: [true, true, true, true, true, true, true] }] } as never))).toBe('400 ugyldig_dokument');
     expect(await code(A.putDoc('postnummer' as never, 0, plan('x')))).toBe('404 ikke_funnet');
+    // Kostkrav og allergier (mulige helseopplysninger) og matskap lagres aldri på serveren.
+    const settings = { eaters: [], days: Array.from({ length: 7 }, () => ({ enabled: true, maxMinutes: 30 })), budgetOre: 90_000, storeIds: ['demoA'], regularStoreId: 'demoA', maxStops: 1, extraStoreThresholdOre: 0 };
+    expect(await code(A.putDoc('innstillinger', 0, settings as never))).toBe('ok');
+    for (const extra of [{ avoid: ['melk'] }, { avoidFoods: ['svin'] }, { vegetarian: true }, { pantry: {} }]) {
+      expect(await code(A.putDoc('innstillinger', 1, { ...settings, ...extra } as never))).toBe('400 ugyldig_dokument');
+    }
   });
 });
 
