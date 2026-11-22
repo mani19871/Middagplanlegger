@@ -48,6 +48,6 @@ Andre dealere sett i Tjek-treffene (stort sett ikke dagligvare, ikke vurdert): A
 5. **API/data for partnere:** ingenting offentlig hos noen kjede.
 6. **Tilbudsvilkår** (medlemspris, mengdekjøp, kampanjeområde): ikke undersøkt.
 
-Anbefalt visningsmåte avgjøres per kjede med valg mellom: (a) lenke til kjedens egen avis, (b) liste over enkelttilbud fra en avtalt kilde, (c) ingen visning. **Inntil skriftlig avtale med Tjek (og eventuelt kjeden) foreligger: (c) for avisinnhold, ingen bilder, ingen lagring** (CLAUDE.md). Alternativ (a), en ren lenke til kjedens egen side, er ikke vurdert juridisk.
+Anbefalt visningsmåte avgjøres per kjede med valg mellom: (a) lenke til kjedens egen avis, (b) liste over enkelttilbud fra en avtalt kilde, (c) ingen visning. Brukeren opplyser (2026-11-22) at Tjek-avtalen (fortrolig) tillater lagring av priser, bilder og avissider for alle kjeder Tjek har. Det er brukerens opplysning, ikke avtaletekst vi har sett. **Arbeidsregel:** avisinnhold og bilder bare fra Tjek (aldri hentet fra kjedenes nettsteder), med «Kilde: Tjek» og dato; om kjedenes klausuler over er klarert gjennom Tjek, er ikke kjent for oss og må bekreftes (CLAUDE.md, `tjek-avtale.md`). Alternativ (a), en ren lenke til kjedens egen side, er ikke vurdert juridisk.
 
 Henvendelsesutkastene i `phase0/utkast/` (Rema 1000, Kiwi/NorgesGruppen, Coop, Tjek) er **ikke sendt** og skal ikke sendes uten at brukeren ber om det. Kontaktadressene over kan brukes til å rette dem når brukeren bestemmer seg.

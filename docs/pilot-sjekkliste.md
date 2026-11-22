@@ -24,7 +24,7 @@ Kilde: eierens svar i koordineringschatten 2026-11-22. Ført inn i A og E under.
 | Allergi-begrensningen (valg A) | **Godtatt** for piloten | – |
 | Fagperson-gjennomgang | **Ikke nå;** bare lukket pilot | Se B1: punktet er fortsatt STOPP |
 | Eier godkjenner nye medlemmer | **Nei,** invitasjonen holder | – |
-| Skriftlig Tjek-avtale | Finnes og er «ok», men er **fortrolig og deles ikke** | Omfang (lagring, bilder/avissider, kjeder) ikke kjent for oss; spørsmål i `phase0/tjek-avtale.md` |
+| Skriftlig Tjek-avtale | Finnes og er «ok», men er **fortrolig og deles ikke**. Eier (2026-11-22): tillater **lagring av priser**, **bilder og avissider**, dekker **alle kjeder Tjek har** og **bruk i appen for andre brukere** (eiers opplysning, ikke avtaletekst vi har sett) | **Kreditering, kallgrense, varighet og pris** ikke kjent for oss; må bekreftes med Tjek (`phase0/tjek-avtale.md`) |
 | Henvendelser til kjeder og Tjek (`phase0/utkast/`) | **Skal ikke sendes** nå | – |
 
 ## Slik bruker du listen
@@ -49,7 +49,7 @@ Ingen kan gjøre resten før disse er svart på. Hele listen med bakgrunn står 
 | A8 | **Aksepterer du pilotavgrensningen for allergier?** Kostkrav og allergier deles ikke mellom enheter (valg A). En voksen sin telefon uten filter kan lage en plan med allergener for hele husstanden; avbøtet med alltid synlig «Inneholder: …» og banner, ikke fjernet (`synk.md`, «Kostkrav og allergier»). Ja/nei, og at deltakerne får vite det | STOPP | Eier | ☑ | **Godtatt** (2026-11-22). Deltakerne må fortsatt få vite det (B12) |
 | A9 | **Nøkkel til sikkerhetskopiene:** hvem to personer holder den private nøkkelen (ikke på serveren), og hvor? | STOPP | Eier | ☐ | Eier vil ha hjelp til oppsett (2026-11-22). Fremgangsmåte: `hosting.md`, avsnitt 0, steg 6. De to personene er ikke valgt |
 | A10 | **Tap av siste timer ved gjenoppretting:** er det akseptabelt at hver enhet må kobles på nytt etter en gjenoppretting som taper data (se C9)? Hvor ofte skal kopien tas (forslag: daglig)? | | Eier | ☐ | |
-| A11 | **Tjek:** foreligger skriftlig avtale? Bruken er foreløpig bare live-visning i minnet, uten lagring. Legg avtalen i `phase0/tjek-avtale.md` når den finnes | | Eier | ◐ | Eier: avtalen finnes, er «ok», men er **fortrolig og deles ikke** (2026-11-22). Omfanget er ikke kjent for oss; svar på spørsmålene i `phase0/tjek-avtale.md`. Tjeks offentlige vilkår er lest: API-et er for kunder med avtale (`phase0/tjek-avtale.md`) |
+| A11 | **Tjek:** foreligger skriftlig avtale, og hva dekker den? Svarene føres i `phase0/tjek-avtale.md` (avtalen selv er fortrolig) | | Eier | ◐ | Eier: avtalen finnes, er «ok», men er **fortrolig og deles ikke** (2026-11-22). Eier opplyser samme dag at den tillater lagring av priser, bilder og avissider, dekker alle kjeder Tjek har og bruk i appen for andre brukere. **Gjenstår:** bekreft med Tjek kreditering, kallgrense, varighet og pris (og hvor lenge priser kan lagres). Tjeks offentlige vilkår er lest (`phase0/tjek-avtale.md`) |
 | A12 | **Hvem kvalitetssikrer personverndokumentene** (jurist/rådgiver) og når? Se B1 | STOPP | Eier | ☐ | **Ikke nå;** eier vil bare kjøre lukket pilot (2026-11-22). Se B1 |
 
 ## B. Personvern og juss (Eier + Fagperson)
@@ -121,7 +121,7 @@ Fra `synk.md` («Kjente svakheter» og «Må på plass før ekte familier») og 
 | --- | --- | --- | --- | --- | --- |
 | E1 | **Fase 0-porten:** er dekningen god nok til å love noe om pris i pilotområdene? Per `fase1-status.md` er det ingen ferske priser fra Rema 1000 og Coop, og Kiwi bare for 5 av 24 varer. Uten ekte prisdata: kjør piloten som test av plan, handleliste og synk, ikke av pris | STOPP | Eier | ◐ delvis | `phase0/RESULTS.md` |
 | E2 | **Pilotområder** (3–5, by og distrikt) valgt | | Eier | ☑ | `plan.md`. **Hele Norge, lukket pilot** (2026-11-22). Pris kan uansett ikke måles (E1) |
-| E3 | **Rettigheter:** bare avtalte kilder; ingen kundeaviser hentes uten avtale (CLAUDE.md regel 6) | STOPP | Eier | ◐ bare Tjek live-visning | `THIRD_PARTY.md`. Offentlige vilkår lest 2026-11-22: Tjek-API for kunder med avtale (avtalen finnes ifølge eier, men er fortrolig; omfang ikke kjent); Meny, SPAR og Joker krever skriftlig samtykke for bruk av innhold; ingen kjede gir offentlig tillatelse (`phase0/kundeavis-rettigheter.md`) |
+| E3 | **Rettigheter:** bare avtalte kilder; ingen kundeaviser hentes uten avtale (CLAUDE.md regel 6) | STOPP | Eier | ◐ bare Tjek | `THIRD_PARTY.md`. Offentlige vilkår lest 2026-11-22: Tjek-API for kunder med avtale. Eier opplyser (2026-11-22) at avtalen tillater lagring av priser, bilder og avissider for alle kjeder Tjek har; kreditering, kallgrense, varighet og pris er ikke kjent for oss og må bekreftes med Tjek. Meny, SPAR og Joker krever skriftlig samtykke for bruk av innhold; om det er klarert gjennom Tjek, er ikke kjent for oss; ingen kjede gir offentlig tillatelse (`phase0/kundeavis-rettigheter.md`). Aviser hentes aldri fra kjedenes nettsteder |
 | E4 | **Redaktør** har gått gjennom varekoblinger og regelfil for tilbud i pilotområdene | | Redaktør | ☐ | `CLAUDE.md` |
 
 ## F. Testplan for pilotuka: to telefoner, én handleuke

@@ -226,7 +226,7 @@ Spørsmålene slik de ble stilt:
 9. **Har du noen som kan gjennomgå personverndokumentene** (jurist eller personvernrådgiver), og når? Piloten bør ikke åpnes for ekte brukere før det er gjort.
 10. **Hvem eier sikkerhetskopinøkkelen?** Kopiene krypteres med en offentlig nøkkel (age); den private nøkkelen må ligge hos minst to navngitte personer, ikke på serveren. Hvem, og hvor?
 11. **Hva gjør vi hvis en gjenoppretting taper de siste timenes data?** Avsnitt 8 beskriver at enhetene da må kobles på nytt. Er det akseptabelt for en pilot (ja/nei), og hvor ofte skal kopien tas (forslag: daglig)?
-12. **Skriftlige vilkår:** foreligger det skriftlig avtale fra Tjek? (Planen krever dokumentasjon før noe annet enn live-visning bygges.) Hosting påvirkes ved at lagring av tilbud ikke er tillatt ennå.
+12. **Skriftlige vilkår:** avtalen med Tjek finnes (fortrolig). Eier opplyser (2026-11-22) at den tillater lagring av priser, bilder og avissider (`phase0/tjek-avtale.md`). Kreditering, kallgrense, varighet og pris er ikke kjent for oss og må bekreftes med Tjek. Hosting påvirkes ved at lagrede tilbud krever plass på volumet (egen databasefil, se `docs/synk.md`).
 
 ## 8. Kjøre med Docker
 
