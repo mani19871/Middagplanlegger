@@ -117,3 +117,12 @@ main:focus { outline:none; }
 .chains { border:0; padding:0; margin:8px 0; min-width:0; } .chains legend { font-weight:600; padding:0; margin-bottom:4px; }
 .allergen { display:block; color:var(--ink); font-size:.8rem; }
 .herocap .allergen { color:inherit; opacity:.9; }
+
+/* Tilgjengelighet: store trykkflater i handlemodus, bekreftelse ved kopiering, avkrysning i dialog */
+.list.shop .main { min-height:44px; }
+.list.shop .oos, .list.shop .x, .list.shop .ghost.sm { min-height:44px; min-width:44px; }
+.list.shop ~ .markbought, .markbought { min-height:44px; }
+.shoptoggle, .bigbtn, .cta, .two .ghost { min-height:44px; }
+.copied { min-height:1.4em; font-weight:600; color:var(--g); }
+.chk { display:flex; gap:10px; align-items:center; min-height:44px; margin:8px 0; } .chk input { width:24px; height:24px; flex:none; }
+.review-row .row-field .ghost.sm { min-height:44px; }

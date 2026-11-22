@@ -192,7 +192,7 @@ export function SkippedLines({ basket, kit }: { basket: AdjustedBasket; kit: Cha
         {basket.skipped.map((l) => (
           <li key={l.lineKey}>
             <span className="main"><b>{l.change?.original.productName ?? l.name}</b><small>{CHOICE[l.change!.choice!]} · ikke med i summen</small></span>
-            <button className="ghost sm" onClick={() => kit.record(undoChangeEvent(l, kit.week, stamp()), 'angret', `${l.name}: med i handelen igjen`)}>Angre</button>
+            <button className="ghost sm" aria-label={`Angre: ta ${l.change?.original.productName ?? l.name} med i handelen igjen`} onClick={() => kit.record(undoChangeEvent(l, kit.week, stamp()), 'angret', `${l.name}: med i handelen igjen`)}>Angre</button>
           </li>
         ))}
       </ul>

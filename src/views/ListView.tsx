@@ -36,7 +36,7 @@ export function purchaseEvent(l: BasketLine, week: string, packs?: number): Inve
 }
 const boughtPill = (p: PurchaseState | undefined, l: BasketLine) => {
   if (!p || p.status === 'angret') return null;
-  if (p.status === 'konflikt') return <span className="pill warnp">⚠ Bekreft antall: {p.candidates.join(' eller ')}</span>;
+  if (p.status === 'konflikt') return <span className="pill warnp">⚠ Bekreft antall: {p.candidates.join(' eller ')} pakker</span>;
   const want = l.productId ? l.packs : 1;
   return (p.packs ?? 0) >= want ? <span className="pill ok">✓ Handlet</span> : <span className="pill warnp">Delvis handlet ({p.packs} av {want})</span>;
 };
@@ -88,6 +88,10 @@ export default function ListView({ state, update, record, week, basket, offerTot
 
   // Hver avkrysning lagres med egen identitet. Å fjerne et kryss fjerner bare kryssene du har sett (src/sync/list.ts).
   const toggle = (key: string) => update((s) => recordList(s, toggleEvent(s.list, week, key, stamp())));
+  const checkLabel = (name: string, key: string) => {
+    const m = marks.get(key);
+    return m && m.length > 0 ? `${name}, avkrysset av ${whoList(state, m.map((x) => x.by))}. Trykk for å fjerne krysset` : `Kryss av ${name}`;
+  };
   const who = (key: string) => {
     const m = marks.get(key);
     return m && m.length > 0 ? <small className="who">✓ Avkrysset av {whoList(state, m.map((x) => x.by))}</small> : null;
@@ -126,7 +130,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
                   const key = `${storeId}:${l.ingredient}`;
                   return (
                     <li key={key} className={isChecked(key) ? 'done' : ''}>
-                      <input type="checkbox" aria-label={`Kryss av ${l.name}`} checked={isChecked(key)} onChange={() => toggle(key)} />
+                      <input type="checkbox" aria-label={checkLabel(l.name, key)} checked={isChecked(key)} onChange={() => toggle(key)} />
                       <button className="main" onClick={() => setDetail(l)}>
                         <b>{lineText(l)}</b>
                         <small>{l.productId ? `${amount(l.packs * l.packSize, l.unit)} · ${kr(l.costOre ?? 0)} · ${statusText[l.status].toLowerCase()}` : 'ukjent pris'}</small>
@@ -159,7 +163,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
           <ul className={`list ${shop ? 'shop' : ''}`}>
             {manual.map((m) => (
               <li key={m.id} className={isChecked(m.id) ? 'done' : ''}>
-                <input type="checkbox" aria-label={`Kryss av ${m.text}`} checked={isChecked(m.id)} onChange={() => toggle(m.id)} />
+                <input type="checkbox" aria-label={checkLabel(m.text, m.id)} checked={isChecked(m.id)} onChange={() => toggle(m.id)} />
                 <span className="main"><b>{m.text}</b><small>{m.note} · ikke med i beregnet sum</small>{who(m.id)}</span>
                 <button className="x" aria-label={`Fjern ${m.text}`} onClick={() => recordL({ type: 'manuell-fjern', ...stamp(), lineId: m.id })}>✕</button>
               </li>
@@ -180,10 +184,10 @@ function PurchaseCard({ l, p, week, record, who }: { l: BasketLine; p: PurchaseS
   const line = purchaseLineId(week, l.storeId, l.ingredient, l.productId);
   if (p?.status === 'konflikt') {
     return (
-      <div className="card"><div className="banner warn">To markeringer er uenige om antall pakker
+      <div className="card" role="group" aria-label={`Bekreft antall for ${l.name}`}><div className="banner warn" role="alert">To markeringer er uenige om antall pakker
         ({p.claims.map((c) => `${who([c.by])}: ${c.packs}`).join(', ')}). Velg det som stemmer:</div>
         {p.candidates.map((n) => (
-          <button key={n} className="ghost" onClick={() => record({ type: 'løs', ...stamp(), line, packs: n })}>{n} pakke{n === 1 ? '' : 'r'}</button>
+          <button key={n} className="ghost" aria-label={`${n} pakke${n === 1 ? '' : 'r'} er riktig for ${l.name}`} onClick={() => record({ type: 'løs', ...stamp(), line, packs: n })}>{n} pakke{n === 1 ? '' : 'r'}</button>
         ))}
       </div>
     );
@@ -192,8 +196,8 @@ function PurchaseCard({ l, p, week, record, who }: { l: BasketLine; p: PurchaseS
     return (
       <div className="card"><div className="drow"><span>🧾 Handlet</span><b>{p.packs} pakke{p.packs === 1 ? '' : 'r'}</b></div>
         <p className="fine">Markert av {who(p.claims.map((c) => c.by))}.</p>
-        <button className="ghost" onClick={() => record({ type: 'angre', ...stamp(), line })}>Angre «handlet»</button></div>
+        <button className="ghost" aria-label={`Angre «handlet» for ${l.name}`} onClick={() => record({ type: 'angre', ...stamp(), line })}>Angre «handlet»</button></div>
     );
   }
-  return <button className="cta" onClick={() => record(purchaseEvent(l, week))}>🧾 Marker som handlet</button>;
+  return <button className="cta" aria-label={`Marker ${l.name} som handlet`} onClick={() => record(purchaseEvent(l, week))}>🧾 Marker som handlet</button>;
 }

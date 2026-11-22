@@ -10,6 +10,7 @@ import {
   OFFER_RULES, parseRules, removeRule, ruleDiff, ruleFileText, ruleKey, suggestPattern, upsertRule, type OfferRule,
 } from '../offers/rules';
 import type { LiveOffer } from '../offers/service';
+import { pageItems, REVIEW_PAGE, RULES_PAGE, searchRows } from './reviewList';
 
 const DRAFT_KEY = 'offer-rules-draft-v1'; // bare mønstre, aldri tilbud
 type Status = 'forslag' | 'godkjent' | 'avvist';
@@ -32,6 +33,8 @@ export default function ReviewView({ ingredients }: { ingredients: Ingredient[] 
   const [filter, setFilter] = useState<Filter>('forslag');
   const [q, setQ] = useState('');
   const [copied, setCopied] = useState('');
+  const [visible, setVisible] = useState(REVIEW_PAGE);
+  const [rulesVisible, setRulesVisible] = useState(RULES_PAGE);
 
   useEffect(() => {
     let stop = false;
@@ -58,9 +61,9 @@ export default function ReviewView({ ingredients }: { ingredients: Ingredient[] 
     return { live: l, match, status, by: rej?.pattern ?? match?.rule ?? null };
   }), [live, draft, ingredients]);
   const count = (f: Filter) => rows.filter((r) => f === 'alle' || r.status === f).length;
-  const shown = rows
-    .filter((r) => filter === 'alle' || r.status === filter)
-    .filter((r) => `${r.live.offer.heading} ${r.live.offer.dealerName}`.toLowerCase().includes(q.toLowerCase()));
+  const filtered = searchRows(rows.filter((r) => filter === 'alle' || r.status === filter), q, (r) => `${r.live.offer.heading} ${r.live.offer.dealerName}`);
+  const page = pageItems(filtered, visible);
+  const rulePage = pageItems(draft, rulesVisible, RULES_PAGE);
   const diff = ruleDiff(OFFER_RULES, draft);
   const changed = diff.added.length + diff.removed.length > 0;
   const add = (r: OfferRule) => setDraft((d) => upsertRule(d, r));
@@ -80,36 +83,39 @@ export default function ReviewView({ ingredients }: { ingredients: Ingredient[] 
       {live?.status === 'error' && <div className="banner warn">Tilbudskilden svarte ikke ({live.error}).</div>}
       <div className="chips tabs">
         {(['forslag', 'godkjent', 'avvist', 'alle'] as Filter[]).map((f) => (
-          <button key={f} className={filter === f ? 'chip on' : 'chip'} onClick={() => setFilter(f)}>{f[0].toUpperCase() + f.slice(1)} ({count(f)})</button>
+          <button key={f} className={filter === f ? 'chip on' : 'chip'} aria-pressed={filter === f} onClick={() => { setFilter(f); setVisible(REVIEW_PAGE); }}>{f[0].toUpperCase() + f.slice(1)} ({count(f)})</button>
         ))}
       </div>
-      <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk i treff" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      {live?.status === 'ok' && shown.length === 0 && <p className="fine">Ingen treff her.</p>}
+      <div className="row-field"><input style={{ flex: 1, width: 'auto' }} type="search" aria-label="Søk i treff" placeholder="🔍 Søk i treff" value={q} onChange={(e) => { setQ(e.target.value); setVisible(REVIEW_PAGE); }} /></div>
+      {live?.status === 'ok' && filtered.length === 0 && <p className="fine">Ingen treff her.</p>}
       <ul className="review">
-        {shown.map((r) => <ReviewRow key={r.live.offer.id} row={r} ingredients={ingredients} onRule={add} />)}
+        {page.items.map((r) => <ReviewRow key={r.live.offer.id} row={r} ingredients={ingredients} onRule={add} />)}
       </ul>
+      {filtered.length > 0 && <p className="fine" role="status">Viser {page.shown} av {page.total} treff.</p>}
+      {page.remaining > 0 && <button className="ghost wide" onClick={() => setVisible(page.next)}>Vis flere ({page.remaining} igjen)</button>}
 
       <h3>Regelutkast</h3>
       <p className="fine">{draft.length} regler i utkastet · {diff.added.length} nye · {diff.removed.length} fjernet i forhold til regelfilen.</p>
       <ul className="list">
-        {draft.map((r) => (
+        {rulePage.items.map((r) => (
           <li key={ruleKey(r)}>
             <span className="main"><b>«{r.pattern}»</b><small>{r.decision === 'godkjent' ? `godkjent som ${ingName(r.ingredient)}` : r.decision === 'tillatt' ? `unntak fra utelukkelseslisten, forslag til ${ingName(r.ingredient)}` : `avvist for ${ingName(r.ingredient)}`}</small></span>
             <button className="x" aria-label={`Fjern regel ${r.pattern}`} onClick={() => setDraft((d) => removeRule(d, r))}>✕</button>
           </li>
         ))}
       </ul>
+      {rulePage.remaining > 0 && <button className="ghost wide" onClick={() => setRulesVisible(rulePage.next)}>Vis flere regler ({rulePage.remaining} igjen)</button>}
       <AllowForm ingredients={ingredients} onRule={add} />
       <details className="steps" open={changed}>
         <summary>Eksporter regler</summary>
         <p className="fine">Kopier hele filen inn i <code>src/data/offer-rules.json</code> og send endringen til gjennomgang. Diffen viser bare endringene.</p>
-        <label className="lab" style={{ display: 'block' }}>Regeldiff (JSON)</label>
-        <textarea className="field" readOnly rows={6} value={JSON.stringify(diff, null, 2)} />
+        <label className="lab" htmlFor="rdiff" style={{ display: 'block' }}>Regeldiff (JSON)</label>
+        <textarea id="rdiff" className="field" readOnly rows={6} value={JSON.stringify(diff, null, 2)} />
         <button className="ghost" onClick={() => copy('Regeldiff kopiert.', JSON.stringify(diff, null, 2))}>Kopier regeldiff</button>
-        <label className="lab" style={{ display: 'block', marginTop: 8 }}>Hel regelfil</label>
-        <textarea className="field" readOnly rows={8} value={ruleFileText(draft)} />
+        <label className="lab" htmlFor="rfile" style={{ display: 'block', marginTop: 8 }}>Hel regelfil</label>
+        <textarea id="rfile" className="field" readOnly rows={8} value={ruleFileText(draft)} />
         <button className="ghost" onClick={() => copy('Regelfil kopiert.', ruleFileText(draft))}>Kopier regelfil</button>
-        {copied && <p className="fine">{copied}</p>}
+        <p className="fine" role="status">{copied}</p>
         <button className="ghost" disabled={!changed} onClick={() => setDraft(OFFER_RULES)}>Forkast utkastet</button>
       </details>
     </>

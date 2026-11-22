@@ -8,6 +8,7 @@ import type { HouseholdResponse, InviteResponse } from '../sync/protocol';
 import { whoLabel } from '../sync/labels';
 import type { SyncRuntime } from '../sync/useSync';
 import type { SyncStatus } from '../sync/engine';
+import { Sheet } from './Sheet';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; runtime: SyncRuntime; status: SyncStatus;
@@ -28,7 +29,8 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState('');
   const [wipeLocal, setWipeLocal] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState('');
+  const [confirmWipe, setConfirmWipe] = useState(false);
   const api = sync ? defaultApi.withToken(sync.token) : defaultApi;
 
   const act = async (f: () => Promise<void>) => {
@@ -77,9 +79,9 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
           <label className="big" htmlFor="code">Invitasjonskode</label>
           <input id="code" autoComplete="off" autoCapitalize="characters" maxLength={20} placeholder="ABCDE-FGHJK" value={code}
             onChange={(e) => setCode(e.target.value)} style={{ fontSize: '1.3rem', letterSpacing: '.1em' }} />
-          <p className="fine">Husstandens ukeplan og innstillinger erstatter dem på denne enheten (kostkrav og allergier her beholdes).
+          <p className="fine" id="codehelp">Koden har 10 tegn (bokstaver og tall). Husstandens ukeplan og innstillinger erstatter dem på denne enheten (kostkrav og allergier her beholdes).
             Matskap og avkrysninger herfra legges til husstanden, uten doble rader.</p>
-          <button className="cta" disabled={busy || code.replace(/[^a-z0-9]/gi, '').length !== 10} onClick={join}>Bli med</button>
+          <button className="cta" disabled={busy || code.replace(/[^a-z0-9]/gi, '').length !== 10} aria-describedby="codehelp" onClick={join}>Bli med</button>
         </div>
       </>
     );
@@ -88,8 +90,9 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
   const members = info?.members ?? sync.members.filter((m) => !m.removed);
   const isOwner = sync.me.role === 'eier';
   const link = invite ? `${location.origin}/#bli-med=${invite.code}` : '';
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(link); setCopied(true); } catch { setCopied(false); }
+  const copy = async (what: 'lenke' | 'kode') => {
+    try { await navigator.clipboard.writeText(what === 'lenke' ? link : invite!.code); setCopied(`${what === 'lenke' ? 'Lenken' : 'Koden'} er kopiert.`); }
+    catch { setCopied('Kopiering ble blokkert. Merk koden og kopier selv.'); }
   };
   const conflictDocs = (Object.keys(sync.conflicts) as DocName[]);
 
@@ -101,18 +104,18 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
         <div className="drow"><span>Sist synket</span><b>{time(sync.lastSync)}</b></div>
         {runtime.offline && <p className="fine">Endringene er lagret på enheten og sendes automatisk når den er på nett igjen.</p>}
         {sync.rejected > 0 && <p className="fine">{sync.rejected} endring{sync.rejected === 1 ? '' : 'er'} ble avvist av serveren som ugyldig og er bare på denne enheten.</p>}
-        <button className="ghost" disabled={runtime.busy} onClick={runtime.syncNow}>↻ Synk nå</button>
+        <button className="ghost" disabled={runtime.busy} aria-busy={runtime.busy} onClick={runtime.syncNow}>{runtime.busy ? '↻ Synker …' : '↻ Synk nå'}</button>
       </div>
 
       {conflictDocs.map((name) => {
         const c = sync.conflicts[name]!;
         return (
-          <div key={name} className="card" role="alert">
+          <div key={name} className="card" role="alert" aria-label={`Konflikt: ${DOC_TEXT[name]}`}>
             <div className="banner warn">⚠ {DOC_TEXT[name]} ble endret både her og av {whoLabel(state, c.by)} samtidig:
               {' '}{c.fields.map(fieldText).join(', ')}. Ingenting er overskrevet. Velg hva som skal gjelde for disse feltene;
               andre endringer er allerede slått sammen.</div>
-            <button className="ghost" onClick={() => update((s) => resolveConflict(s, name, 'mine'))}>Behold det som står her</button>
-            <button className="ghost" onClick={() => update((s) => resolveConflict(s, name, 'theirs'))}>Bruk endringen fra {whoLabel(state, c.by)}</button>
+            <button className="ghost bigbtn" onClick={() => update((s) => resolveConflict(s, name, 'mine'))}>Behold det som står her</button>
+            <button className="ghost bigbtn" onClick={() => update((s) => resolveConflict(s, name, 'theirs'))}>Bruk endringen fra {whoLabel(state, c.by)}</button>
           </div>
         );
       })}
@@ -146,12 +149,14 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
         {invite ? (
           <>
             <p>Skriv inn koden på den andre enheten under Husstand → «Bli med», eller send lenken:</p>
-            <p className="code" aria-label={`Kode ${invite.code.split('').join(' ')}`}>{invite.code}</p>
-            <button className="ghost" onClick={copy}>{copied ? '✓ Lenke kopiert' : '📋 Kopier lenke'}</button>
+            <p className="code"><span aria-hidden>{invite.code}</span><span className="sr">Invitasjonskode: {invite.code.split('').join(' ')}</span></p>
+            <button className="ghost" onClick={() => copy('kode')}>📋 Kopier kode</button>
+            <button className="ghost" onClick={() => copy('lenke')}>🔗 Kopier lenke</button>
+            <p className="fine copied" role="status" aria-live="polite">{copied && `✓ ${copied}`}</p>
             <p className="fine">Virker én gang og utløper {time(invite.expiresAt)}. Den som har koden kan bli med, så del den bare med
               noen i husstanden.</p>
           </>
-        ) : <button className="cta" disabled={busy} onClick={() => act(async () => { setCopied(false); setInvite(await api.invite()); await load(); })}>➕ Lag invitasjon</button>}
+        ) : <button className="cta" disabled={busy} onClick={() => act(async () => { setCopied(''); setInvite(await api.invite()); await load(); })}>➕ Lag invitasjon</button>}
         {info && info.invites.length > 0 && (
           <p className="fine">{info.invites.length} aktiv{info.invites.length === 1 ? '' : 'e'} invitasjon{info.invites.length === 1 ? '' : 'er'}.{' '}
             <button className="link" style={{ display: 'inline' }} onClick={() => act(async () => {
@@ -177,16 +182,27 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
           <>
             <p className="fine" style={{ marginTop: 16 }}>Slett husstanden og alle data på serveren: medlemmer, invitasjoner, plan,
               innstillinger, handleliste og matskap. Kan ikke angres. De andre enhetene kobles fra og beholder bare det de har lagret selv.</p>
-            <label className="big" htmlFor="del">Skriv SLETT for å bekrefte</label>
-            <input id="del" value={confirmDelete} onChange={(e) => setConfirmDelete(e.target.value)} autoComplete="off" />
-            <label><input type="checkbox" checked={wipeLocal} onChange={() => setWipeLocal(!wipeLocal)} /> Slett også alt som er lagret på denne enheten</label>
-            <button className="ghost danger" disabled={busy || confirmDelete.trim().toUpperCase() !== 'SLETT'} onClick={() => act(async () => {
-              await api.deleteHousehold();
-              update((s) => (wipeLocal ? { ...initialState, syncNotice: 'Husstanden og alle data er slettet.' } : disconnect(s, 'Husstanden er slettet på serveren. Dataene på denne enheten er beholdt.')));
-            })}>🗑 Slett husstanden og alle data</button>
+            <button className="ghost danger" disabled={busy} onClick={() => { setConfirmDelete(''); setConfirmWipe(true); }}>🗑 Slett husstanden og alle data …</button>
           </>
         )}
       </div>
+      {confirmWipe && (
+        <Sheet label="Slett husstanden og alle data" onClose={() => setConfirmWipe(false)}>
+          <div className="pagehead"><h2>Slett husstanden?</h2><button className="x" aria-label="Lukk" onClick={() => setConfirmWipe(false)}>✕</button></div>
+          <p>Husstanden og alle data på serveren slettes: medlemmer, invitasjoner, plan, innstillinger, handleliste og matskap. Kan ikke angres.</p>
+          <label className="big" htmlFor="del">Skriv SLETT for å bekrefte</label>
+          <input id="del" data-autofocus value={confirmDelete} onChange={(e) => setConfirmDelete(e.target.value)} autoComplete="off" aria-describedby="delhelp" />
+          <p className="fine" id="delhelp">Knappen «Slett» er av til du har skrevet SLETT.</p>
+          <label className="chk"><input type="checkbox" checked={wipeLocal} onChange={() => setWipeLocal(!wipeLocal)} /> Slett også alt som er lagret på denne enheten</label>
+          {error && <div className="banner warn" role="alert">{error}</div>}
+          <button className="ghost danger" disabled={busy || confirmDelete.trim().toUpperCase() !== 'SLETT'} onClick={() => act(async () => {
+            await api.deleteHousehold();
+            setConfirmWipe(false);
+            update((s) => (wipeLocal ? { ...initialState, syncNotice: 'Husstanden og alle data er slettet.' } : disconnect(s, 'Husstanden er slettet på serveren. Dataene på denne enheten er beholdt.')));
+          })}>🗑 Slett</button>
+          <button className="ghost" onClick={() => setConfirmWipe(false)}>Avbryt</button>
+        </Sheet>
+      )}
     </>
   );
 }

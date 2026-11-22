@@ -4,6 +4,7 @@
 //  - bytt-arket: dialog, fokus inn, fokusfelle (Tab og Shift+Tab), Escape lukker, fokus tilbake
 //  - hele appen kan nås med tastatur (Tab når alle faner)
 //  - ingen horisontal scrolling på 360 og 420 px
+//  - handleliste (også handlemodus), Husstand og Kontroll: navn, 44 px trykkflater i handlemodus, dialog for «Slett», ingen overflyt
 // Bruk: node scripts/checks/a11y.cjs
 const { chromium } = require('playwright');
 const url = process.env.APP_URL || 'http://localhost:5173/';
@@ -60,6 +61,25 @@ const unnamed = (p) => p.evaluate(() => {
     }
     await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Kontroll' }).click();
     bad = await unnamed(p); ok(bad.length === 0, `${w}px Kontroll: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Kontroll');
+    // Handleliste: avkrysning med tastatur og tilgjengelig navn, handlemodus med 44 px trykkflater
+    await p.getByRole('tab', { name: 'Handleliste' }).click();
+    const cb = p.getByRole('checkbox').first(); await cb.focus(); const nm0 = await cb.getAttribute('aria-label');
+    ok(/^Kryss av .+/.test(nm0 ?? ''), `${w}px avkryssingsboks har varenavn (${nm0})`);
+    await p.keyboard.press('Space'); ok(await cb.isChecked(), 'avkrysning med Space');
+    ok(/avkrysset av/.test((await cb.getAttribute('aria-label')) ?? ''), 'avkrysset boks navngir hvem som krysset av');
+    await p.getByRole('button', { name: /Handlemodus/ }).click();
+    const small = await p.evaluate(() => [...document.querySelectorAll('.list.shop input[type=checkbox], .list.shop .main, .list.shop .oos, .list.shop .x, .shoptoggle, .markbought')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { c: e.className || e.tagName, w: r.width, h: r.height }; }).filter((r) => r.h < 43.5 || r.w < 43.5));
+    ok(small.length === 0, `${w}px handlemodus: trykkflater minst 44 px ${JSON.stringify(small.slice(0, 3))}`); await scrollOk('handlemodus');
+    const oosBtn = p.getByRole('button', { name: /^Utsolgt eller fant ikke/ }).first();
+    if (await oosBtn.count()) {
+      await oosBtn.focus(); await p.keyboard.press('Enter'); ok(await p.getByRole('dialog').count() === 1, 'utsolgt-ark er dialog');
+      await scrollOk('utsolgt-ark'); bad = await unnamed(p); ok(bad.length === 0, `utsolgt-ark: alle kontroller har navn ${bad.join(' | ')}`);
+      await p.keyboard.press('Escape'); ok(await p.getByRole('dialog').count() === 0 && await p.evaluate(() => document.activeElement?.className.includes('oos')), 'Escape lukker utsolgt-arket og fokus går tilbake');
+    }
+    // Husstand: status som tekst, aria-live, skjema med etiketter
+    await p.locator('.syncchip').click();
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Husstand: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Husstand');
+    ok(await p.locator('.syncchip').innerText().then((t) => t.replace(/[^\p{L}]/gu, '').length > 3), 'synkstatus i header er tekst, ikke bare ikon');
     // Tastatur: Tab fra toppen når alle fire faner
     await p.reload(); const seen = new Set();
     for (let i = 0; i < 40; i++) { await p.keyboard.press('Tab'); const id = await p.evaluate(() => document.activeElement?.id); if (id?.startsWith('tab-')) seen.add(id); }
