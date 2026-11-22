@@ -77,6 +77,7 @@ Feilkoder: `ugyldig_forespørsel` (400/415), `for_stor` (413), `ikke_autentisert
 | Kjøp, telling, rest, laget (`inventory.ts`) | Hendelseslogg, idempotent på id, tilstand avledet av hele loggen sortert på (`at`, id) | Samme linje med samme antall: ett kjøp. Ulikt antall: `konflikt` som ikke teller før en voksen bekrefter med `løs` |
 | Avkrysning (`list.ts`) | Observed-remove-sett per (uke, linje). Hver avkrysning har egen id og `by` | Begge avkrysninger står og vises («Avkrysset av deg og Voksen 2»). Et kryss som fjernes, fjerner bare kryssene enheten hadde sett, så en samtidig avkrysning overlever |
 | Manuelle linjer | Legg til / fjern med linje-id | Fjerning vinner |
+| Utsolgt / fant ikke (`src/engine/substitution.ts`, strøm `endring`) | Hendelseslogg, idempotent på id; siste valg per linje etter (`at`, id) gjelder | Begge valg lagres; det siste (etter klientens tid) gjelder hos alle. Planendringer som følger av valget går via plandokumentet |
 | Plan | Dokument, felt per dag + `approved` + `option` | Ulike dager flettes. Samme dag endret ulikt: konflikt |
 | Innstillinger | Dokument, felt per toppnivå (`eaters`, `days`, `budgetOre` …) | Ulike felt flettes. Samme felt endret ulikt: konflikt |
 
@@ -86,7 +87,7 @@ Rekkefølge: serverens `seq` brukes bare som cursor. Tilstanden avledes av klien
 
 ## Klient
 
-- **Utboks:** `outbox` (beholdning) og `listOutbox` (handleliste). Levert betyr at serveren har bekreftet id-en (også hvis den fantes fra før), så et brutt svar og ny levering gir ingen doble rader. Avviste hendelser fjernes fra utboksen og telles (`sync.rejected`).
+- **Utboks:** `outbox` (beholdning), `listOutbox` (handleliste) og `changeOutbox` (utsolgt / fant ikke). Levert betyr at serveren har bekreftet id-en (også hvis den fantes fra før), så et brutt svar og ny levering gir ingen doble rader. Avviste hendelser fjernes fra utboksen og telles (`sync.rejected`).
 - **Dokumenter:** `sync.docs[navn] = {version, base}`. Et dokument er endret når lokal verdi ≠ `base`. Ved `409` flettes gjeldende versjon inn før nytt forsøk.
 - **Status** (header og Handleliste): «Lagret på denne enheten» (ingen husstand), «Synket med husstanden», «Synker …», «Venter på nett (n endringer lagret her)», «Konflikt – må avklares» (dokumentkonflikt eller konflikt om antall).
 - **Første tilkobling:** alt lokalt (hele beholdningsloggen og handlelista, også eldre migrerte data med faste id-er) legges i utboksen; serveren lagrer hver id én gang. Ved «Opprett» sendes enhetens plan og innstillinger som versjon 1. Ved «Bli med» overtar enheten husstandens plan og innstillinger (brukeren varsles først); kostkrav, allergier og postnummer på enheten beholdes.
@@ -142,6 +143,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 - **Allergier deles ikke.** Siden kostkrav blir på hver enhet, kan en enhet uten allergifilter lage en plan med allergener for hele husstanden. Varsel vises i plan-skjemaet. Samtykkeløsning for å dele dem er ikke bygget.
 - **Ingen kvoter eller oppbevaringstid.** Hendelsesloggen vokser uten tak og komprimeres ikke; et medlem kan fylle databasen innenfor ratebegrensningen. Oppbevaringstid for gamle uker er ikke bestemt.
 - **Fjernede medlemmer** beholdes som rad (offentlig id, etikett, uten token) og hendelsene deres blir i husstanden til den slettes.
+- **Planversjoner synkes ikke.** `planHistory` (godkjente versjoner og fastholdte produkter, `activePin`) er lokal. Har én enhet en godkjent liste med fastholdte produkter og en annen ikke, kan de etter en prisendring vise ulike produkter på samme vare, og kjøp på de to linjene telles da hver for seg. Krever en egen modell (versjoner som hendelser) før det kan deles.
 - **Ratebegrensning i minnet** virker bare med én serverprosess. Flere prosesser trenger felles teller (Redis eller databasen).
 - **Flere faner på samme enhet** deler token og localStorage; de kan skrive over hverandres lokale tilstand (gjaldt også før synk).
 - **Ingen kryptering i hvile** utover det plattformen gir; databasefil og sikkerhetskopier må krypteres av drift.

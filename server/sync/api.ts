@@ -18,7 +18,7 @@ import { createHash, createHmac, randomBytes as nodeRandomBytes, randomUUID } fr
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { DOC_NAMES, isValidDoc, stable, type DocName } from '../../src/sync/docs';
 import {
-  checkEnvelope, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type StoredEnvelope,
+  checkEnvelope, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type StoredEnvelope, type Stream,
 } from '../../src/sync/protocol';
 import type { DeviceRow, DocOut, SyncStorage } from '../storage/types';
 import { RateLimiter } from './rateLimit';
@@ -203,7 +203,7 @@ export function createSyncApi(opts: SyncApiOptions) {
       if (!Array.isArray(list) || list.length > LIMITS.batch) throw new HttpError(400, 'ugyldig_forespørsel');
       // Hendelser kan ikke utgi seg for å være fra et annet medlem av husstanden.
       const others = new Set((await storage.members(hh)).filter((m) => m.id !== me.id).map((m) => m.publicId));
-      const ok: { stream: 'beholdning' | 'liste'; id: string; by: string; body: string }[] = [];
+      const ok: { stream: Stream; id: string; by: string; body: string }[] = [];
       const rejected: { id: string; code: string }[] = [];
       for (const x of list) {
         const id = typeof x?.event?.id === 'string' ? (x.event.id as string).slice(0, 100) : '';

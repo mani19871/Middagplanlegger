@@ -2,6 +2,7 @@
 // All beregning skjer i src/engine/substitution.ts; her er bare tilstand (hendelser og versjoner) og visning.
 import { useEffect, useMemo } from 'react';
 import { stamp, type AppState } from '../store';
+import { enqueue } from '../sync/queue';
 import { buildBasket, type Ctx } from '../engine/planner';
 import type { Basket, BasketLine, Slot } from '../engine/types';
 import {
@@ -50,7 +51,7 @@ export function useChangeKit(
     if (nextLog === prevLog) return s; // samme hendelse to ganger: ingen endring
     const ss = slots ?? s.slots;
     const b = applyChanges(buildBasket(ss, storeIds, ctx), activeChanges(nextLog, week), week, ctx, pin);
-    return { ...s, slots: ss, listChanges: nextLog, planHistory: addVersion(s.planHistory ?? [], snapshot(b, ss, { ...stamp(), week, reason, note }, ctx)) };
+    return { ...s, slots: ss, listChanges: nextLog, changeOutbox: enqueue(s.changeOutbox ?? [], e), planHistory: addVersion(s.planHistory ?? [], snapshot(b, ss, { ...stamp(), week, reason, note }, ctx)) };
   });
   const acceptPrices = () => update((s) => ({
     ...s, planHistory: addVersion(s.planHistory ?? [], snapshot(unpinned, s.slots, { ...stamp(), week, reason: 'nye-priser', note: driftNote(drift) }, ctx)),

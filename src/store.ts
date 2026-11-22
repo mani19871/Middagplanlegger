@@ -37,10 +37,12 @@ export interface AppState {
   syncNotice: string | null;
   /** «Utsolgt / fant ikke»-valg i handlelista (idempotent på id) og planversjoner med årsak. Se engine/substitution.ts. */
   listChanges?: ListChange[]; planHistory?: PlanVersion[];
+  /** «Utsolgt / fant ikke»-valg som ikke er levert til husstanden ennå. Planversjonene (`planHistory`) synkes ikke. */
+  changeOutbox?: ListChange[];
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
-  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null, listChanges: [], planHistory: [],
+  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null, listChanges: [], planHistory: [], changeOutbox: [],
 };
 type OldState = Partial<AppState> & { checked?: Record<string, boolean>; manual?: { id: string; text: string; note: string }[] };
 const KEY = 'middag-state-v1';

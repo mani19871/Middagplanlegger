@@ -252,9 +252,10 @@ describe('ugyldige inndata og grenser', () => {
       { stream: 'beholdning', event: { type: 'telling', id: 'tid', at: 'i går', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5 } },
       { stream: 'liste', event: { type: 'kryss', id: 'lang', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', key: 'x'.repeat(500) } },
       { stream: 'annet', event: { id: 'strøm' } } as never,
+      { stream: 'endring', event: { type: 'fant-ikke', id: 'feil-linje', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'x', storeId: null, ingredient: 'pasta', fromProductId: null, soldOut: [], choice: 'hopp-over' } },
     ]);
     expect(r.accepted).toEqual(['ok']);
-    expect(r.rejected.map((x) => x.code)).toEqual(['ugyldig_hendelse', 'ugyldig_hendelse', 'ugyldig_hendelse', 'ukjent_strøm']);
+    expect(r.rejected.map((x) => x.code)).toEqual(['ugyldig_hendelse', 'ugyldig_hendelse', 'ugyldig_hendelse', 'ukjent_strøm', 'ugyldig_hendelse']);
     expect(await code(A.push(Array.from({ length: 501 }, (_, i) => telling(`x${i}`, 'enhet-aaaa1111'))))).toBe('400 ugyldig_forespørsel');
     expect((await raw('/api/sync?after=-1', { headers: { Authorization: `Bearer ${(A as unknown as { token: string }).token}` } })).status).toBe(400);
   });

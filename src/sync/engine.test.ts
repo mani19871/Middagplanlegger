@@ -6,6 +6,7 @@ import { checks, manualLines, toggleEvent } from './list';
 import { SyncApi } from './api';
 import { connect, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { merge3 } from './docs';
+import { activeChanges, applyChange, changeLineId, type ListChange } from '../engine/substitution';
 import { startTestServer } from '../../server/sync/testkit';
 import { createHash } from 'node:crypto';
 
@@ -171,6 +172,21 @@ describe('synk mellom to enheter', () => {
     a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 123_400 } };
     await a.sync(); await b.sync();
     expect(b.state.settings.budgetOre).toBe(123_400);
+  });
+
+  it('«utsolgt / fant ikke» deles: samme valg gjelder hos begge, også uten nett først', async () => {
+    const { a, b } = await pair();
+    const line = changeLineId(WEEK, 'demoA', 'pasta', 'pasta500');
+    const e: ListChange = { type: 'fant-ikke', ...a.stamp(), week: WEEK, line, storeId: 'demoA', ingredient: 'pasta', fromProductId: 'pasta500', soldOut: ['pasta500'], choice: 'hopp-over' };
+    a.online = false;
+    a.state = { ...a.state, listChanges: applyChange(a.state.listChanges ?? [], e), changeOutbox: [e] };
+    expect((await a.sync()).offline).toBe(true);
+    a.online = true;
+    await a.sync(); await a.sync(); await b.sync();
+    expect(a.state.changeOutbox).toEqual([]);
+    expect(activeChanges(b.state.listChanges ?? [], WEEK).get(line)).toMatchObject({ type: 'fant-ikke', choice: 'hopp-over', by: 'enhet-aaaa1111' });
+    // Levert to ganger: én rad.
+    expect((await b.api.withToken(b.state.sync!.token).pull(0)).events.filter((x) => x.stream === 'endring')).toHaveLength(1);
   });
 
   it('en fjernet enhet kobles fra og beholder dataene sine', async () => {

@@ -1,11 +1,14 @@
 // Felles typer og validering for synk-API-et (klient og server). Ingen nett eller klokke her.
 import { isValidEvent, type InventoryEvent } from '../engine/inventory';
 import { isValidListEvent, type ListEvent } from './list';
+import { isValidChange, type ListChange } from '../engine/substitution';
 import type { DocBody, DocName } from './docs';
 
-export type Stream = 'beholdning' | 'liste';
-export type Envelope = { stream: 'beholdning'; event: InventoryEvent } | { stream: 'liste'; event: ListEvent };
-export interface StoredEnvelope { seq: number; stream: Stream; event: InventoryEvent | ListEvent }
+/** beholdning: kjøp, telling, rest, laget · liste: avkrysning og manuelle linjer · endring: utsolgt / fant ikke. */
+export type Stream = 'beholdning' | 'liste' | 'endring';
+export type Envelope =
+  | { stream: 'beholdning'; event: InventoryEvent } | { stream: 'liste'; event: ListEvent } | { stream: 'endring'; event: ListChange };
+export interface StoredEnvelope { seq: number; stream: Stream; event: InventoryEvent | ListEvent | ListChange }
 
 export type Role = 'eier' | 'voksen';
 export interface MemberInfo { id: string; label: string; role: Role; createdAt: string; lastSeen: string | null; me: boolean;
@@ -49,12 +52,20 @@ function inventoryOk(e: InventoryEvent): boolean {
   }
 }
 
+function changeOk(e: ListChange): boolean {
+  if (!isValidChange(e) || !str(e.id, 100) || !str(e.by, 60) || !ISO.test(e.at) || !str(e.week, 10) || !str(e.line, 300)) return false;
+  if (e.type === 'angre-endring') return true;
+  return (e.storeId === null || str(e.storeId, 40)) && str(e.ingredient, 64) && (e.fromProductId === null || str(e.fromProductId, 64))
+    && e.soldOut.length <= 30 && e.soldOut.every((p) => str(p, 64)) && (e.type !== 'erstatt' || str(e.productId, 64));
+}
+
 /** Gyldig konvolutt? Returnerer feilkode eller null. */
 export function checkEnvelope(x: unknown): string | null {
   if (!x || typeof x !== 'object') return 'ugyldig_hendelse';
   const env = x as { stream?: unknown; event?: unknown };
   if (JSON.stringify(env.event ?? null).length > LIMITS.eventBytes) return 'for_stor';
   if (env.stream === 'beholdning') return inventoryOk(env.event as InventoryEvent) ? null : 'ugyldig_hendelse';
+  if (env.stream === 'endring') return changeOk(env.event as ListChange) ? null : 'ugyldig_hendelse';
   if (env.stream === 'liste') {
     const e = env.event as ListEvent;
     return isValidListEvent(e) && ISO.test(e.at) ? null : 'ugyldig_hendelse';
