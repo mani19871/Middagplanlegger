@@ -1,6 +1,31 @@
 # Tjek: vilkår og det som må dokumenteres
 
-Status 2026-11-22: **Tjeks offentlige vilkår er lest** (sidene under, hentet 2026-11-22). **Ingen skriftlig avtale mellom oss og Tjek ligger i repoet.** Brukeren opplyser at avtalen finnes og vil sende den; den er ikke levert, og innholdet er ikke kjent her. Ingenting under er gjettet om hva den avtalen sier.
+Status 2026-11-22: **Tjeks offentlige vilkår er lest** (sidene under, hentet 2026-11-22). **En skriftlig avtale med Tjek finnes ifølge brukeren, men den er fortrolig og ligger ikke i repoet** (se «Brukerens opplysning» under). Innholdet er ikke kjent for utviklingsteamet. Ingenting under er gjettet om hva den avtalen sier.
+
+## Brukerens opplysning (2026-11-22)
+
+Brukeren opplyser at:
+- det finnes en **skriftlig avtale** med Tjek,
+- avtalen er **merket fortrolig og deles ikke** (verken i repoet eller med utviklingsteamet),
+- avtalen er **«ok»** for bruken i appen, ifølge brukeren.
+
+Dette er brukerens egen opplysning. Den er ikke kontrollert her, fordi vi ikke har sett avtalen. **Omfang, lagring, bilder og avissider, kreditering, pris, varighet og hvilke kjeder som dekkes er derfor fortsatt «ikke kjent for oss».** Tjeks offentlige vilkår, § 4.1, sier at partene skal holde avtaleinnholdet hemmelig; det kan være grunnen, men det er ikke tolket her.
+
+**Arbeidsregel til brukeren bekrefter et bredere omfang:** bare live-visning, ingen lagring, ingen avissider, ingen bilder (som i CLAUDE.md).
+
+### Spørsmål brukeren kan svare på uten å dele avtalen
+
+Svar ja, nei eller «vet ikke» på hvert punkt. Svarene føres her med dato som brukerens opplysning:
+
+| # | Spørsmål | Svar (dato) |
+| --- | --- | --- |
+| 1 | Tillater avtalen at vi **lagrer priser og tilbud** fra Tjek (for eksempel hurtigbuffer, historikk eller i husstandens handleliste)? Hvis ja: hvor lenge? | |
+| 2 | Tillater avtalen at vi viser **bilder** (produktbilder, kjedelogoer)? | |
+| 3 | Tillater avtalen at vi viser **avissider** (hele kundeaviser eller sider fra dem)? | |
+| 4 | Dekker avtalen **alle kjedene** vi ser i Tjek (Rema 1000, Kiwi, Coop Extra/Prix/Mega/Obs/Marked, Meny, SPAR, Joker, Bunnpris, Europris m.fl.)? Hvis ikke: hvilke? | |
+| 5 | Er **appen vår** (nettstedet til AVVR AS) den plattformen avtalen gjelder for, og er **AVVR AS** avtaleparten? | |
+| 6 | Krever avtalen **kreditering** (for eksempel «Kilde: Tjek») eller lenke? | |
+| 7 | Har avtalen en **grense for antall kall**, eller en **utløpsdato** vi må vite om? | |
 
 Dette dokumentet gir ingen juridisk vurdering. Sitatene er gjengitt ordrett på engelsk som på siden; oppsummeringene er nøkterne gjengivelser, ikke tolkninger av hva som gjelder for oss. «Ikke dokumentert» betyr at vi ikke har en kilde i hende som svarer på punktet.
 
@@ -43,32 +68,32 @@ tjek.com/info: Tjek Norge AS, c/o Econpartner AS, Grundingen 6, 0250 Oslo, VAT N
 
 ## Tabell: hva vi må ha svart på
 
-Kolonnen «Offentlige vilkår» gjengir bare det tjek.com/terms og /apis-and-sdks sier. Kolonnen «Vår avtale» blir fylt når den skriftlige avtalen er levert.
+Kolonnen «Offentlige vilkår» gjengir bare det tjek.com/terms og /apis-and-sdks sier. Kolonnen «Vår avtale» fylles bare med brukerens svar (avtalen er fortrolig).
 
 | Punkt | Offentlige vilkår (tjek.com, lest 2026-11-22) | Vår avtale | Status |
 | --- | --- | --- | --- |
-| Hvem kan bruke API-et | «only available to customers»; kunde = part som inngår avtale med Tjek (§ 1.2) | Ikke levert | Ikke dokumentert for oss |
-| Omfang | Integrasjon av innhold/data i kundens egne apper og nettsider (§ 1.2, § 8.2); «the agreed Services» avgjøres av avtalen | Ikke levert. Muntlig opplyst: «tilbudsdata, live-visning» | Ikke dokumentert |
-| Lagring | Ikke omtalt for kunder som henter data (bare at Tjek kan beholde kopier av kjedenes innhold, § 5.4, og en regel for Incito-data i § 6.4) | Ikke levert. Vi bygger uten lagring (kun minne) | Ikke dokumentert |
-| Avissider | § 8.5 nevner «publication open» som API-kall; ingenting om hvorvidt kunden kan vise hele aviser | Ikke levert. Vi viser ingen avissider | Ikke dokumentert |
-| Bilder og logoer | Ikke omtalt for API-kunder. § 11: rettigheter til leveransene tilhører eller er lisensiert til Tjek, ikke overført | Ikke levert. Vi viser ingen bilder | Ikke dokumentert |
-| Kreditering | Ikke omtalt for API/Integration (kildekrav finnes bare for Insights, § 7.7) | Ikke levert | Ikke dokumentert |
-| Rate limit | Maks 8 000 000 API-kall per måned per land med mindre annet er avtalt; Tjek kan overvåke, begrense og stenge (§ 8.5) | Ikke levert | Øvre tak dokumentert i offentlige vilkår. Observert 2026-11-21: API-et svarte 200 uten nøkkel ved ett kall per sekund (`phase0/tjek-probe/`) |
-| Pris | Betaling etter avtalen (§ 3.1, § 3.4); 2 % årlig økning (§ 3.8). Ingen pris oppgitt | Ikke levert | Ikke dokumentert |
-| Land/kjeder | Ikke omtalt | Ikke levert | Ikke dokumentert. Observert: tilbud fra Rema, Kiwi, Coop-formater, Meny, Spar, Joker, Bunnpris, Europris m.fl. i norske søketreff |
-| Geografi (utsalg/område) | Ikke omtalt | Ikke levert | Ikke dokumentert. Ikke undersøkt |
-| Varighet | Fra akseptert tilbud til levert/lisensperiode slutt; automatisk fornyelse (§ 2) | Ikke levert | Mekanismen er dokumentert i offentlige vilkår; vår periode ikke dokumentert |
-| Oppsigelse | Skriftlig, minst seks måneder før kvartalsslutt (§ 2.2); heving ved vesentlig mislighold (§ 12) | Ikke levert | Mekanismen dokumentert; hva som skjer med data ved opphør er ikke omtalt |
-| Bruk utenfor egen plattform og tredjeparter | Krever Tjeks skriftlige forhåndsgodkjenning og samtykke fra rettighetshaverne (§ 8.3); ikke gi tredjeparter tilgang (§ 8.4) | Ikke levert | Dokumentert i offentlige vilkår |
-| KI/maskinlæring | Forbudt uten skriftlig forhåndsavtale (§ 8.6) | Ikke levert | Dokumentert i offentlige vilkår. Ikke aktuelt i fase 1 (KI er fase 3) |
-| Rettighetskjeden (kjedene eier tilbudene) | § 8.3 krever «all necessary consents from the relevant rights holders» for bruk utenfor egen plattform. Ellers ikke omtalt | Ikke levert | Ikke dokumentert. Se `phase0/kundeavis-rettigheter.md` |
-| Endringer og ansvar | Tjek kan endre vilkår med én måneds varsel (§ 17.1); ansvar begrenset til siste faktura (§ 9.2); dansk rett (§ 16) | Ikke levert | Dokumentert i offentlige vilkår |
-| Personvern | Tjeks personvernside viser til egen databehandleravtale for den som bruker «Tjek's integration solution through Tjek's SDK and API»; avtalen er ikke lest | Ikke levert | Ikke dokumentert. Vi sender ingen persondata til Tjek utover tekniske kall fra serveren |
+| Hvem kan bruke API-et | «only available to customers»; kunde = part som inngår avtale med Tjek (§ 1.2) | Fortrolig, ikke kjent for oss | Ikke dokumentert for oss |
+| Omfang | Integrasjon av innhold/data i kundens egne apper og nettsider (§ 1.2, § 8.2); «the agreed Services» avgjøres av avtalen | Fortrolig, ikke kjent for oss. Brukeren: avtalen er «ok»; opprinnelig omtalt som «tilbudsdata, live-visning» | Ikke dokumentert |
+| Lagring | Ikke omtalt for kunder som henter data (bare at Tjek kan beholde kopier av kjedenes innhold, § 5.4, og en regel for Incito-data i § 6.4) | Fortrolig, ikke kjent for oss. Vi bygger uten lagring (kun minne) | Ikke dokumentert |
+| Avissider | § 8.5 nevner «publication open» som API-kall; ingenting om hvorvidt kunden kan vise hele aviser | Fortrolig, ikke kjent for oss. Vi viser ingen avissider | Ikke dokumentert |
+| Bilder og logoer | Ikke omtalt for API-kunder. § 11: rettigheter til leveransene tilhører eller er lisensiert til Tjek, ikke overført | Fortrolig, ikke kjent for oss. Vi viser ingen bilder | Ikke dokumentert |
+| Kreditering | Ikke omtalt for API/Integration (kildekrav finnes bare for Insights, § 7.7) | Fortrolig, ikke kjent for oss | Ikke dokumentert |
+| Rate limit | Maks 8 000 000 API-kall per måned per land med mindre annet er avtalt; Tjek kan overvåke, begrense og stenge (§ 8.5) | Fortrolig, ikke kjent for oss | Øvre tak dokumentert i offentlige vilkår. Observert 2026-11-21: API-et svarte 200 uten nøkkel ved ett kall per sekund (`phase0/tjek-probe/`) |
+| Pris | Betaling etter avtalen (§ 3.1, § 3.4); 2 % årlig økning (§ 3.8). Ingen pris oppgitt | Fortrolig, ikke kjent for oss | Ikke dokumentert |
+| Land/kjeder | Ikke omtalt | Fortrolig, ikke kjent for oss | Ikke dokumentert. Observert: tilbud fra Rema, Kiwi, Coop-formater, Meny, Spar, Joker, Bunnpris, Europris m.fl. i norske søketreff |
+| Geografi (utsalg/område) | Ikke omtalt | Fortrolig, ikke kjent for oss | Ikke dokumentert. Ikke undersøkt |
+| Varighet | Fra akseptert tilbud til levert/lisensperiode slutt; automatisk fornyelse (§ 2) | Fortrolig, ikke kjent for oss | Mekanismen er dokumentert i offentlige vilkår; vår periode ikke dokumentert |
+| Oppsigelse | Skriftlig, minst seks måneder før kvartalsslutt (§ 2.2); heving ved vesentlig mislighold (§ 12) | Fortrolig, ikke kjent for oss | Mekanismen dokumentert; hva som skjer med data ved opphør er ikke omtalt |
+| Bruk utenfor egen plattform og tredjeparter | Krever Tjeks skriftlige forhåndsgodkjenning og samtykke fra rettighetshaverne (§ 8.3); ikke gi tredjeparter tilgang (§ 8.4) | Fortrolig, ikke kjent for oss | Dokumentert i offentlige vilkår |
+| KI/maskinlæring | Forbudt uten skriftlig forhåndsavtale (§ 8.6) | Fortrolig, ikke kjent for oss | Dokumentert i offentlige vilkår. Ikke aktuelt i fase 1 (KI er fase 3) |
+| Rettighetskjeden (kjedene eier tilbudene) | § 8.3 krever «all necessary consents from the relevant rights holders» for bruk utenfor egen plattform. Ellers ikke omtalt | Fortrolig, ikke kjent for oss | Ikke dokumentert. Se `phase0/kundeavis-rettigheter.md` |
+| Endringer og ansvar | Tjek kan endre vilkår med én måneds varsel (§ 17.1); ansvar begrenset til siste faktura (§ 9.2); dansk rett (§ 16) | Fortrolig, ikke kjent for oss | Dokumentert i offentlige vilkår |
+| Personvern | Tjeks personvernside viser til egen databehandleravtale for den som bruker «Tjek's integration solution through Tjek's SDK and API»; avtalen er ikke lest | Fortrolig, ikke kjent for oss | Ikke dokumentert. Vi sender ingen persondata til Tjek utover tekniske kall fra serveren |
 
 ## Hva dette betyr for status (uten juridisk tolkning)
 
 - De offentlige vilkårene beskriver API-tilgang som noe som gis til **kunder med avtale**, og at bruksomfanget står i avtalen. At API-et svarer uten nøkkel, sier ikke noe om hva som er tillatt.
-- Brukerens opplysning om at Tjek har godkjent bruk er derfor ikke mulig å kontrollere før avtalen er levert. Vi holder fast ved det som gjelder i dag (CLAUDE.md): bare live-visning i minnet, ingen lagring, ingen avissider, ingen bilder.
+- Brukerens opplysning om at avtalen er «ok» kan ikke kontrolleres her, fordi avtalen er fortrolig og ikke deles. Vi holder fast ved det som gjelder i dag (CLAUDE.md): bare live-visning i minnet, ingen lagring, ingen avissider, ingen bilder.
 
 ## Tekniske observasjoner (ikke avtale)
 - Endepunkter brukt: `GET https://api.etilbudsavis.dk/v2/offers/search?query=…&country_id=NO`. `/dealers` ga ingen norske dealere (306 oppføringer: 302 DK, 4 DE).
@@ -76,7 +101,7 @@ Kolonnen «Offentlige vilkår» gjengir bare det tjek.com/terms og /apis-and-sdk
 - Svaret har `Link: <https://tjek.com/terms>; rel="terms-of-service"`.
 
 ## Hva som gjenstår
-1. **Brukeren leverer den skriftlige avtalen med Tjek** (sagt at den finnes). Legg den i `phase0/` (eller en beskrivelse av den, hvis den er konfidensiell, jf. Terms § 4.1 om taushetsplikt), og fyll kolonnen «Vår avtale». Ikke fyll kolonnen før dokumentet er i hende.
-2. Kontroller mot avtalen særlig: at vår app regnes som kundens «own platform» (§ 8.2), omfang (tilbudsdata, live-visning), lagring, bilder, kreditering, pris og hvem som er avtalepart på vår side (AVVR AS?).
+1. **Brukeren svarer på spørsmålene** i «Spørsmål brukeren kan svare på uten å dele avtalen». Avtalen selv skal ikke legges i repoet (fortrolig).
+2. Til svarene foreligger, gjelder arbeidsregelen: bare live-visning, ingen lagring, ingen avissider, ingen bilder.
 3. Utkastet til oppfølging (`phase0/utkast/tjek-oppfolging.md`) er **ikke sendt** og skal ikke sendes uten at brukeren ber om det.
 4. Til punktene over er dokumentert: bare live-visning, ingen lagring, ingen avissider, ingen bilder (som i CLAUDE.md).

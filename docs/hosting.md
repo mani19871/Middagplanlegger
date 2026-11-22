@@ -195,7 +195,7 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 | 9 | **Ingen fagperson nå,** bare lukket pilot | Når en fagperson skal se på dokumentene |
 | 10 | Eier vil ha **hjelp til oppsett** av sikkerhetskopinøkkelen | Hvem de to nøkkelholderne er (fremgangsmåte: avsnitt 0, steg 6) |
 | 11 | – | Ikke besvart |
-| 12 | Eier sier en skriftlig Tjek-avtale finnes og vil sende den | **Ikke levert** (`phase0/tjek-avtale.md`) |
+| 12 | Skriftlig Tjek-avtale finnes og er «ok» ifølge eier, men er fortrolig og deles ikke | Omfang ikke kjent for oss; spørsmål i `phase0/tjek-avtale.md`. Til svar foreligger: ingen lagring av tilbud |
 | – | Hosting: eier vet ikke, spurte om webhotel | Se avsnitt 0 |
 | – | Eier-godkjenning av nye medlemmer: **nei**, invitasjonen holder | – |
 
