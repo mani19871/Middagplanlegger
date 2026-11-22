@@ -6,7 +6,7 @@ import { enqueue } from './sync/queue';
 import { applyListEvent, type ListEvent, type ListLog } from './sync/list';
 import type { DocBody, DocName } from './sync/docs';
 import type { MemberInfo } from './sync/protocol';
-import type { ListChange, PlanVersion } from './engine/substitution';
+import { addVersion, type ListChange, type PlanVersion } from './engine/substitution';
 
 /** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
 export interface DocMeta { version: number; base: DocBody }
@@ -37,14 +37,16 @@ export interface AppState {
   syncNotice: string | null;
   /** «Utsolgt / fant ikke»-valg i handlelista (idempotent på id) og planversjoner med årsak. Se engine/substitution.ts. */
   listChanges?: ListChange[]; planHistory?: PlanVersion[];
-  /** «Utsolgt / fant ikke»-valg som ikke er levert til husstanden ennå. Planversjonene (`planHistory`) synkes ikke. */
+  /** «Utsolgt / fant ikke»-valg som ikke er levert til husstanden ennå. */
   changeOutbox?: ListChange[];
   /** Banneret «ingen allergi- eller kostfilter på denne enheten» er avvist her. Lokalt, synkes ikke. */
   filterBannerDismissed?: boolean;
+  /** Planversjoner (godkjente lister og historikk) som ikke er levert til husstanden ennå. */
+  versionOutbox?: PlanVersion[];
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
-  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null, listChanges: [], planHistory: [], changeOutbox: [],
+  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null, listChanges: [], planHistory: [], changeOutbox: [], versionOutbox: [],
 };
 type OldState = Partial<AppState> & { checked?: Record<string, boolean>; manual?: { id: string; text: string; note: string }[] };
 const KEY = 'middag-state-v1';
@@ -122,6 +124,13 @@ export function recordList(s: AppState, ...events: ListEvent[]): AppState {
     if (next !== list) { list = next; listOutbox = enqueue(listOutbox, e); }
   }
   return list === s.list ? s : { ...s, list, listOutbox };
+}
+
+/** Legger en planversjon i historikken og utboksen. En id som finnes fra før gir ingen endring. */
+export function recordVersion(s: AppState, v: PlanVersion): AppState {
+  const prev = s.planHistory ?? [];
+  const planHistory = addVersion(prev, v);
+  return planHistory === prev ? s : { ...s, planHistory, versionOutbox: enqueue(s.versionOutbox ?? [], v) };
 }
 
 /** Ny hendelses-id og tidspunkt. Hører hjemme utenfor motoren. */

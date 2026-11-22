@@ -234,21 +234,29 @@ export function generatePlan(ctx: Ctx, previous: Slot[] = []): Slot[] {
   return slots.sort((a, b) => a.day - b.day);
 }
 
-export function alternatives(slots: Slot[], ctx: Ctx): Alternatives {
+/**
+ * Én butikk mot beste kombinasjon. Motoren velger butikkombinasjonen på sine egne priser; `adjust` legger så brukerens
+ * valg (utsolgt / fant ikke, godkjent liste) oppå begge kurvene, og anbefalingen regnes på de justerte kurvene, så
+ * kortene viser samme sum som handlelista (se substitution.ts). En kurv med ukjent pris vinner aldri.
+ * Standard: kurvene som de er.
+ */
+export function alternatives(slots: Slot[], ctx: Ctx, adjust: (b: Basket) => Basket = (b) => b): Alternatives {
   const { settings } = ctx;
-  const regular = buildBasket(slots, [settings.regularStoreId], ctx);
-  let combo: Basket | null = null;
+  const rawRegular = buildBasket(slots, [settings.regularStoreId], ctx);
+  let rawCombo: Basket | null = null;
   const others = settings.storeIds.filter((id) => id !== settings.regularStoreId).sort();
   if (settings.maxStops >= 2) {
     for (const o of others) {
       const b = buildBasket(slots, [settings.regularStoreId, o], ctx);
       // En kurv med ukjent pris vinner aldri sammenligningen.
-      if (b.complete && (!combo || b.totalOre < combo.totalOre)) combo = b;
+      if (b.complete && (!rawCombo || b.totalOre < rawCombo.totalOre)) rawCombo = b;
     }
   }
+  const regular = adjust(rawRegular);
+  const combo = rawCombo ? adjust(rawCombo) : null;
   let recommended: 'regular' | 'combo' = 'regular';
   let savingOre: number | null = null;
-  if (combo) {
+  if (combo && combo.complete) {
     if (regular.complete) {
       savingOre = regular.totalOre - combo.totalOre;
       // Terskelen gjelder bare når kombinasjonen krever flere stopp enn vanlig butikk.
@@ -264,25 +272,30 @@ export function budgetAnswer(b: Basket, budgetOre: number): BudgetAnswer {
 }
 
 export interface SwapOption { recipe: Recipe; deltaOre: number; complete: boolean }
+/** Justering av en kurv for gitte middager (brukerens valg oppå motorens kurv). Standard: kurven som den er. */
+export type BasketAdjust = (b: Basket, slots: Slot[]) => Basket;
+const asIs: BasketAdjust = (b) => b;
+
 /** Prisforskjell på hele kurven ved å bytte én dag til en annen rett. */
-export function swapOptions(slots: Slot[], day: number, storeIds: string[], ctx: Ctx): SwapOption[] {
-  const current = buildBasket(slots, storeIds, ctx);
+export function swapOptions(slots: Slot[], day: number, storeIds: string[], ctx: Ctx, adjust: BasketAdjust = asIs): SwapOption[] {
+  const current = adjust(buildBasket(slots, storeIds, ctx), slots);
   const used = new Set(slots.filter((s) => s.day !== day).map((s) => s.recipeId));
   return eligibleRecipes(ctx, day)
     .filter((r) => !used.has(r.id))
     .map((recipe) => {
-      const next = buildBasket(slots.map((s) => (s.day === day ? { ...s, recipeId: recipe.id } : s)), storeIds, ctx);
+      const ss = slots.map((s) => (s.day === day ? { ...s, recipeId: recipe.id } : s));
+      const next = adjust(buildBasket(ss, storeIds, ctx), ss);
       return { recipe, deltaOre: next.totalOre - current.totalOre, complete: next.complete };
     })
     .sort((a, b) => Number(b.complete) - Number(a.complete) || a.deltaOre - b.deltaOre || a.recipe.id.localeCompare(b.recipe.id));
 }
 
 /** Grep som får planen innenfor budsjett: bytt en middag til noe billigere (låste retter beholdes). */
-export function budgetSuggestions(slots: Slot[], storeIds: string[], ctx: Ctx, limit = 3) {
+export function budgetSuggestions(slots: Slot[], storeIds: string[], ctx: Ctx, limit = 3, adjust: BasketAdjust = asIs) {
   const out: { day: number; option: SwapOption; newTotalOre: number }[] = [];
-  const base = buildBasket(slots, storeIds, ctx).totalOre;
+  const base = adjust(buildBasket(slots, storeIds, ctx), slots).totalOre;
   for (const s of slots.filter((x) => !x.locked)) {
-    const opt = swapOptions(slots, s.day, storeIds, ctx).find((o) => o.complete && o.deltaOre < 0);
+    const opt = swapOptions(slots, s.day, storeIds, ctx, adjust).find((o) => o.complete && o.deltaOre < 0);
     if (opt) out.push({ day: s.day, option: opt, newTotalOre: base + opt.deltaOre });
   }
   return out.sort((a, b) => a.newTotalOre - b.newTotalOre).slice(0, limit);

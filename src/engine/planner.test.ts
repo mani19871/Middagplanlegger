@@ -220,3 +220,23 @@ describe('regresjon: tilbud teller bare fra valgte kjeder', () => {
     expect(dealsFor(karri, 0, c(['COOP EXTRA'], [h('Coop Extra', { chain: 'COOP PRIX' })])).lines).toEqual([]);
   });
 });
+
+describe('regresjon: alternativer med brukerens valg oppå (samme kurv i alle visninger)', () => {
+  const week = [slot(0, 'bolognese'), slot(1, 'pastaspinat'), slot(2, 'karri')];
+  it('uten justering er svaret som før; motoren velger butikkene, valgene endrer bare summene og anbefalingen', () => {
+    const c = ctx();
+    const raw = alternatives(week, c);
+    expect(alternatives(week, c, (b) => b)).toEqual(raw);
+    // En justering som gjør en linje ukjent (som «fant ikke»): kombinasjonen beholdes, men vinner aldri.
+    const unknownFirst = (b: ReturnType<typeof buildBasket>) => {
+      const lines = b.lines.map((l, i) => (i === 0 ? { ...l, costOre: null, status: 'ukjent' as const } : l));
+      const priced = lines.filter((l) => l.costOre !== null);
+      return { ...b, lines, totalOre: priced.reduce((s, l) => s + (l.costOre ?? 0), 0), unknownCount: lines.length - priced.length, complete: false };
+    };
+    const adj = alternatives(week, c, unknownFirst);
+    expect(adj.combo?.storeIds).toEqual(raw.combo?.storeIds);
+    expect(adj.recommended).toBe('regular');
+    expect(adj.savingOre).toBeNull();
+    expect(raw).toEqual(alternatives(week, c)); // motorens kurver er uendret
+  });
+});

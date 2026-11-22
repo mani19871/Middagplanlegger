@@ -14,6 +14,7 @@ import { Thumb } from './art';
 import { recipeAllergenText } from './allergenText';
 import PlanForm from './PlanForm';
 import OfferTotalNote from './OfferTotalNote';
+import { ChangesNote, type ChangeKit } from './ListChanges';
 import { Sheet } from './Sheet';
 import type { OfferTotal } from '../engine/offerTotal';
 import { recipeNutrition, scaleNutrition, weekNutrition, type NutritionTable } from '../engine/nutrition';
@@ -26,6 +27,8 @@ interface Props {
   basket: Basket; activeStores: string[]; regenerate: () => void; openList: () => void;
   offerTotal: OfferTotal; approvedHints: number;
   mode: Mode; setMode: (m: Mode) => void;
+  /** Brukerens valg fra handlelista: samme justering i bytteforslag, godkjenning som lager planversjon. */
+  kit: ChangeKit;
 }
 export type Mode = 'home' | 'plan' | 'edit' | 'trip';
 const storeName = (ctx: Ctx, id: string) => ctx.catalog.stores.find((s) => s.id === id)?.name ?? id;
@@ -47,7 +50,7 @@ function chainOptions(ctx: Ctx): { chain: string; label: string }[] {
 }
 const pill = (d: number) => (d === 0 ? { t: 'Samme pris', c: 'pill' } : d > 0 ? { t: `+${num(d / 100, 0)} kr på handelen`, c: 'pill up' } : { t: `−${num(-d / 100, 0)} kr på handelen`, c: 'pill down' });
 
-export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode, offerTotal, approvedHints }: Props) {
+export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode, offerTotal, approvedHints, kit }: Props) {
   const { settings, slots } = state;
   const [sheet, setSheet] = useState<number | null>(null);
   const [pick, setPick] = useState<string | null>(null);
@@ -96,7 +99,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   }
   const answer = budgetAnswer(basket, settings.budgetOre);
   const margin = settings.budgetOre - basket.totalOre;
-  const sugg = answer === 'over' ? budgetSuggestions(slots, activeStores, ctx) : [];
+  const sugg = answer === 'over' ? budgetSuggestions(slots, activeStores, ctx, 3, kit.swapAdjust) : [];
   const { regular, combo } = alts;
   const hero = slots[0];
   const hr = recipe(hero.recipeId);
@@ -136,6 +139,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         {basket.stops} butikk{basket.stops === 1 ? '' : 'er'} · {basket.estimatedCount} estimert · {basket.unknownCount} ukjent pris
       </p>
       {answer === 'ufullstendig' && <p className="fine">Mangler pris: {basket.lines.filter((l) => l.costOre === null).map((l) => l.name).join(', ')}. Kurven kan ikke bekreftes innenfor budsjett.</p>}
+      <ChangesNote basket={basket} />
       <OfferTotalNote total={offerTotal} approvedHints={approvedHints} />
     </div>
   );
@@ -167,6 +171,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={() => setMode('plan')}>←</button></div>
         <h1 className="page">Velg handletur</h1>
         <p className="fine">Samme {slots.length} middager.</p>
+        <ChangesNote basket={basket} />
         <div role="radiogroup" aria-label="Handletur">
         <button role="radio" aria-checked={sel === 'regular'} className={`card alt big ${sel === 'regular' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'regular' }))}>
           <span className="radio" aria-hidden>{sel === 'regular' ? '◉' : '○'}</span>
@@ -177,7 +182,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
           <button role="radio" aria-checked={sel === 'combo'} className={`card alt big ${sel === 'combo' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'combo' }))}>
             <span className="radio" aria-hidden>{sel === 'combo' ? '◉' : '○'}</span>
             <span className="rinfo"><strong>{combo.stops >= 2 ? 'To butikker' : 'Annen butikk'}</strong><small>{usedStores(combo).join(' + ')}</small></span>
-            <strong className="amt">{kr(combo.totalOre)}</strong>
+            <strong className="amt">{combo.complete ? kr(combo.totalOre) : `${kr(combo.totalOre)}+`}</strong>
           </button>
         ) : <div className="card alt muted"><strong>Ingen komplett kombinasjon</strong><span>Ikke alle varer har pris i flere butikker.</span></div>}
         </div>
@@ -185,19 +190,20 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
           <div className="banner">🏷 Du sparer <b>{kr(saving)}</b> {extraStop ? 'med et ekstra stopp' : 'ved å bytte butikk'}.</div>
         )}
         {!regular.complete && <div className="banner warn">Vanlig butikk mangler pris på {regular.unknownCount} vare{regular.unknownCount === 1 ? '' : 'r'}, og kan ikke kåres billigst.</div>}
+        {combo && !combo.complete && <div className="banner warn">Kombinasjonen mangler pris på {combo.unknownCount} vare{combo.unknownCount === 1 ? '' : 'r'}, og kan ikke kåres billigst.</div>}
         <label className="thr">Minste besparelse for ekstra stopp
           <select value={settings.extraStoreThresholdOre} onChange={(e) => update((s) => ({ ...s, settings: { ...s.settings, extraStoreThresholdOre: Number(e.target.value) } }))}>
             {[0, 2500, 5000, 10000, 20000].map((v) => <option key={v} value={v}>{kr(v)}</option>)}
           </select></label>
         <p className="fine">Anbefaling: {alts.recommended === 'combo' ? 'kombinasjonen' : 'én butikk'}. «Laveste beregnede pris blant sammenlignede alternativer», ikke en garanti. Reisetid og drivstoff er ikke med.</p>
-        <button className="cta" onClick={() => { update((s) => ({ ...s, approved: true, option: sel })); setMode('plan'); openList(); }}>
+        <button className="cta" onClick={() => { kit.approve(sel); setMode('plan'); openList(); }}>
           {sel === 'combo' && combo && combo.stops >= 2 ? 'Velg to butikker' : 'Velg én butikk'}</button>
       </>
     );
   }
 
   const sheetSlot = sheet !== null ? slots.find((s) => s.day === sheet) : undefined;
-  const opts = sheetSlot ? swapOptions(slots, sheetSlot.day, activeStores, ctx).filter((o) => o.recipe.id !== sheetSlot.recipeId) : [];
+  const opts = sheetSlot ? swapOptions(slots, sheetSlot.day, activeStores, ctx, kit.swapAdjust).filter((o) => o.recipe.id !== sheetSlot.recipeId) : [];
   const chosen = opts.find((o) => o.recipe.id === pick);
   const closeSheet = () => { setSheet(null); setPick(null); };
   const patchSlot = (day: number, patch: object) => update((s) => ({ ...s, approved: false, slots: s.slots.map((x) => (x.day === day ? { ...x, ...patch } : x)) }));

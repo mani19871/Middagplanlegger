@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { catalog } from './data/catalog';
-import { alternatives, generatePlan } from './engine/planner';
+import { generatePlan } from './engine/planner';
 import { hasDietFilter, recordEvent, usePersistentState } from './store';
 import { conflicts, deriveStock, type InventoryEvent } from './engine/inventory';
 import HouseholdView from './views/HouseholdView';
@@ -9,6 +9,7 @@ import { pendingCount, syncStatus, type SyncStatus } from './sync/engine';
 import WeekView from './views/WeekView';
 import ListView from './views/ListView';
 import { useChangeKit } from './views/ListChanges';
+import { changeSummary } from './engine/substitution';
 import PapersView from './views/PapersView';
 import PantryView from './views/PantryView';
 import { Leaf, icons } from './views/art';
@@ -43,9 +44,6 @@ export default function App() {
   const [tab, setTab] = useState<Tab>(inviteCode ? 'Husstand' : 'Uka');
   const runtime = useSync(state, update);
   const purchaseConflicts = useMemo(() => conflicts(state.inventory).length, [state.inventory]);
-  const status = syncStatus(state, runtime, purchaseConflicts);
-  const pending = pendingCount(state);
-  const statusText = status === 'venter' && pending > 0 ? `${STATUS_TEXT.venter} (${pending} endring${pending === 1 ? '' : 'er'} lagret her)` : STATUS_TEXT[status];
   const docConflicts = state.sync ? Object.keys(state.sync.conflicts).length : 0;
   // Kostkrav og allergier synkes ikke. I en husstand med flere enheter varsles en enhet uten filter (kan avvises her).
   const otherMembers = state.sync ? state.sync.members.filter((m) => !m.removed && !m.me).length : 0;
@@ -81,11 +79,15 @@ export default function App() {
     const changed = JSON.stringify(deriveStock(next.inventory, { planWeek: week }).total) !== JSON.stringify(deriveStock(s.inventory, { planWeek: week }).total);
     return changed ? { ...next, approved: false } : next;
   });
-  const alts = useMemo(() => alternatives(state.slots, ctx), [state.slots, ctx]);
-  const useCombo = state.option === 'combo' && alts.combo;
-  const activeStores = useCombo ? alts.combo!.storeIds : [state.settings.regularStoreId];
-  // Brukerens «utsolgt / fant ikke»-valg og den godkjente listens produkter legges oppå motorens kurv.
-  const { basket, kit } = useChangeKit(state, update, ctx, activeStores, useCombo ? alts.combo! : alts.regular, week);
+  // Brukerens «utsolgt / fant ikke»-valg og den godkjente listens produkter legges oppå motorens kurv, også i
+  // sammenligningen av handleturer, så ukeplan, handletur, handleliste og tilbudssum viser samme kurv.
+  const { alts, basket, activeStores, kit } = useChangeKit(state, update, ctx, week);
+  // Konflikt som må avklares: dokument, antall på et kjøp, ulike valg på en linje eller to ulike godkjente lister.
+  const lineConflicts = changeSummary(basket).konflikt;
+  const listConflict = kit.conflict.length > 1;
+  const status = syncStatus(state, runtime, purchaseConflicts + lineConflicts + (listConflict ? 1 : 0));
+  const pending = pendingCount(state);
+  const statusText = status === 'venter' && pending > 0 ? `${STATUS_TEXT.venter} (${pending} endring${pending === 1 ? '' : 'er'} lagret her)` : STATUS_TEXT[status];
   // Egen sum med regelgodkjente tilbud; basissummen og butikksammenligningen over er uendret.
   const offerTotal = useMemo(() => totalWithOffers(basket, hints, day, state.settings), [basket, hints, day, state.settings]);
   const approvedHints = hints.filter((h) => h.approved).length;
@@ -115,7 +117,11 @@ export default function App() {
           <div className="banner warn" role="alert">⚠ Planen eller innstillingene ble endret på to enheter samtidig.{' '}
             <button className="ghost sm" onClick={() => setTab('Husstand')}>Velg hva som skal gjelde</button></div>
         )}
-        {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
+        {(listConflict || lineConflicts > 0) && tab !== 'Handleliste' && (
+          <div className="banner warn" role="alert">⚠ {listConflict ? 'To voksne har godkjent ulike handlelister.' : 'To enheter har valgt ulikt for en vare i handlelista.'}{' '}
+            <button className="ghost sm" onClick={() => setTab('Handleliste')}>Velg hva som skal gjelde</button></div>
+        )}
+        {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores} kit={kit}
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} />}

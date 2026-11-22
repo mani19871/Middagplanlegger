@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { catalog } from '../data/catalog';
 import { defaultSettings } from '../data/defaults';
-import { budgetAnswer, buildBasket, type Ctx } from './planner';
-import { applyEvent, deriveStock, lineStates, purchaseLineId, type InventoryEvent, type InventoryLog } from './inventory';
+import { alternatives, budgetAnswer, buildBasket, swapOptions, type Ctx } from './planner';
+import { applyEvent, deriveStock, homeLineId, lineStates, purchaseLineId, type InventoryEvent, type InventoryLog } from './inventory';
 import {
-  activeChanges, activePin, addVersion, applyChange, applyChanges, canMarkBought, changeBlocked, changeLineId, findSubstitutes,
-  keepVersion, latestVersion, needsApprovalVersion, notFoundEvent, notFoundOptions, priceDrift, snapshot, substituteEvent,
-  undoChangeEvent, versionsFor, type AdjustedLine, type ListChange, type PlanHistory,
+  activeChanges, activePin, addVersion, adjustedWeek, applyChange, applyChanges, approvalVersion, canMarkBought, changeBlocked, changeLineId,
+  changeSummary, chooseVersion, findSubstitutes, homeUseEvents, keepVersion, latestVersion, needsApprovalVersion, notFoundEvent, notFoundOptions,
+  pinState, priceDrift, snapshot, substituteEvent, undoChangeEvent, versionHeads, versionsFor, withPrev,
+  type AdjustedLine, type ListChange, type PlanHistory, type VersionMeta,
 } from './substitution';
+import { totalWithOffers } from './offerTotal';
 import type { Catalog, PriceObs, Product, Settings, Slot } from './types';
 
 const W = '2026-11-23';
@@ -339,5 +341,202 @@ describe('historikk og planversjoner', () => {
     expect(shown).toMatchObject({ productId: 'pastaFull', lineKey: changeLineId(W, 'demoA', 'pasta', 'pasta500'), change: { type: 'erstatt' } });
     const undone = applyChanges(buildBasket(fishWeek, ['demoA'], c), activeChanges([e, undoChangeEvent(shown, W, m(4))], W), W, c, pin2);
     expect(undone.lines.find((l) => l.ingredient === 'pasta')!.productId).toBe('pasta500');
+  });
+});
+
+describe('ulike valg på samme linje fra to enheter', () => {
+  it('blir en konflikt med ukjent pris til en voksen velger, uavhengig av rekkefølge; samme valg er ingen konflikt', () => {
+    const pasta = setup().line('pasta');
+    // To voksne i butikken samtidig: ingen av dem har sett den andres valg (prev tom).
+    const a: ListChange = { ...substituteEvent(pasta, W, 'pastaGF', m(1, 'A')), prev: [] };
+    const b: ListChange = { ...notFoundEvent(pasta, W, 'hopp-over', m(2, 'B')), prev: [] };
+    const s = setup([a, b]);
+    const l = s.line('pasta');
+    expect(l.change).toMatchObject({ type: 'konflikt', original: { productId: 'pasta500' } });
+    expect(l.change!.heads.map((h) => h.id)).toEqual(['e1', 'e2']);
+    expect(l.costOre).toBeNull();
+    expect(s.adj.complete).toBe(false);
+    expect(budgetAnswer(s.adj, 1_000_000)).toBe('ufullstendig');
+    expect(canMarkBought(l)).toBe(false);
+    expect(s.adj.skipped).toEqual([]);
+    expect(changeSummary(s.adj).konflikt).toBe(1);
+    expect(setup([b, a]).adj).toEqual(s.adj);
+    // Samme valg fra begge: ingen konflikt.
+    const b2: ListChange = { ...substituteEvent(pasta, W, 'pastaGF', m(3, 'B')), prev: [] };
+    expect(setup([a, b2]).line('pasta')).toMatchObject({ productId: 'pastaGF', change: { type: 'erstatt' } });
+    // En voksen velger: nytt valg som bygger på begge løser konflikten hos alle.
+    const log = [a, b].reduce(applyChange, [] as ListChange[]);
+    const pick = withPrev(log, substituteEvent(l, W, 'pastaGF', m(4, 'A')));
+    expect(pick.prev).toEqual(['e1', 'e2']);
+    const r = setup([...log, pick]);
+    expect(r.line('pasta')).toMatchObject({ productId: 'pastaGF', change: { type: 'erstatt', changeId: 'e4' } });
+    expect(r.adj.complete).toBe(true);
+  });
+
+  it('et valg gjort uten nett som bygger på det enheten hadde sett, flettes uten konflikt', () => {
+    const { line } = setup();
+    const a = withPrev([], substituteEvent(line('pasta'), W, 'pastaGF', m(1, 'A')));
+    expect(a.prev).toEqual([]);
+    // B hadde sett A sitt valg og angrer det uten nett; samtidig erstatter B tomat (en annen linje).
+    const seen = applyChange([], a);
+    const undo = withPrev(seen, undoChangeEvent(setup([a]).line('pasta'), W, m(5, 'B')));
+    const tomat = withPrev(seen, substituteEvent(line('kokosmelk'), W, line('kokosmelk').productId!, m(6, 'B')));
+    expect(undo.prev).toEqual(['e1']);
+    const merged = setup([tomat, undo, a]);
+    expect(merged.line('pasta')).toMatchObject({ productId: 'pasta500', change: null });
+    expect([...merged.changes.values()].some((c) => c.type === 'konflikt')).toBe(false);
+  });
+
+  it('«bruk noe vi har hjemme» gir en beholdningshendelse med mengden, og angre tar den bort', () => {
+    const { base, c, line } = setup();
+    const pasta = line('pasta');
+    const home = notFoundEvent(pasta, W, 'bruk-hjemme', m(1));
+    const after = activeChanges([home], W);
+    const adj = applyChanges(base, after, W, c);
+    expect(homeUseEvents(undefined, after.get(pasta.lineKey), adj, W, m(2))).toEqual([{
+      type: 'hjemme', id: 'e2', at: t(2), by: 'A', week: W, line: homeLineId(W, 'pasta'), ingredient: 'pasta', amount: pasta.need,
+    }]);
+    const undone = activeChanges([home, undoChangeEvent(adj.skipped[0], W, m(3))], W);
+    expect(homeUseEvents(after.get(pasta.lineKey), undone.get(pasta.lineKey), applyChanges(base, undone, W, c), W, m(4)))
+      .toEqual([{ type: 'angre', id: 'e4', at: t(4), by: 'A', line: homeLineId(W, 'pasta') }]);
+    // Erstatning eller hopp over registrerer ingenting i matskapet.
+    const sub = activeChanges([substituteEvent(pasta, W, 'pastaGF', m(5))], W);
+    expect(homeUseEvents(undefined, sub.get(pasta.lineKey), applyChanges(base, sub, W, c), W, m(6))).toEqual([]);
+  });
+});
+
+describe('delte planversjoner (husstand)', () => {
+  const week = [slot(0, 'lakseris'), slot(1, 'bolognese')];
+  const cheaper: Catalog = { ...testCatalog, prices: testCatalog.prices.map((o) => (o.productId === 'kd800' && o.storeId === 'demoA' ? { ...o, ore: 4990, observed: '2026-11-22' } : o)) };
+  const snap = (c: Ctx, meta: Omit<VersionMeta, 'week'>, log: ListChange[] = [], pin: PlanHistory[number] | null = null) =>
+    snapshot(applyChanges(buildBasket(week, ['demoA'], c), activeChanges(log, W), W, c, pin), week, { week: W, ...meta }, c);
+  const now = (c: Ctx, log: ListChange[] = []) => applyChanges(buildBasket(week, ['demoA'], c), activeChanges(log, W), W, c, null);
+
+  it('to voksne som fastholder ulike lister samtidig gir en konflikt (ikke siste-skriving-vinner) som en voksen løser', () => {
+    const v1 = snap(ctx(), { id: 'v1', at: t(1), by: 'A', reason: 'godkjent', parents: [] });
+    const c2 = ctx({}, { catalog: cheaper });
+    // A: «Bruk nye priser» (800 g-pakken). B samtidig: «Behold godkjent liste» (400 g-pakken). Begge bygger på v1.
+    const vA = snap(c2, { id: 'vA', at: t(2), by: 'A', reason: 'nye-priser', parents: ['v1'] });
+    const vB = keepVersion(v1, priceDrift(v1, now(c2), c2), { id: 'vB', at: t(3), by: 'B', parents: ['v1'] });
+    const h = [v1, vB, vA].reduce(addVersion, [] as PlanHistory);
+    expect(versionHeads(h, W).map((v) => v.id)).toEqual(['vA', 'vB']);
+    const ps = pinState(h, W, week, true);
+    expect(ps.pin).toBeNull();
+    expect(ps.conflict.map((v) => v.id)).toEqual(['vA', 'vB']);
+    expect(pinState([vA, v1, vB].reduce(addVersion, [] as PlanHistory), W, week, true)).toEqual(ps);
+    // En voksen velger B sin liste: ny versjon som bygger på begge. Alle enheter holder samme produkter.
+    const pick = chooseVersion(h, vB, { id: 'v4', at: t(4), by: 'A' });
+    expect(pick).toMatchObject({ reason: 'valgt', parents: ['vA', 'vB'], lines: vB.lines });
+    const pin = pinState(addVersion(h, pick), W, week, true).pin!;
+    expect(pin.id).toBe('v4');
+    expect(applyChanges(buildBasket(week, ['demoA'], c2), new Map(), W, c2, pin).lines.find((l) => l.ingredient === 'kjottdeig')!.productId).toBe('kd400');
+    expect(priceDrift(pin, now(c2), c2)).toEqual([]); // avvikene B så, er fortsatt sett
+  });
+
+  it('samtidige endringer i butikken på samme godkjente liste er ingen konflikt, og er ikke prisavvik', () => {
+    const c = ctx();
+    const v1 = snap(c, { id: 'v1', at: t(1), by: 'A', reason: 'godkjent', parents: [] });
+    const pin = pinState([v1], W, week, true).pin!;
+    const adj0 = applyChanges(buildBasket(week, ['demoA'], c), new Map(), W, c, pin);
+    const other = adj0.lines.find((l) => l.ingredient !== 'pasta' && l.productId)!;
+    const eA = substituteEvent(adj0.lines.find((l) => l.ingredient === 'pasta')!, W, 'pastaFull', m(2, 'A'));
+    const eB = notFoundEvent(other, W, 'hopp-over', m(3, 'B'));
+    const vA = snap(c, { id: 'vA', at: t(2), by: 'A', reason: 'erstatning', parents: ['v1'] }, [eA], pin);
+    const vB = snap(c, { id: 'vB', at: t(3), by: 'B', reason: 'fant-ikke', parents: ['v1'] }, [eB], pin);
+    const ps = pinState([v1, vA, vB].reduce(addVersion, [] as PlanHistory), W, week, true);
+    expect(ps.conflict).toEqual([]);
+    expect(ps.pin!.id).toBe('vB');
+    expect(ps.group.map((v) => v.id)).toEqual(['vA', 'vB']);
+    // Begge valgene gjelder (de er egne hendelser), og ingen av dem vises som prisavvik.
+    expect(priceDrift(ps.pin!, now(c, [eA, eB]), c)).toEqual([]);
+    expect(priceDrift(vA, now(c, [eA, eB]), c)).toEqual([]);
+  });
+
+  it('ny godkjenning med samme middager gir ny versjon bare når grunnlaget er endret (ingen duplikat)', () => {
+    const c = ctx();
+    const first = approvalVersion([], W, snap(c, { id: 'v1', at: t(1), by: 'A', reason: 'godkjent' }))!;
+    expect(first.parents).toEqual([]);
+    const h = addVersion([], first);
+    expect(approvalVersion(h, W, snap(c, { id: 'v2', at: t(2), by: 'A', reason: 'godkjent' }))).toBeNull();
+    // Beholdningen er endret (kjøttdeig hjemme): mindre behov, ny versjon som bygger på den forrige.
+    const stocked = ctx({}, { stock: { kjottdeig: 200 } });
+    const v3 = approvalVersion(h, W, snap(stocked, { id: 'v3', at: t(3), by: 'A', reason: 'godkjent' }))!;
+    expect(v3).toMatchObject({ id: 'v3', parents: ['v1'] });
+    const h3 = addVersion(h, v3);
+    expect(approvalVersion(h3, W, snap(stocked, { id: 'v4', at: t(4), by: 'B', reason: 'godkjent' }))).toBeNull();
+    expect(pinState(h3, W, week, true).pin!.id).toBe('v3');
+    // Et valg i butikken endrer også grunnlaget.
+    const pasta = now(stocked).lines.find((l) => l.ingredient === 'pasta')!;
+    const e = substituteEvent(pasta, W, 'pastaFull', m(5));
+    expect(approvalVersion(h3, W, snap(stocked, { id: 'v5', at: t(5), by: 'A', reason: 'godkjent' }, [e]))).toMatchObject({ parents: ['v3'] });
+  });
+
+  it('en endring før listen er godkjent holder ingenting fast', () => {
+    const c = ctx();
+    const pasta = now(c).lines.find((l) => l.ingredient === 'pasta')!;
+    const v = snap(c, { id: 'v1', at: t(1), by: 'A', reason: 'erstatning', parents: [] }, [substituteEvent(pasta, W, 'pastaFull', m(1))]);
+    expect(pinState([v], W, week, true)).toMatchObject({ pin: null, conflict: [] });
+  });
+
+  it('bytt rett ved «fant ikke»: ny sum regnes uten den godkjente listen (godkjenningen oppheves)', () => {
+    const v1 = snap(ctx(), { id: 'v1', at: t(1), by: 'A', reason: 'godkjent', parents: [] });
+    const c2 = ctx({}, { catalog: cheaper });
+    const pin = pinState([v1], W, week, true).pin!;
+    const adj = applyChanges(buildBasket(week, ['demoA'], c2), new Map(), W, c2, pin);
+    const laks = adj.lines.find((l) => l.ingredient === 'laks')!;
+    const nf = notFoundOptions(week, ['demoA'], new Map(), laks, W, c2, pin);
+    const swap = nf.options.find((o) => o.kind === 'bytt-rett')!;
+    expect(swap).toBeDefined();
+    const expected = applyChanges(buildBasket(swap.slots, ['demoA'], c2), activeChanges([notFoundEvent(laks, W, 'uavklart', m(9))], W), W, c2, null);
+    expect(swap.totalOre).toBe(expected.totalOre);
+  });
+});
+
+describe('samme kurv i alle visninger', () => {
+  it('etter en erstatning viser handletur-kortene, totalen, handlelista og tilbudssummen samme kurv; basiskurven endres ikke', () => {
+    const c = ctx();
+    const raw = alternatives(pastaWeek, c);
+    const frozen = JSON.stringify(raw);
+    const base = buildBasket(pastaWeek, ['demoA'], c);
+    const baseFrozen = JSON.stringify(base);
+    const pasta = applyChanges(base, new Map(), W, c).lines.find((l) => l.ingredient === 'pasta')!;
+    const changes = activeChanges([substituteEvent(pasta, W, 'pastaFull', m(1))], W);
+    const w = adjustedWeek(pastaWeek, c, 'regular', changes, W, null);
+    expect(w.basket.totalOre).toBe(base.totalOre - 2 * 2290 + 4990);
+    expect(w.alts.regular.totalOre).toBe(w.basket.totalOre); // kortet «Én butikk»
+    expect(w.basket.lines.reduce((sum, l) => sum + (l.costOre ?? 0), 0)).toBe(w.basket.totalOre); // handlelista
+    expect(totalWithOffers(w.basket, [], W, c.settings).baseOre).toBe(w.basket.totalOre); // «Med kontrollerte tilbud»
+    expect(changeSummary(w.basket)).toMatchObject({ erstatt: 1, total: 1 });
+    // Bytteforslag i ukeplanen: «ny anslått handel» = totalen + forskjellen = kurven etter byttet, med samme valg.
+    const adjust = (b: typeof base) => applyChanges(b, changes, W, c, null);
+    const o = swapOptions(pastaWeek, 2, w.storeIds, c, adjust)[0];
+    const next = adjust(buildBasket(pastaWeek.map((x) => (x.day === 2 ? { ...x, recipeId: o.recipe.id } : x)), w.storeIds, c));
+    expect(w.basket.totalOre + o.deltaOre).toBe(next.totalOre);
+    // Kombinasjonskortet har den samme erstatningen der linja kjøpes i samme butikk.
+    if (w.alts.combo) {
+      const line = w.alts.combo.lines.find((l) => l.ingredient === 'pasta')!;
+      expect((line as AdjustedLine).change?.type === 'erstatt').toBe(line.storeId === 'demoA');
+      expect(adjustedWeek(pastaWeek, c, 'combo', changes, W, null).basket.totalOre).toBe(w.alts.combo.totalOre);
+    }
+    // Motorens kurv og alternativer er uendret.
+    expect(JSON.stringify(raw)).toBe(frozen);
+    expect(JSON.stringify(base)).toBe(baseFrozen);
+    expect(alternatives(pastaWeek, c)).toEqual(raw);
+    expect(w.base).toEqual(base);
+  });
+
+  it('«fant ikke» i valgt kombinasjon: kortet blir ufullstendig og kåres ikke, men handleturen beholdes', () => {
+    const c = ctx();
+    const raw = alternatives(pastaWeek, c);
+    expect(raw.combo).not.toBeNull();
+    const w0 = adjustedWeek(pastaWeek, c, 'combo', new Map(), W, null);
+    const line = w0.basket.lines.find((l) => l.productId)!;
+    const changes = activeChanges([notFoundEvent(line, W, 'uavklart', m(1))], W);
+    const w = adjustedWeek(pastaWeek, c, 'combo', changes, W, null);
+    expect(w.storeIds).toEqual(raw.combo!.storeIds);
+    expect(w.basket).toBe(w.alts.combo);
+    expect(w.basket.complete).toBe(false);
+    expect(w.alts.recommended === 'combo').toBe(false); // ukjent pris vinner aldri
+    expect(w.alts.combo!.totalOre).toBe(w.basket.totalOre);
   });
 });

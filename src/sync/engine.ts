@@ -3,7 +3,7 @@
 // Hver tilstandsendring gjøres som en funksjon av siste tilstand (`io.set`), så brukerens endringer underveis
 // aldri overskrives.
 import { applyEvents, type InventoryEvent } from '../engine/inventory';
-import { applyChange, type ListChange } from '../engine/substitution';
+import { addVersion, applyChange, type ListChange, type PlanVersion } from '../engine/substitution';
 import type { AppState, DocConflict } from '../store';
 import { applyListEvents, type ListEvent } from './list';
 import { DOC_NAMES, fieldsOf, fromFields, isValidDoc, merge3, stable, type DocBody, type DocName, type PlanDoc, type SettingsDoc } from './docs';
@@ -83,18 +83,32 @@ const toEnvelopes = (s: AppState): (Envelope & { id: string })[] => [
   ...s.outbox.map((event) => ({ stream: 'beholdning' as const, event, id: event.id })),
   ...s.listOutbox.map((event) => ({ stream: 'liste' as const, event, id: event.id })),
   ...(s.changeOutbox ?? []).map((event) => ({ stream: 'endring' as const, event, id: event.id })),
+  ...(s.versionOutbox ?? []).map((event) => ({ stream: 'planversjon' as const, event, id: event.id })),
 ];
+/** Første bit av utboksen som holder seg under grensen for antall og bytes per kall (planversjoner er store). */
+function nextBatch<T>(envs: T[]): T[] {
+  const out: T[] = [];
+  let bytes = 64;
+  for (const e of envs) {
+    const n = JSON.stringify(e).length + 1;
+    if (out.length > 0 && (out.length >= LIMITS.batch || bytes + n > LIMITS.bodyBytes - 4096)) break;
+    out.push(e); bytes += n;
+  }
+  return out;
+}
 
 /** Kobler tilstanden til en husstand. Alt lokalt legges i utboksene (uten duplikater) så det kommer med. */
 export function connect(s: AppState, token: string, me: MemberInfo): AppState {
   const ids = new Set(s.outbox.map((e) => e.id));
   const listIds = new Set(s.listOutbox.map((e) => e.id));
   const changeIds = new Set((s.changeOutbox ?? []).map((e) => e.id));
+  const versionIds = new Set((s.versionOutbox ?? []).map((e) => e.id));
   return {
     ...s, syncNotice: null,
     outbox: [...s.outbox, ...s.inventory.filter((e) => !ids.has(e.id))],
     listOutbox: [...s.listOutbox, ...s.list.filter((e) => !listIds.has(e.id))],
     changeOutbox: [...(s.changeOutbox ?? []), ...(s.listChanges ?? []).filter((e) => !changeIds.has(e.id))],
+    versionOutbox: [...(s.versionOutbox ?? []), ...(s.planHistory ?? []).filter((e) => !versionIds.has(e.id))],
     sync: { token, me, cursor: 0, docs: {}, conflicts: {}, members: [me], rejected: 0, lastSync: null },
   };
 }
@@ -112,13 +126,14 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
   try {
     // 1. Lever utboksene (i biter).
     for (let round = 0; round < 20; round++) {
-      const envs = toEnvelopes(io.get()).slice(0, LIMITS.batch);
+      const envs = nextBatch(toEnvelopes(io.get()));
       if (envs.length === 0) break;
       const t = new HttpTransport(api);
       const done = new Set(await t.push(envs));
       io.set((s) => same(s) ? {
         ...s, outbox: s.outbox.filter((e) => !done.has(e.id)), listOutbox: s.listOutbox.filter((e) => !done.has(e.id)),
         changeOutbox: (s.changeOutbox ?? []).filter((e) => !done.has(e.id)),
+        versionOutbox: (s.versionOutbox ?? []).filter((e) => !done.has(e.id)),
         sync: { ...s.sync!, rejected: s.sync!.rejected + t.rejected.length },
       } : s);
     }
@@ -131,8 +146,10 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
         const inv = r.events.filter((e) => e.stream === 'beholdning').map((e) => e.event as InventoryEvent);
         const lst = r.events.filter((e) => e.stream === 'liste').map((e) => e.event as ListEvent);
         const chg = r.events.filter((e) => e.stream === 'endring').map((e) => e.event as ListChange);
+        const ver = r.events.filter((e) => e.stream === 'planversjon').map((e) => e.event as PlanVersion);
         let next: AppState = {
           ...s, inventory: applyEvents(s.inventory, inv), list: applyListEvents(s.list, lst), listChanges: chg.reduce(applyChange, s.listChanges ?? []),
+          planHistory: ver.reduce(addVersion, s.planHistory ?? []),
         };
         for (const d of r.docs) next = receiveDoc(next, d);
         const me = r.members.find((m) => m.me) ?? next.sync!.me;
@@ -186,5 +203,5 @@ export function syncStatus(s: AppState, runtime: { offline: boolean; busy: boole
   if (pending > 0 || runtime.busy) return 'synker';
   return 'synket';
 }
-export const pendingCount = (s: AppState) => s.outbox.length + s.listOutbox.length + (s.changeOutbox?.length ?? 0)
+export const pendingCount = (s: AppState) => s.outbox.length + s.listOutbox.length + (s.changeOutbox?.length ?? 0) + (s.versionOutbox?.length ?? 0)
   + (s.sync ? DOC_NAMES.filter((n) => isDirty(s, n)).length : 0);

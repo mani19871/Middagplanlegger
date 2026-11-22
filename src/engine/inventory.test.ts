@@ -4,7 +4,7 @@ import { defaultSettings } from '../data/defaults';
 import { buildBasket, slotUses, type Ctx } from './planner';
 import { expectedRest } from './pantry';
 import {
-  applyEvent, applyEvents, conflicts, deriveStock, lineStates, madeLineId, purchaseLineId,
+  applyEvent, applyEvents, conflicts, deriveStock, homeLineId, lineStates, madeLineId, purchaseLineId,
   type InventoryEvent, type InventoryLog,
 } from './inventory';
 import { enqueue, flush, type EventTransport } from '../sync/queue';
@@ -237,5 +237,52 @@ describe('beholdning: forbruk og rest', () => {
     const amt = (xs: { ingredient: string; amount: number }[], ing: string) => xs.find((u) => u.ingredient === ing)?.amount ?? 0;
     expect(amt(slotUses(moved[0], c), 'kjottdeig')).toBeLessThan(amt(slotUses(original[0], c), 'kjottdeig'));
     expect(amt(slotUses(moved[1], c), 'spinat')).toBeGreaterThan(amt(slotUses(original[1], c), 'spinat'));
+  });
+});
+
+describe('«bruk noe vi har hjemme» (hjemme)', () => {
+  const home = (id: string, at: string, amount: number, by = 'A', week = W): InventoryEvent =>
+    ({ type: 'hjemme', id, at, by, week, line: homeLineId(week, 'pasta'), ingredient: 'pasta', amount });
+  const cook = (id: string, at: string, amount: number, week = W): InventoryEvent =>
+    ({ type: 'laget', id, at, by: 'A', week, line: madeLineId(week, 0), day: 0, recipeId: 'bolognese', uses: [{ ingredient: 'pasta', amount }] });
+
+  it('registrerer mengden som bekreftet hjemme, og «laget» bruker den opp uten dobbel trekk', () => {
+    const tell: InventoryEvent = { type: 'telling', id: 't1', at: t(1), by: 'A', ingredient: 'pasta', amount: 200 };
+    const log = applyEvents([], [tell, home('h1', t(2), 300)]);
+    expect(deriveStock(log).total.pasta).toBe(500);
+    expect(deriveStock(log).lots.find((l) => l.ingredient === 'pasta')).toMatchObject({ kind: 'bekreftet', amount: 500 });
+    // Retten bruker 500 g: 200 g fra tellingen og 300 g som var øremerket. Ikke trukket to ganger.
+    expect(deriveStock(applyEvent(log, cook('c1', t(3), 500))).total.pasta).toBeUndefined();
+  });
+
+  it('to voksne som velger det samme gir én registrering; dobbel levering gir ingen ekstra rad', () => {
+    const a = home('h-a', t(2), 300, 'A');
+    const b = home('h-b', t(3), 300, 'B');
+    const log = applyEvents([], [a, b, a, b]);
+    expect(log).toHaveLength(2);
+    expect(deriveStock(log).total.pasta).toBe(300);
+    expect([...lineStates(log).home.values()]).toEqual([expect.objectContaining({ amount: 300, active: true })]);
+    // Ulik mengde: den største gjelder, uavhengig av rekkefølge.
+    const c = home('h-c', t(1), 450, 'B');
+    expect(deriveStock(applyEvents([], [a, c])).total.pasta).toBe(450);
+    expect(deriveStock(applyEvents([], [c, a])).total.pasta).toBe(450);
+  });
+
+  it('angre fjerner registreringen; en senere telling erstatter den', () => {
+    const log = applyEvents([], [home('h1', t(2), 300), { type: 'angre', id: 'u1', at: t(3), by: 'A', line: homeLineId(W, 'pasta') }]);
+    expect(deriveStock(log).total.pasta).toBeUndefined();
+    const counted = applyEvents([], [home('h1', t(2), 300), { type: 'telling', id: 't2', at: t(4), by: 'A', ingredient: 'pasta', amount: 100 }]);
+    expect(deriveStock(counted).total.pasta).toBe(100);
+  });
+
+  it('ukas egen kurv endres ikke (holdes utenfor som ukas andre hendelser), men neste uke ser varen', () => {
+    const log = applyEvents([], [home('h1', t(2), 300)]);
+    expect(deriveStock(log, { planWeek: W }).total.pasta).toBeUndefined();
+    expect(deriveStock(log, { planWeek: W2 }).total.pasta).toBe(300);
+  });
+
+  it('avviser ugyldige registreringer', () => {
+    expect(applyEvent([], { ...home('h1', t(2), 300), line: 'feil' } as InventoryEvent)).toEqual([]);
+    expect(applyEvent([], home('h1', t(2), 0))).toEqual([]);
   });
 });

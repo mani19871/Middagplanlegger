@@ -6,6 +6,8 @@
 //  (b) kjøpshendelse    – «Marker som handlet» på en linje i handlelista
 //  (c) bekreftet hjemme – brukerens egen telling, eller en bekreftet rest etter en uke
 //  (d) forbruk          – en middag er markert som laget; en kjøpt pakke betyr ikke at retten er laget
+//  (e) brukt hjemmefra  – «fant ikke» → «bruk noe vi har hjemme»: mengden finnes hjemme og er øremerket ukas plan
+//                         (`hjemme`). Den legges til bekreftet hjemme og brukes opp når retten markeres som laget.
 //
 // Idempotens: hver hendelse har en id. Samme id to ganger gir én rad (applyEvent). I tillegg har kjøp og «laget» en
 // linje-id avledet av hva det gjelder (uke, butikk, vare, produkt / uke, dag). To voksne som markerer samme linje gir
@@ -29,13 +31,20 @@ export type InventoryEvent =
   /** Brukerbekreftet mengde hjemme (utenom kjøp registrert i appen). Erstatter forrige telling for varen. */
   | (Base & { type: 'telling'; ingredient: string; amount: number })
   /** Bekreftet rest etter ukas middager: total mengde igjen av varen. Erstatter ukas kjøp og forbruk av varen. */
-  | (Base & { type: 'rest'; week: string; ingredient: string; amount: number });
+  | (Base & { type: 'rest'; week: string; ingredient: string; amount: number })
+  /**
+   * Varen tas fra matskapet i stedet for å kjøpes («bruk noe vi har hjemme» i handlelista). Linje-id per (uke, vare), så
+   * to voksne som velger det samme gir én registrering; ulik mengde gir den største (uavhengig av rekkefølge).
+   * Angres med `angre` på samme linje.
+   */
+  | (Base & { type: 'hjemme'; week: string; line: string; ingredient: string; amount: number });
 
 export type InventoryLog = InventoryEvent[];
 
 export const purchaseLineId = (week: string, storeId: string | null, ingredient: string, productId: string | null) =>
   `kjøp|${week}|${storeId ?? '-'}|${ingredient}|${productId ?? '-'}`;
 export const madeLineId = (week: string, day: number) => `laget|${week}|${day}`;
+export const homeLineId = (week: string, ingredient: string) => `hjemme|${week}|${ingredient}`;
 
 const cmp = (a: InventoryEvent, b: InventoryEvent) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const okAmount = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0;
@@ -50,6 +59,7 @@ export function isValidEvent(e: InventoryEvent): boolean {
     case 'laget': return Number.isInteger(e.day) && e.line === madeLineId(e.week, e.day) && e.uses.every((u) => okAmount(u.amount));
     case 'telling': return okAmount(e.amount) && !!e.ingredient;
     case 'rest': return okAmount(e.amount) && !!e.ingredient && !!e.week;
+    case 'hjemme': return okAmount(e.amount) && e.amount > 0 && !!e.ingredient && e.line === homeLineId(e.week, e.ingredient);
     default: return false;
   }
 }
@@ -80,10 +90,12 @@ export interface PurchaseState {
   claims: Claim[]; at: string;
 }
 export interface MadeState { line: string; week: string; day: number; recipeId: string; uses: Use[]; at: string; active: boolean }
+export interface HomeState { line: string; week: string; ingredient: string; amount: number; at: string; active: boolean }
 
-export function lineStates(log: InventoryLog): { purchases: Map<string, PurchaseState>; made: Map<string, MadeState> } {
+export function lineStates(log: InventoryLog): { purchases: Map<string, PurchaseState>; made: Map<string, MadeState>; home: Map<string, HomeState> } {
   const purchases = new Map<string, PurchaseState>();
   const made = new Map<string, MadeState>();
+  const home = new Map<string, HomeState>();
   for (const e of [...log].sort(cmp)) {
     if (e.type === 'kjøp') {
       const p = purchases.get(e.line);
@@ -110,17 +122,23 @@ export function lineStates(log: InventoryLog): { purchases: Map<string, Purchase
       if (p) { p.status = 'angret'; p.packs = null; }
       const m = made.get(e.line);
       if (m) m.active = false;
+      const h = home.get(e.line);
+      if (h) h.active = false;
+    } else if (e.type === 'hjemme') {
+      const h = home.get(e.line);
+      if (!h || !h.active) home.set(e.line, { line: e.line, week: e.week, ingredient: e.ingredient, amount: e.amount, at: e.at, active: true });
+      else h.amount = Math.max(h.amount, e.amount); // samme registrering fra flere: én, største mengde
     } else if (e.type === 'laget') {
       const m = made.get(e.line);
       if (!m || !m.active) made.set(e.line, { line: e.line, week: e.week, day: e.day, recipeId: e.recipeId, uses: e.uses, at: e.at, active: true });
     }
   }
-  return { purchases, made };
+  return { purchases, made, home };
 }
 
 // ---------- Beholdning ----------
 
-export interface Lot { ingredient: string; kind: 'bekreftet' | 'kjøpt'; amount: number; source: 'telling' | 'rest' | 'kjøp'; week: string | null }
+export interface Lot { ingredient: string; kind: 'bekreftet' | 'kjøpt'; amount: number; source: 'telling' | 'rest' | 'kjøp' | 'hjemme'; week: string | null }
 export interface Stock {
   /** Sum per vare: bekreftet hjemme + kjøpt og ikke brukt. Dette er det eneste som trekkes fra behovet. */
   total: Record<string, number>;
@@ -131,7 +149,8 @@ type Op =
   | { at: string; id: string; kind: 'telling'; ingredient: string; amount: number }
   | { at: string; id: string; kind: 'rest'; week: string; ingredient: string; amount: number }
   | { at: string; id: string; kind: 'kjøp'; week: string; ingredient: string; amount: number }
-  | { at: string; id: string; kind: 'laget'; week: string; uses: Use[] };
+  | { at: string; id: string; kind: 'laget'; week: string; uses: Use[] }
+  | { at: string; id: string; kind: 'hjemme'; week: string; ingredient: string; amount: number };
 
 export interface StockOptions {
   /** Uka planen gjelder. Ukas egne kjøp, forbruk og rest holdes utenfor, så handelen ikke krymper seg selv. */
@@ -146,7 +165,7 @@ export interface StockOptions {
  * Forventet rest er aldri med. Uavklarte konflikter teller ikke før antallet er bekreftet.
  */
 export function deriveStock(log: InventoryLog, opts: StockOptions = {}): Stock {
-  const { purchases, made } = lineStates(log);
+  const { purchases, made, home } = lineStates(log);
   const lastRest = new Map<string, Extract<InventoryEvent, { type: 'rest' }>>();
   for (const e of [...log].sort(cmp)) if (e.type === 'rest') lastRest.set(`${e.week}|${e.ingredient}`, e);
 
@@ -157,6 +176,7 @@ export function deriveStock(log: InventoryLog, opts: StockOptions = {}): Stock {
     if (p.status === 'kjøpt' && p.packs) ops.push({ at: p.at, id: p.line, kind: 'kjøp', week: p.week, ingredient: p.ingredient, amount: p.packs * p.packSize });
   }
   for (const m of made.values()) if (m.active) ops.push({ at: m.at, id: m.line, kind: 'laget', week: m.week, uses: m.uses });
+  for (const h of home.values()) if (h.active) ops.push({ at: h.at, id: h.line, kind: 'hjemme', week: h.week, ingredient: h.ingredient, amount: h.amount });
   ops.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   let cutoff: string | null = null;
@@ -188,6 +208,13 @@ export function deriveStock(log: InventoryLog, opts: StockOptions = {}): Stock {
       else lots.push({ ingredient: o.ingredient, kind: 'kjøpt', amount: o.amount, source: 'kjøp', week: o.week });
       lots.sort((a, b) => (a.week! < b.week! ? -1 : a.week! > b.week! ? 1 : 0));
       bought.set(o.ingredient, lots);
+    } else if (o.kind === 'hjemme') {
+      // Finnes hjemme og er øremerket ukas plan: kommer i tillegg til det som er bekreftet. En senere telling eller en
+      // bekreftet rest for uka erstatter den; «laget» bruker den opp.
+      if (restKeys.has(`${o.week}|${o.ingredient}`)) continue;
+      const c = confirmed.get(o.ingredient);
+      if (c) c.amount += o.amount;
+      else confirmed.set(o.ingredient, { ingredient: o.ingredient, kind: 'bekreftet', amount: o.amount, source: 'hjemme', week: o.week });
     } else {
       for (const u of o.uses) {
         if (restKeys.has(`${o.week}|${u.ingredient}`)) continue;

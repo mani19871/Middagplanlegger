@@ -10,7 +10,7 @@ import { catalog } from '../data/catalog';
 import { DEPT_EMOJI, ING_EMOJI } from './art';
 import OfferTotalNote from './OfferTotalNote';
 import type { OfferTotal } from '../engine/offerTotal';
-import { ChangePill, ChangeSheet, DriftBanner, HistoryView, markable, SkippedLines, type ChangeKit } from './ListChanges';
+import { ChangePill, ChangeSheet, ChangesNote, DriftBanner, HistoryView, markable, SkippedLines, VersionConflictBanner, type ChangeKit } from './ListChanges';
 import { changeBlocked, versionsFor, type AdjustedBasket, type AdjustedLine } from '../engine/substitution';
 
 interface Props {
@@ -113,6 +113,8 @@ export default function ListView({ state, update, record, week, basket, offerTot
         🛒 {shop ? 'Avslutt handlemodus' : 'Handlemodus: stor tekst og store felt'}</button>
       {!state.approved && <p className="fine">Planen er ikke godkjent ennå, listen kan endre seg.</p>}
       <OfferTotalNote total={offerTotal} approvedHints={approvedHints} className="card offertotal-card" />
+      <ChangesNote basket={basket} />
+      {kit && <VersionConflictBanner kit={kit} />}
       {kit && <DriftBanner kit={kit} />}
       {basket.unknownCount > 0 && <div className="banner warn">{basket.unknownCount} vare{basket.unknownCount === 1 ? '' : 'r'} mangler pris. Summen er en delsum.</div>}
       {[...groups].map(([storeId, lines]) => {
