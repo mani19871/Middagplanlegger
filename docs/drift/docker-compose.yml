@@ -1,5 +1,6 @@
 # EKSEMPEL for pilot: appen bak Caddy (HTTPS), med varig volum for databasen. Ikke testet hos noen leverandør.
 # Se docs/hosting.md («Pilotoppsett med Docker Compose og Caddy») før bruk.
+# Imaget bygges av Dockerfile i repoets rot (flertrinns: bygger appen og serveren, kjører `node dist-server/index.mjs`; ingen node_modules).
 #
 # Bruk (fra denne katalogen, på serveren):
 #   cp env.eksempel .env.drift && chmod 600 .env.drift     # fyll ut DOMENE og SYNC_SECRET; sjekkes ikke inn
@@ -16,7 +17,7 @@ services:
       context: ../..            # repoets rot (Dockerfile)
     image: middagsplanlegger:pilot
     restart: unless-stopped
-    init: true                  # liten init-prosess (rydder zombieprosesser). I test stoppet containeren på 0,3 s også uten
+    init: true                  # liten init-prosess (rydder zombieprosesser). Serveren håndterer SIGTERM selv (stopper på ca. 0,1 s); init er ekstra sikring
     env_file: .env.drift        # SYNC_SECRET (og DOMENE brukes av Caddy). Filen ligger bare på serveren
     environment:
       PORT: "8787"

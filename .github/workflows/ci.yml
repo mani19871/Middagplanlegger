@@ -3,6 +3,11 @@
 #
 # Jobb «test» (må være grønn): typesjekk, alle vitest-tester (inkl. synk-serveren mot ekte SQLite i minnet:
 # server/sync/api.test.ts, src/sync/engine.test.ts, src/sync/list.test.ts), kontrastsjekk og bygg. Ingen nettverk, ingen nettleser.
+# «test» bygger også serveren til ren JavaScript (npm run build:server, esbuild -> dist-server/index.mjs) og kjører en røyktest av
+# produksjonsbygget uten tsx og uten node_modules (npm run smoke:server: /healthz, appen, CSP, husstand, sync, omstart, SIGTERM).
+# `npm audit --omit=dev` kjøres som eget steg som ikke blokkerer (continue-on-error): bare react/react-dom er produksjonsavhengigheter,
+# og serveren har ingen npm-avhengigheter ved kjøring (alt er bundlet). Les resultatet, men det stopper ikke en endring.
+# Jobb «image» (valgfri, blokkerer ikke): bygger Docker-imaget fra Dockerfile, starter det og venter på at helsesjekken blir «healthy».
 # Jobb «nettleser» (valgfri, blokkerer ikke): Playwright med Chromium for e2e:sync (to enheter mot ekte server),
 # check:pwa og check:a11y. Playwright er ikke avhengighet i package.json, så den installeres her uten å endre låsfilen.
 # Kan også startes for hånd (Actions → CI → Run workflow). Kjøres ellers lokalt: se docs/pilot-sjekkliste.md.
@@ -40,6 +45,40 @@ jobs:
         run: npm run check:contrast
       - name: Bygg
         run: npx vite build
+      - name: Bygg serveren (esbuild, ren JavaScript)
+        run: npm run build:server
+      - name: Røyktest av produksjonsbygget (node, uten tsx)
+        run: npm run smoke:server
+      - name: Sårbarheter i produksjonsavhengigheter (blokkerer ikke)
+        continue-on-error: true
+        run: npm audit --omit=dev
+
+  image:
+    # Valgfri: Dockerfile er prøvd i en sandkasse (med --network host), ikke på GitHub-maskinene før dette steget har gått.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bygg imaget
+        run: docker build -t middagsplanlegger:ci .
+      - name: Start og vent på helsesjekk
+        run: |
+          docker run -d --name mp -e SYNC_SECRET=ci-hemmelighet -p 8787:8787 middagsplanlegger:ci
+          for i in $(seq 1 40); do
+            s=$(docker inspect -f '{{.State.Health.Status}}' mp)
+            [ "$s" = healthy ] && break
+            sleep 2
+          done
+          echo "helsesjekk: $s"
+          curl -sf http://localhost:8787/healthz
+          docker exec mp id
+          docker images middagsplanlegger:ci
+          [ "$s" = healthy ]
+      - name: Serverlogg ved feil
+        if: failure()
+        run: docker logs mp || true
 
   nettleser:
     # Valgfri: en feil her skal ikke stoppe en endring, men bør leses. Nettleserskriptene er prøvd lokalt, ikke på GitHub-maskinene.
@@ -62,6 +101,12 @@ jobs:
         run: npm run e2e:sync
       - name: PWA (service worker, frakoblet)
         run: npm run check:pwa
+      - name: Produksjonsbygg av serveren mot nettleserskriptene (CSP, e2e synk, PWA)
+        run: |
+          npm run build:server
+          BUILT_SERVER=1 node scripts/checks/csp.cjs
+          BUILT_SERVER=1 node scripts/checks/pwa.cjs
+          BUILT_SERVER=1 node scripts/e2e-sync.mjs
       - name: Tilgjengelighet (tastatur, navn, ingen sidescrolling)
         run: |
           npx vite --port 5173 --strictPort > vite.log 2>&1 &

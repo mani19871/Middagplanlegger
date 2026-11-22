@@ -89,8 +89,9 @@ Fra `synk.md` («Kjente svakheter» og «Må på plass før ekte familier») og 
 | D9 | **Token-utløp/rotasjon** og/eller godkjenning av nye medlemmer (invitasjon uten godkjenning er en kjent svakhet) | | Utvikler | ☐ | `synk.md` |
 | D10 | **Etiketter:** vurder faste forslag i stedet for fritekst for å redusere fare for navn og helseopplysninger | | Utvikler + Fagperson | ☐ | `personvern/01` 8 |
 | D11 | **Sletting av lokale data** synlig også før første plan | | Utvikler | ☐ | `fase1-status.md` |
-| D12 | **CI** grønn på hovedbranchen: typesjekk, vitest (inkl. synk-serveren), kontrast og bygg. Nettleserjobben (`e2e:sync`, `check:pwa`, `check:a11y`) er valgfri; kjør den for hånd før piloten | | Utvikler | ☑ jobbene finnes (ikke kjørt på GitHub-maskinene) | `.github/workflows/ci.yml` |
+| D12 | **CI** grønn på hovedbranchen: typesjekk, vitest (inkl. synk-serveren), kontrast, bygg, bygg av serveren og røyktest av produksjonsbygget, og `npm audit --omit=dev` (siste blokkerer ikke). Nettleserjobben (`e2e:sync`, `check:pwa`, `check:a11y`, og CSP/PWA/e2e mot det bygde serveren) og imagejobben (`docker build`, start, helsesjekk) er valgfrie; kjør dem for hånd før piloten | | Utvikler | ☑ jobbene finnes (ikke kjørt på GitHub-maskinene) | `.github/workflows/ci.yml` |
 | D13 | **Skjermleser- og tastaturtest** av hele flyten på ekte telefon (automatiske sjekker finnes, men er ikke nok) | | Utvikler | ◐ automatiske sjekker | `fase1-status.md` |
+| D14 | **Produksjonsbygg av serveren:** `npm run build:server` (esbuild, én fil), `npm start`, slankt flertrinns Docker-image uten `node_modules`/tsx (417 → 200 MB; 107 → 54 MB komprimert), `docker stop` ryddig (SIGTERM). Prøvd i sandkasse mot Compose, backup og gjenoppretting; `check:csp`, `check:pwa` og `e2e-sync` består mot bygget | | Utvikler | ☑ prøvd i sandkasse | `hosting.md` 8; `sikkerhet.md` S17 |
 
 ## E. Produkt, innhold og avtaler (Eier + Redaktør)
 

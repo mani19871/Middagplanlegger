@@ -19,7 +19,7 @@ Fra repoet (`server/index.ts`, `Dockerfile`):
 
 | Fakta | Betydning for valg av hosting |
 | --- | --- |
-| Én Node.js-prosess (Node 22) som serverer appen (statiske filer), `/api/offers` og synk-API-et (`/api/household*`, `/api/sync*`) | Trenger lite CPU og minne. Én instans holder trolig for en pilot (ikke lasttestet). **Må være én prosess:** ratebegrensningen ligger i minnet og SQLite har én skriver. |
+| Én Node.js-prosess (Node 22) som serverer appen (statiske filer), `/api/offers` og synk-API-et (`/api/household*`, `/api/sync*`). Serveren er bygget til én JavaScript-fil (`dist-server/index.mjs`, esbuild) og kjører med `node`; den har ingen npm-avhengigheter ved kjøring | Trenger lite CPU og minne. Én instans holder trolig for en pilot (ikke lasttestet). **Må være én prosess:** ratebegrensningen ligger i minnet og SQLite har én skriver. |
 | Henter tilbud fra Tjek og holder dem i minnet i seks timer, uten lagring | Serveren må kunne gjøre utgående HTTPS-kall. Hosting uten utgående nett (eller med streng utgående brannmur) virker ikke. |
 | **Synk-serveren er bygget** (`docs/synk.md`): husstander, enhetstokens, hendelser og dokumenter lagres i **én SQLite-fil** (`middag.sqlite`, WAL-modus) i `DATA_DIR` | Det er persondata på serveren (se `docs/personvern/01-oversikt-behandling.md`, avsnitt 2b). Vi trenger **disk som overlever omstart**, **sikkerhetskopi** og **øvd gjenoppretting**. Plattformer der filsystemet nullstilles ved hver omstart, kan ikke brukes. Postnummer og kostkrav/allergier lagres ikke. |
 | Databasen bruker `node:sqlite`, som er **eksperimentell i Node 22** | Se avsnitt 8, «node:sqlite». Versjonen er festet i `Dockerfile`. |
@@ -159,7 +159,7 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 
 ## 8. Kjøre med Docker
 
-Imaget bygges av `Dockerfile` (flertrinns, kjører som bruker `node` med uid/gid 1000, uten hemmeligheter, med helsesjekk). Et ferdig pilotoppsett med Caddy foran ligger i [`docs/drift/`](drift/) (`docker-compose.yml`, `Caddyfile`, `env.eksempel`, `backup.sh`); det er beskrevet i «Pilotoppsett» under.
+Imaget bygges av `Dockerfile` (flertrinns: bygg appen og serveren, så et lite alpine-image med bare `node`, `dist-server/index.mjs` og `dist/`; ingen `node_modules`, npm, kildekode eller tsx; kjører som bruker `node` med uid/gid 1000, uten hemmeligheter, med helsesjekk). Et ferdig pilotoppsett med Caddy foran ligger i [`docs/drift/`](drift/) (`docker-compose.yml`, `Caddyfile`, `env.eksempel`, `backup.sh`); det er beskrevet i «Pilotoppsett» under.
 
 ```sh
 docker build -t middagsplanlegger .
@@ -174,6 +174,17 @@ docker run -d --name middagsplanlegger \
 ```
 
 Porten bindes til `127.0.0.1` så bare en proxy på samme maskin (f.eks. Caddy) når den. **Åpne ikke porten direkte mot internett, og sett aldri `TRUST_PROXY=1` hvis serveren kan nås uten om proxyen:** da kan hvem som helst forfalske IP-adressen sin og gå utenom ratebegrensningen.
+
+### Uten Docker: produksjonsbygg av serveren
+
+```sh
+npm ci
+npm run build          # appen -> dist/
+npm run build:server   # serveren -> dist-server/index.mjs (esbuild; src/ og server/ slås sammen til én fil)
+SYNC_SECRET=… npm start   # node dist-server/index.mjs (kjør fra repoets rot: dist/ leses relativt til arbeidskatalogen)
+```
+
+`npm run server` (tsx, krever `node_modules`) er bare til utvikling. Valget av **esbuild** (devDependency) i stedet for `tsc`: koden bruker importer uten filendelse og går på tvers av `server/` og `src/` (`src/offers`, `src/data`, `src/sync`, `src/engine`), noe Node ikke leser direkte; `tsc` ville krevd omskrevne importer og en egen mappestruktur i utdata, mens esbuild gir én fil som `node` kjører rett fra. `scripts/build-server.mjs` feiler bygget hvis noe annet enn `node:`-moduler blir stående utenfor filen. Typesjekken står uendret i `npm run build` (`tsc --noEmit`); esbuild fjerner bare typer og sjekker dem ikke. Kildekart ligger ved (`index.mjs.map`): `node --enable-source-maps dist-server/index.mjs` gir lesbare stakker. `npm run smoke:server` starter bygget fra en tom katalog uten `node_modules` og sjekker `/healthz`, appen, CSP, husstand, sync, omstart og ryddig avslutning (SIGTERM); `npm run check:prod` kjører i tillegg CSP-, PWA- og e2e-skriptene mot det bygde serveren (`BUILT_SERVER=1`, krever Playwright).
 
 ### Miljøvariabler
 
@@ -208,7 +219,7 @@ Hemmeligheter ved oppstart, uten å skrive dem i kommandolinjen (de havner eller
 
 ### Helsesjekk
 
-`HEALTHCHECK` i `Dockerfile` kaller `GET /healthz` (kjører `SELECT 1` mot synk-databasen; `200` eller `503`, ingen innhold, ingen autentisering) og `GET /` (appen er bygget, `200`). Sjekken endrer ingenting. `/healthz` er testet mot en database som er lukket (`503`) i `server/sync/api.test.ts`; Docker-sjekken med `/healthz` er ikke prøvd i et kjørende image ennå. Siden et feil volum ikke gir feil (se over), fanger den heller ikke det.
+`HEALTHCHECK` i `Dockerfile` kaller `GET /healthz` (kjører `SELECT 1` mot synk-databasen; `200` eller `503`, ingen innhold, ingen autentisering) og `GET /` (appen er bygget, `200`). Sjekken endrer ingenting. `/healthz` er testet mot en database som er lukket (`503`) i `server/sync/api.test.ts`; Docker-sjekken er prøvd i et kjørende image (2026-11-22: `healthy` etter oppstart, også under Compose), men ikke mot en databasefeil (`unhealthy` er ikke provosert). Siden et feil volum ikke gir feil (se over), fanger den heller ikke det.
 
 ### node:sqlite: eksperimentelt i Node 22
 
@@ -277,18 +288,19 @@ Sikkerhetskopier og volumkopier tatt før slettingen inneholder fortsatt dataene
 ### Hva som er testet (2026-11-22, sandkasse med Docker 29.10 og Compose 5.7)
 
 **Testet:**
-- `docker build` av `Dockerfile` (med ARG for Node-versjon, ny helsesjekk) lykkes og gir ca. 417 MB. *Merk:* i sandkassen måtte byggingen kjøres med `--network host` og sandkassens sertifikat lagt inn for `npm ci` (nettverkspolicy); **Dockerfilen er ikke endret for det**, og er ikke bygget på en vanlig maskin med direkte internett.
+- `docker build` av den nye flertrinns-`Dockerfile` (esbuild-bygd server, alpine uten npm/node_modules) lykkes. **Størrelse (målt med `docker image inspect` / `docker save`): 417 MB → 200 MB utpakket, 107 MB → 54 MB komprimert** (det gamle imaget: `npm run server` med hele `node_modules`; bygget fra forrige commit på samme maskin). `node`-programmet alene er 124 MB, så mye mer lar seg ikke spare uten å bytte kjøretid. *Merk:* i sandkassen måtte byggingen kjøres med `--network host`, proxy som `--build-arg HTTPS_PROXY` og sandkassens sertifikat lagt inn for `npm ci` (nettverkspolicy). Sertifikatet ble lagt i en lokal kopi av `node:22.23.5-alpine` (`NODE_EXTRA_CA_CERTS`), tagget om til samme navn; **Dockerfilen er ikke endret for det**, og er ikke bygget på en vanlig maskin med direkte internett (CI-jobben `image` prøver det).
+- Det nye imaget: starter som uid 1000 (`node`), skrivebeskyttet rotfilsystem med `--cap-drop ALL`, `healthy` etter ca. 25 s, `/healthz` og `/` gir `200`, `touch` i `/app` og `/etc` avvises, `/data` er skrivbar. Navngitt volum og `docker rm` + ny container mot samme volum: husstand og token overlevde (`200`).
+- Compose (app + Caddy) med det nye imaget (`--no-build`, tagget `middagsplanlegger:pilot`): `healthy`, `https://localhost/` og `/healthz` gjennom Caddy `200`, husstand opprettet gjennom Caddy. `backup.sh` (age) laget kryptert og integritetskontrollert kopi; gjenoppretting til nytt volum med `DATA_VOLUME` etter prosedyren under ga `200` på gammelt token; WAL-tømmingen under «Sletting og WAL» kjørte uendret i det nye imaget.
+- **Funn og rettelse:** `node` som PID 1 har ingen standard signalhåndtering; `docker stop` tok 10 s og endte med SIGKILL. `server/index.ts` har nå en liten SIGTERM/SIGINT-håndtering (lukker forbindelser og database, `exit 0`; SQLite tømmer da WAL). Etterpå: `docker stop` ca. 0,07 s, `compose stop` ca. 0,2 s, og `-wal`/`-shm` er borte etter stopp. Røyktesten sjekker at SIGTERM gir kode 0.
+- Mot produksjonsbygget av serveren (`node dist-server/index.mjs`, 2026-11-22): `npm run smoke:server` (13 sjekker), `check:csp` og `check:pwa` (`BUILT_SERVER=1`) og `scripts/e2e-sync.mjs` (to enheter, frakoblet endring, erstatning, konflikt, gjenoppretting fra eldre kopi) bestod, og `npm audit --omit=dev` ga 0 sårbarheter. Playwright kjørte mot den bygde serveren utenfor Docker, ikke mot containeren.
+- Prøvd tidligere med det gamle imaget (samme dag) og ikke gjentatt med det nye:
 - Compose-oppsettet (app + Caddy) startet; appen ble `healthy`; `https://localhost/` ga `200` via Caddy (selvsignert sertifikat for `localhost`); HSTS-, nosniff- og referrer-hoder ble satt; appen kjørte som uid 1000, med skrivebeskyttet rotfilsystem og skrivbar `/data`; en husstand ble opprettet gjennom Caddy.
-- Navngitt volum: databasefilene ble opprettet i `/data` og eid av `node`. Husstand og token overlevde både `docker restart` og at containeren ble fjernet og en ny startet mot samme volum (`200`).
-- `backup.sh` med `age`: lagde en kryptert, integritetskontrollert kopi; avviste å kjøre uten mottaker.
-- Gjenoppretting til nytt volum: gammelt token ga `200` og medlemmer og invitasjon var tilbake; en husstand laget etter kopitidspunktet manglet, som forventet.
 - Sletting: kaskade (`households`, `devices`, `events`) og `401` på gammelt token både for lesing og skriving; etikett i `-wal` til checkpoint.
 - Tomt volum gir stille ny tom database (feil volum merkes ikke).
 - Loggene: ingen forespørselslinjer fra Caddy, og appen logget bare oppstart og `ExperimentalWarning`.
-- `docker stop` tok ca. 0,3 s med og uten `--init`.
 - Gjenoppretting og enhetenes cursor (se over): rettet og prøvd i e2e mot en lokal server.
 
-**Ikke testet:** at `docker compose up --build` bygger imaget (jeg bygde imaget for seg og brukte `--no-build`); hosting hos noen leverandør; ekte domene og Let's Encrypt (bare Caddys lokale selvsignerte sertifikat); at `TRUST_PROXY` faktisk leser klientens adresse gjennom Caddy (ikke målt); brannmur; `cron`; opplasting av kopi til ekstern lagring; `gpg`-varianten av `backup.sh`; `sqlite3 .backup`; volumøyeblikksbilder; bind mount og SELinux; at helsesjekken blir «unhealthy» ved databasefeil; lastprøving; ytelse; at den eldre `22-alpine` ga samme resultat (den er identisk med den festede per testdato); at imaget er bygget og kjørt på en annen CPU-arkitektur enn testmaskinens.
+**Ikke testet:** at `docker compose up --build` bygger imaget (jeg bygde imaget for seg og brukte `--no-build`); Docker-bygging på en maskin med vanlig nett (uten sandkassens omveier), og CI-jobben `image` på GitHub; at serveren når Tjek fra containeren (i sandkassen ga `/api/offers` «Tilbud er ikke tilgjengelige», `fetch failed`: utgående nett var ikke åpent, så Tjek-oppslag fra imaget er **ikke** bekreftet; Node bruker egne rotsertifikater, så alpine uten `ca-certificates` bør ikke være et hinder, men det er ikke prøvd); `--init` er ikke lenger nødvendig for rask stopp, men er ikke fjernet fra Compose; hosting hos noen leverandør; ekte domene og Let's Encrypt (bare Caddys lokale selvsignerte sertifikat); at `TRUST_PROXY` faktisk leser klientens adresse gjennom Caddy (ikke målt); brannmur; `cron`; opplasting av kopi til ekstern lagring; `gpg`-varianten av `backup.sh`; `sqlite3 .backup`; volumøyeblikksbilder; bind mount og SELinux; at helsesjekken blir «unhealthy» ved databasefeil; lastprøving; ytelse; at den eldre `22-alpine` ga samme resultat (den er identisk med den festede per testdato); at imaget er bygget og kjørt på en annen CPU-arkitektur enn testmaskinens.
 
 ## 9. Må verifiseres av en person før beslutning
 

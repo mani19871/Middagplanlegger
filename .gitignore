@@ -2,3 +2,6 @@ node_modules
 dist
 phase0/*/out/
 data/
+dist-server
+.env.drift
+docs/drift/backup/

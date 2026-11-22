@@ -11,8 +11,10 @@ dist
 data
 phase0
 docs
-scripts
+scripts/*
+!scripts/build-server.mjs
 *.md
 Dockerfile
 .dockerignore
 npm-debug.log*
+dist-server

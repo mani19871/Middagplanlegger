@@ -89,3 +89,19 @@ server.headersTimeout = 15_000;
 server.requestTimeout = 30_000;
 server.keepAliveTimeout = 5_000;
 server.listen(PORT, () => console.log(`Middagsplanlegger-server på http://localhost:${PORT}`));
+
+// Ryddig avslutning på SIGTERM/SIGINT (docker stop, systemd). Som PID 1 i Docker får `node` ingen standard signalhåndtering,
+// så uten dette venter `docker stop` ut fristen (10 s) og dreper prosessen midt i en skriving. Nye forbindelser avvises,
+// åpne avsluttes, databasen lukkes (SQLite tømmer WAL ved siste lukking), og prosessen går ut med 0.
+let stopping = false;
+for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(sig, () => {
+    if (stopping) return;
+    stopping = true;
+    console.log(`${sig}: avslutter.`);
+    const force = setTimeout(() => process.exit(1), 8_000);
+    force.unref();
+    server.close(() => { storage.close().catch(() => {}).finally(() => process.exit(0)); });
+    server.closeAllConnections();
+  });
+}

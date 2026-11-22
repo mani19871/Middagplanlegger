@@ -1,6 +1,7 @@
 // Sjekker at appen virker bak den ekte serveren med streng CSP og sikkerhetshoder (server/app.ts, docs/sikkerhet.md):
 // ingen CSP-brudd eller konsollfeil når alle faner åpnes, en husstand opprettes og service workeren registreres.
 // Bruk: npm run build && node scripts/checks/csp.cjs   (starter server/index.ts på port 4180 med minnedatabase)
+// Mot produksjonsbygget: npm run build && npm run build:server && BUILT_SERVER=1 node scripts/checks/csp.cjs  (node dist-server/index.mjs)
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const PORT = 4180;
@@ -8,7 +9,7 @@ const URL_ = `http://127.0.0.1:${PORT}/`;
 let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`); if (!c) fails++; };
 (async () => {
   // Direkte med node (ikke npx), så kill() stopper selve serveren og porten blir ledig.
-  const srv = spawn(process.execPath, ['--import', 'tsx', 'server/index.ts'], { stdio: 'ignore', env: { ...process.env, PORT: String(PORT), SYNC_DB: ':memory:', SYNC_SECRET: 'csp-sjekk' } });
+  const srv = spawn(process.execPath, process.env.BUILT_SERVER === '1' ? ['dist-server/index.mjs'] : ['--import', 'tsx', 'server/index.ts'], { stdio: 'ignore', env: { ...process.env, PORT: String(PORT), SYNC_DB: ':memory:', SYNC_SECRET: 'csp-sjekk' } });
   try {
     for (let i = 0; i < 100; i++) { try { if ((await fetch(URL_)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
     const head = await fetch(URL_);

@@ -9,12 +9,16 @@
     "preview": "vite preview",
     "test": "vitest run",
     "server": "tsx server/index.ts",
+    "build:server": "node scripts/build-server.mjs",
+    "start": "node dist-server/index.mjs",
+    "smoke:server": "node scripts/smoke-server.mjs",
     "icons": "node scripts/make-icons.cjs",
     "check:contrast": "node scripts/contrast.mjs",
     "check:a11y": "node scripts/checks/a11y.cjs",
     "check:pwa": "npm run build && node scripts/checks/pwa.cjs",
     "check:csp": "npm run build && node scripts/checks/csp.cjs",
-    "e2e:sync": "vite build && node scripts/e2e-sync.mjs"
+    "e2e:sync": "vite build && node scripts/e2e-sync.mjs",
+    "check:prod": "npm run build && npm run build:server && npm run smoke:server && BUILT_SERVER=1 node scripts/checks/csp.cjs && BUILT_SERVER=1 node scripts/checks/pwa.cjs && BUILT_SERVER=1 node scripts/e2e-sync.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
@@ -25,6 +29,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",

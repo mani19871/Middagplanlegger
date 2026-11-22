@@ -3,7 +3,7 @@
 Fullstendig plan: `docs/plan.md`. Les den før du endrer noe stort. Språk i UI og dokumenter: norsk (bokmål).
 
 ## Prosjekt
-Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakningspris i én eller to butikker, kundeaviser. Fase 1 er en webapp (Vite + React + TypeScript). `npm run dev`, `npm test`, `npm run build`.
+Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakningspris i én eller to butikker, kundeaviser. Fase 1 er en webapp (Vite + React + TypeScript). `npm run dev`, `npm test`, `npm run build`. Serveren bygges til én JavaScript-fil med esbuild (`npm run build:server`, `npm start`; `npm run server` = tsx, bare utvikling); Docker-imaget har bare `node`, den bygde serveren og `dist/`. `npm run smoke:server` og `npm run check:prod` tester produksjonsbygget. Importer i `server/` fra `src/` fungerer uten filendelse (esbuild), men ingen npm-pakke kan brukes av serveren uten at den bundles (bygget feiler ellers).
 
 ## Regler som ikke kan brytes
 1. **Planmotoren (`src/engine/`) er ren og deterministisk.** Samme inndata og prisversjon gir samme kurv, sum og begrunnelse. Ingen `Date.now()`, tilfeldighet eller nettverk i motoren. Beløp i øre (heltall), mengder i g/ml/stk.

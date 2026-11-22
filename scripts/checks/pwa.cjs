@@ -1,11 +1,14 @@
 // Sjekker PWA: manifest med ikoner, service worker cacher skallet, appen åpner frakoblet og /api/ caches ikke.
 // Bruk: npm run build && node scripts/checks/pwa.cjs   (bygger ikke selv; starter vite preview på port 4179)
+// Med BUILT_SERVER=1 (etter npm run build:server) kjøres i stedet den bygde serveren: node dist-server/index.mjs på port 4179.
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const URL_ = 'http://localhost:4179/';
 let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`); if (!c) fails++; };
 (async () => {
-  const srv = spawn('npx', ['vite', 'preview', '--port', '4179', '--strictPort'], { stdio: 'ignore' });
+  const srv = process.env.BUILT_SERVER === '1'
+    ? spawn(process.execPath, ['dist-server/index.mjs'], { stdio: 'ignore', env: { ...process.env, PORT: '4179', SYNC_DB: ':memory:', SYNC_SECRET: 'pwa-sjekk' } })
+    : spawn('npx', ['vite', 'preview', '--port', '4179', '--strictPort'], { stdio: 'ignore' });
   try {
     for (let i = 0; i < 50; i++) { try { if ((await fetch(URL_)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 200)); }
     const b = await chromium.launch(); const ctx = await b.newContext(); const p = await ctx.newPage();

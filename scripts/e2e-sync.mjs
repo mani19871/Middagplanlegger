@@ -5,6 +5,8 @@
 // Til slutt: tilbudskjeder (offerChains) valgt på A vises på B, og serveren gjenopprettes fra en eldre kopi
 // (databasefil byttes, serveren startes på nytt): enhetene sender det som manglet på nytt, uten doble rader.
 // Kjør: npm run e2e:sync   (bygger appen først). Krever Playwright med Chromium.
+// Mot produksjonsbygget av serveren: npm run build && npm run build:server && BUILT_SERVER=1 node scripts/e2e-sync.mjs
+// (node dist-server/index.mjs i stedet for tsx).
 // Serveren startes med egen midlertidig database og egen hemmelighet; ingenting skrives i repoet.
 import { spawn } from 'node:child_process';
 import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
@@ -26,7 +28,7 @@ const DB = join(dir, 'e2e.sqlite');
 const SECRET = randomBytes(16).toString('hex');
 let log = '';
 const startServer = () => {
-  const p = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server/index.ts'], {
+  const p = spawn(process.execPath, process.env.BUILT_SERVER === '1' ? ['dist-server/index.mjs'] : ['node_modules/tsx/dist/cli.mjs', 'server/index.ts'], {
     env: { ...process.env, PORT: String(PORT), SYNC_DB: DB, SYNC_SECRET: SECRET }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   p.stdout.on('data', (d) => { log += d; });

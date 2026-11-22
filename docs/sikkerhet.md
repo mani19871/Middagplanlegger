@@ -34,7 +34,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 | S14 | Lav | En ny enhet kan ta over en fjernet enhets offentlige id | Åpen (dokumentert) |
 | S15 | Lav | `by` kan være en hvilken som helst id som ikke er et annet medlem | Åpen (dokumentert) |
 | S16 | Info | Ratebegrensning i minnet | Dokumentert |
-| S17 | Info | `tsx`, devDependencies og eksperimentell `node:sqlite` i produksjon | Dokumentert |
+| S17 | Info | `tsx`, devDependencies og eksperimentell `node:sqlite` i produksjon | Imaget har ikke lenger devDependencies (serveren er bygget til én fil); `node:sqlite` er fortsatt eksperimentell (dokumentert) |
 | S18 | Info | Tidsavbrudd mot trege klienter | Rettet |
 | S19 | Middels | Slettede data blir liggende i `-wal` til neste checkpoint | Rettet |
 | S20 | Lav | Feil eller manglende volum gir en stille, tom database | Rettet (varsel ved oppstart) |
@@ -140,7 +140,7 @@ Serveren avviser `by` lik et annet (også fjernet) medlems id, men godtar andre 
 ### S17 Info: produksjonsoppsett, avhengigheter og Docker
 
 - **`npm audit`** 2026-11-22: 0 sårbarheter (161 pakker, alle avhengigheter; også `--omit=dev`). Kjøretidsavhengigheter er bare `react` og `react-dom`.
-- **Docker** kjører som `node` (ikke root), og databasen ligger i `/data` med eier `node`. Imaget inneholder hele `node_modules` med devDependencies (Vite, Vitest, TypeScript, tsx) fordi serveren kjøres med `tsx`. Det øker angrepsflaten (mer kode som kan ha sårbarheter), men ingenting av det nås over HTTP. **Anbefaling:** bygg serveren til JavaScript (esbuild/tsc) og kjør `npm ci --omit=dev` i kjøretrinnet; kjør containeren skrivebeskyttet med `/data` som volum, `/tmp` som tmpfs, `cap_drop: [ALL]` og `no-new-privileges` (gjort i `docs/drift/docker-compose.yml`).
+- **Docker** kjører som `node` (ikke root), og databasen ligger i `/data` med eier `node`. **Rettet 2026-11-22:** serveren bygges med esbuild til `dist-server/index.mjs`, og `Dockerfile` er flertrinns: sluttimaget har bare `node`, den bygde serveren og `dist/` (ingen `node_modules`, npm, yarn, tsx eller kildekode; 417 → 200 MB utpakket). Serveren har ingen npm-avhengigheter ved kjøring, så `npm ci --omit=dev` er ikke nødvendig i kjøretrinnet. Før dette inneholdt imaget hele `node_modules` med devDependencies. Containeren kan kjøres skrivebeskyttet med `/data` som volum, `/tmp` som tmpfs, `cap_drop: [ALL]` og `no-new-privileges` (gjort i `docs/drift/docker-compose.yml`; prøvd med det nye imaget). Basisbildet (alpine og `node`-programmet) må fortsatt oppdateres: se Node-regelen i `docs/hosting.md`. `npm audit --omit=dev` kjører i CI som steg som ikke blokkerer.
 - **`node:sqlite`** er eksperimentell i Node 22 (skriver `ExperimentalWarning`). Databasen er vanlig SQLite, men API-et kan endre seg mellom Node-versjoner. **Anbefaling:** lås Node-versjonen i imaget (f.eks. `node:22.x.y-alpine` med digest), oppdater bevisst og kjør testene før oppgradering; vurder `better-sqlite3` eller PostgreSQL før bred lansering.
 
 ### S19 Middels: slettede data i WAL-filen
@@ -189,7 +189,7 @@ Kvoter og ratebegrensninger per husstand ligger i `DEFAULT_QUOTAS` og `DEFAULT_R
 4. **Proxy-logger:** kort oppbevaring av IP-adresser (forslag 14 dager, `docs/hosting.md`), og ratebegrensning i proxyen i tillegg.
 5. **Beslutning om nye medlemmer** (S6): eier godkjenner, eller bare eier kan invitere.
 6. **Oppbevaringstid** for hendelser og husstander ingen bruker, med en rutine som sletter.
-7. **Imaget:** fast Node-versjon, helst uten devDependencies, kjørt skrivebeskyttet (S17). `npm audit` i CI.
+7. **Imaget:** fast Node-versjon, uten devDependencies, kjørt skrivebeskyttet (S17; gjort). `npm audit --omit=dev` i CI (gjort, blokkerer ikke). Gjenstår: rutine for å bygge på nytt når alpine eller Node får sikkerhetsoppdateringer.
 8. **`SYNC_SECRET`** satt som hemmelighet (ellers slutter koder å virke ved omstart).
 
 ## Tester
