@@ -582,7 +582,9 @@ export const activePin = (history: PlanHistory, week: string, slots: Slot[], app
  */
 export function approvalVersion(history: PlanHistory, week: string, current: PlanVersion): PlanVersion | null {
   const heads = versionHeads(history, week);
-  const same = heads.filter((v) => sameSlots(v.slots, current.slots));
+  const vs = versionsFor(history, week);
+  // Bare versjoner som faktisk holder listen fast (som i `pinState`). En endring gjort før godkjenning er ikke det.
+  const same = heads.filter((v) => sameSlots(v.slots, current.slots) && (PIN_REASONS.has(v.reason) || parentsOf(v, vs).length > 0));
   const agreed = new Set(same.map(pinKey)).size === 1;
   if (agreed && same.some((v) => basisKey(v) === basisKey(current))) return null;
   return { ...current, parents: heads.map((v) => v.id).sort() };

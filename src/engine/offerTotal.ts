@@ -5,7 +5,7 @@
 // Bare tilbud fra kjeder i `settings.offerChains` teller, og summen forutsetter at tilbudsvaren kjøpes hos den kjeden
 // (Tjek skiller ikke på utsalg). Demobutikkene har ingen kjede; tilbudslinjene viser kjeden de gjelder.
 import type { OfferHint } from './deals';
-import { hintsForChains, validOnDate } from './deals';
+import { hintsForChains, prePrice, validOnDate } from './deals';
 import { chainSet } from './chains';
 import type { Basket, Settings } from './types';
 
@@ -58,7 +58,7 @@ export function totalWithOffers(
     for (const h of usable) {
       if (h.ingredient !== line.ingredient || h.unit !== line.unit) continue;
       const packs = Math.max(1, Math.ceil(line.need / h.amount - EPS));
-      const pre = h.prePriceOre !== null && h.prePriceOre > h.priceOre ? h.prePriceOre : h.priceOre;
+      const pre = prePrice(h) ?? h.priceOre;
       const cand: OfferTotalLine = {
         ingredient: line.ingredient, offerId: h.id, dealer: h.dealer, packs, packSize: h.amount,
         priceOre: h.priceOre, prePriceOre: pre, savingOre: Math.min(line.costOre, packs * (pre - h.priceOre)),

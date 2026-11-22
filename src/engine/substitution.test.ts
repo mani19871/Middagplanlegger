@@ -478,6 +478,19 @@ describe('delte planversjoner (husstand)', () => {
     expect(pinState([v], W, week, true)).toMatchObject({ pin: null, conflict: [] });
   });
 
+  it('godkjenning etter en endring gjort før listen var godkjent gir en versjon som holder listen fast', () => {
+    const c = ctx();
+    const pasta = now(c).lines.find((l) => l.ingredient === 'pasta')!;
+    const e = substituteEvent(pasta, W, 'pastaFull', m(1));
+    const v1 = snap(c, { id: 'v1', at: t(1), by: 'A', reason: 'erstatning', parents: [] }, [e]);
+    const h = addVersion([], v1);
+    const approval = approvalVersion(h, W, snap(c, { id: 'v2', at: t(2), by: 'A', reason: 'godkjent' }, [e]));
+    expect(approval).toMatchObject({ id: 'v2', parents: ['v1'] });
+    const h2 = addVersion(h, approval!);
+    expect(pinState(h2, W, week, true).pin!.id).toBe('v2');
+    expect(needsApprovalVersion(h2, W, week, true)).toBe(false);
+  });
+
   it('bytt rett ved «fant ikke»: ny sum regnes uten den godkjente listen (godkjenningen oppheves)', () => {
     const v1 = snap(ctx(), { id: 'v1', at: t(1), by: 'A', reason: 'godkjent', parents: [] });
     const c2 = ctx({}, { catalog: cheaper });

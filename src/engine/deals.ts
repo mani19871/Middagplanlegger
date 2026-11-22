@@ -28,12 +28,16 @@ export function hintsForChains(hints: OfferHint[], chains: readonly string[] | u
 
 export const validOnDate = (h: OfferHint, date: string) => h.validFrom <= date && h.validUntil >= date;
 
+/** Førpris som kan brukes til besparelse: hele øre og høyere enn tilbudsprisen. Ellers null (bare dekning). */
+export const prePrice = (h: OfferHint): number | null =>
+  h.prePriceOre !== null && Number.isInteger(h.prePriceOre) && h.prePriceOre > h.priceOre ? h.prePriceOre : null;
+
 /** Beste tilbud per ingrediensen på handledagen: størst besparelse, så lavest enhetspris, så id. */
 export function bestHints(hints: OfferHint[], date: string): Map<string, OfferHint> {
   const best = new Map<string, OfferHint>();
-  const key = (h: OfferHint) => [-(h.prePriceOre ?? h.priceOre) + h.priceOre, h.priceOre / h.amount] as const;
+  const key = (h: OfferHint) => [-(prePrice(h) ?? h.priceOre) + h.priceOre, h.priceOre / h.amount] as const;
   for (const h of hints) {
-    if (!validOnDate(h, date) || h.amount <= 0 || h.priceOre <= 0) continue;
+    if (!validOnDate(h, date) || !(h.amount > 0) || !(h.priceOre > 0) || !Number.isInteger(h.priceOre)) continue;
     const cur = best.get(h.ingredient);
     if (!cur) { best.set(h.ingredient, h); continue; }
     const [a1, a2] = key(h);
@@ -45,14 +49,17 @@ export function bestHints(hints: OfferHint[], date: string): Map<string, OfferHi
 
 /** Tilbud en rett kan bruke ved gitt porsjonsfaktor (porsjoner / baseServings). */
 export function recipeDeals(recipe: Recipe, factor: number, ingredients: Ingredient[], hints: OfferHint[], date: string): RecipeDeals {
-  const best = bestHints(hints, date);
+  // Bare tilbud i ingrediensens egen enhet konkurrerer; ellers kan et tilbud i feil enhet skygge for et brukbart.
+  const unitOf = new Map(ingredients.map((i) => [i.id, i.unit]));
+  const best = bestHints(hints.filter((h) => unitOf.get(h.ingredient) === h.unit), date);
   const lines: DealLine[] = [];
   for (const line of recipe.lines) {
     const ing = ingredients.find((i) => i.id === line.ingredient);
     const h = best.get(line.ingredient);
     if (!ing || ing.staple || !h || h.unit !== ing.unit) continue;
     const packs = Math.max(1, Math.ceil((line.amount * factor) / h.amount - 1e-9));
-    const savingOre = h.prePriceOre !== null && h.prePriceOre > h.priceOre ? packs * (h.prePriceOre - h.priceOre) : 0;
+    const pre = prePrice(h);
+    const savingOre = pre !== null ? packs * (pre - h.priceOre) : 0;
     lines.push({ ingredient: line.ingredient, dealer: h.dealer, offerId: h.id, packs, savingOre });
   }
   return { lines, savingOre: lines.reduce((s, l) => s + l.savingOre, 0) };

@@ -3,6 +3,8 @@ import { catalog } from '../data/catalog';
 import { defaultSettings } from '../data/defaults';
 import { alternatives, budgetAnswer, buildBasket, generatePlan, swapOptions } from './planner';
 import type { Settings, Slot } from './types';
+import { recipeDeals, type OfferHint } from './deals';
+import { totalWithOffers } from './offerTotal';
 
 const ctx = (over: Partial<Settings> = {}) => ({ catalog, settings: { ...defaultSettings, ...over } });
 const slot = (day: number, recipeId: string, locked = false): Slot => ({ day, recipeId, locked });
@@ -238,5 +240,46 @@ describe('regresjon: alternativer med brukerens valg oppå (samme kurv i alle vi
     expect(adj.recommended).toBe('regular');
     expect(adj.savingOre).toBeNull();
     expect(raw).toEqual(alternatives(week, c)); // motorens kurver er uendret
+  });
+});
+
+// Reproduksjoner fra kodegjennomgangen 2026-11-22 (docs/kodegjennomgang.md).
+const recipeById = (id: string) => catalog.recipes.find((r) => r.id === id)!;
+const reviewHint = (over: Partial<OfferHint> = {}): OfferHint => ({
+  id: 'o1', ingredient: 'laks', dealer: 'KIWI', priceOre: 5000, prePriceOre: 9000, amount: 400, unit: 'g',
+  validFrom: '2026-11-23', validUntil: '2026-11-29', approved: true, ...over,
+});
+
+describe('kodegjennomgang: motor', () => {
+  it('et tilbud i feil enhet skygger ikke for et gyldig tilbud i riktig enhet', () => {
+    const wrongUnit = reviewHint({ id: 'a', unit: 'stk', amount: 1, prePriceOre: 20000 });
+    const right = reviewHint({ id: 'b' });
+    const d = recipeDeals(recipeById('lakseris'), 0.8, catalog.ingredients, [wrongUnit, right], '2026-11-24');
+    expect(d.lines.map((l) => l.offerId)).toEqual(['b']);
+    expect(d.savingOre).toBe(4000);
+  });
+  it('førpris som ikke er heltall øre gir ingen besparelse (beløp i hele øre)', () => {
+    const d = recipeDeals(recipeById('lakseris'), 0.8, catalog.ingredients, [reviewHint({ prePriceOre: 9000.5 })], '2026-11-24');
+    expect(Number.isInteger(d.savingOre)).toBe(true);
+    const laks = buildBasket([slot(0, 'lakseris')], ['demoA'], { catalog, settings: defaultSettings, shopDate: '2026-11-23' });
+    const t = totalWithOffers(laks, [reviewHint({ prePriceOre: 9000.5 })], '2026-11-24', { ...defaultSettings, offerChains: ['KIWI'] });
+    expect(Number.isInteger(t.totalOre)).toBe(true);
+    expect(Number.isInteger(t.savingOre)).toBe(true);
+  });
+  it('en pris på 0 øre eller produktstørrelse 0 regnes ikke som kjent pris', () => {
+    const zero = { ...catalog, prices: catalog.prices.map((p) => (p.storeId === 'demoA' && catalog.products.find((x) => x.id === p.productId)?.ingredient === 'pasta' ? { ...p, ore: 0 } : p)) };
+    const b = buildBasket([slot(0, 'bolognese')], ['demoA'], { catalog: zero, settings: defaultSettings });
+    const pasta = b.lines.find((l) => l.ingredient === 'pasta')!;
+    expect(pasta.costOre).not.toBe(0);
+    const noSize = { ...catalog, products: catalog.products.map((p) => (p.ingredient === 'pasta' ? { ...p, size: 0 } : p)) };
+    const b2 = buildBasket([slot(0, 'bolognese')], ['demoA'], { catalog: noSize, settings: defaultSettings });
+    expect(Number.isFinite(b2.totalOre)).toBe(true);
+    expect(b2.complete).toBe(false);
+  });
+  it('bytteforslag mot en kurv med ukjent pris markeres som ufullstendige', () => {
+    const ctx = { catalog, settings: defaultSettings };
+    const slots = [slot(0, 'linsegryte')];
+    expect(buildBasket(slots, ['demoA'], ctx).complete).toBe(false);
+    for (const o of swapOptions(slots, 0, ['demoA'], ctx)) expect(o.complete).toBe(false);
   });
 });

@@ -31,6 +31,10 @@ describe('norsk tallformat', () => {
   it('kr og fortegn', () => {
     expect(kr(4150)).toBe('42 kr');
     expect(krSigned(0)).toBe('± 0 kr');
+    expect(krSigned(30)).toBe('± 0 kr'); // under en halv krone: ikke «+0 kr»
+    expect(krSigned(-49)).toBe('± 0 kr');
+    expect(amount(999.6, 'g')).toBe('1 kg'); // avrundes før valg av enhet
+    expect(amount(999.7, 'ml')).toBe('1 l');
     expect(krSigned(4100)).toBe('+41 kr');
     expect(krSigned(-4100)).toBe('−41 kr');
   });

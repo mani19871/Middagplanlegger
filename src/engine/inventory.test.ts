@@ -286,3 +286,26 @@ describe('«bruk noe vi har hjemme» (hjemme)', () => {
     expect(applyEvent([], home('h1', t(2), 0))).toEqual([]);
   });
 });
+
+describe('kodegjennomgang: hendelser etter ukas første kjøp gjelder neste handel', () => {
+  it('en konflikt i forrige uke som løses etter ukas første kjøp endrer ikke ukas beholdning', () => {
+    const ris = lineOf([slot(0, 'lakseris')], 'ris');
+    const pasta = lineOf([slot(0, 'bolognese')], 'pasta');
+    const before: InventoryLog = applyEvents([], [
+      buy(ris, 'k1', t(1), 'A', 1, W), buy(ris, 'k2', t(2), 'B', 2, W), // konflikt i W
+      buy(pasta, 'k3', t(5), 'A', 1, W2), // første kjøp i W2
+    ]);
+    const after = applyEvent(before, { type: 'løs', id: 'l1', at: t(6), by: 'A', line: purchaseLineId(W, ris.storeId, 'ris', ris.productId), packs: 2 });
+    expect(deriveStock(after, { planWeek: W2 }).total).toEqual(deriveStock(before, { planWeek: W2 }).total);
+  });
+  it('en rettet rest etter ukas første kjøp fjerner ikke resten som gjaldt før', () => {
+    const pasta = lineOf([slot(0, 'bolognese')], 'pasta');
+    const before: InventoryLog = applyEvents([], [
+      { type: 'rest', id: 'r1', at: t(1), by: 'A', week: W, ingredient: 'ris', amount: 500 },
+      buy(pasta, 'k3', t(5), 'A', 1, W2),
+    ]);
+    const after = applyEvent(before, { type: 'rest', id: 'r2', at: t(6), by: 'A', week: W, ingredient: 'ris', amount: 300 });
+    expect(deriveStock(before, { planWeek: W2 }).total.ris).toBe(500);
+    expect(deriveStock(after, { planWeek: W2 }).total.ris).toBe(500);
+  });
+});

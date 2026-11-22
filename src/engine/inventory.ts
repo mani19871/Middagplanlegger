@@ -164,7 +164,15 @@ export interface StockOptions {
  *  - og etter første kjøp for uka endrer nye hendelser ikke ukas handleliste.
  * Forventet rest er aldri med. Uavklarte konflikter teller ikke før antallet er bekreftet.
  */
-export function deriveStock(log: InventoryLog, opts: StockOptions = {}): Stock {
+export function deriveStock(fullLog: InventoryLog, opts: StockOptions = {}): Stock {
+  let cutoff: string | null = null;
+  if (opts.planWeek) {
+    for (const e of fullLog) if (e.type === 'kjøp' && e.week === opts.planWeek && (cutoff === null || e.at < cutoff)) cutoff = e.at;
+  }
+  // Etter ukas første kjøp gjelder nye hendelser neste handel. Tilstanden regnes derfor bare av hendelsene før, også
+  // når en senere `løs`, `angre`, rest eller større `hjemme` gjelder en linje som startet før.
+  const c = cutoff;
+  const log = c === null ? fullLog : fullLog.filter((e) => e.at < c);
   const { purchases, made, home } = lineStates(log);
   const lastRest = new Map<string, Extract<InventoryEvent, { type: 'rest' }>>();
   for (const e of [...log].sort(cmp)) if (e.type === 'rest') lastRest.set(`${e.week}|${e.ingredient}`, e);
@@ -179,10 +187,6 @@ export function deriveStock(log: InventoryLog, opts: StockOptions = {}): Stock {
   for (const h of home.values()) if (h.active) ops.push({ at: h.at, id: h.line, kind: 'hjemme', week: h.week, ingredient: h.ingredient, amount: h.amount });
   ops.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-  let cutoff: string | null = null;
-  if (opts.planWeek) {
-    for (const e of log) if (e.type === 'kjøp' && e.week === opts.planWeek && (cutoff === null || e.at < cutoff)) cutoff = e.at;
-  }
   const included = (o: Op) => {
     if (!opts.planWeek) return true;
     if ('week' in o && o.week === opts.planWeek) return false;

@@ -150,8 +150,10 @@ function bestOffer(ing: string, need: number, storeIds: string[], ctx: Ctx): Off
       if (obs.storeId !== storeId) continue;
       // En pris med gyldighet som er ute på handledagen (utløpt tilbud) brukes aldri som dagens pris (regel 2).
       if (ctx.shopDate && obs.validUntil && obs.validUntil < ctx.shopDate) continue;
+      // Ugyldig pris (0, negativ, ikke hele øre) eller pakning uten størrelse er ikke en kjent pris.
+      if (!Number.isInteger(obs.ore) || obs.ore <= 0) continue;
       const product = ctx.catalog.products.find((p) => p.id === obs.productId);
-      if (!product || product.ingredient !== ing || !productAllowed(product, ctx.settings)) continue;
+      if (!product || product.ingredient !== ing || !(product.size > 0) || !productAllowed(product, ctx.settings)) continue;
       const packs = Math.max(1, Math.ceil(need / product.size - EPS));
       const costOre = packs * obs.ore;
       const better =
@@ -285,7 +287,8 @@ export function swapOptions(slots: Slot[], day: number, storeIds: string[], ctx:
     .map((recipe) => {
       const ss = slots.map((s) => (s.day === day ? { ...s, recipeId: recipe.id } : s));
       const next = adjust(buildBasket(ss, storeIds, ctx), ss);
-      return { recipe, deltaOre: next.totalOre - current.totalOre, complete: next.complete };
+      // Mot en kurv med ukjent pris er forskjellen bare mellom delsummer og kan ikke sammenlignes (regel 3).
+      return { recipe, deltaOre: next.totalOre - current.totalOre, complete: next.complete && current.complete };
     })
     .sort((a, b) => Number(b.complete) - Number(a.complete) || a.deltaOre - b.deltaOre || a.recipe.id.localeCompare(b.recipe.id));
 }
