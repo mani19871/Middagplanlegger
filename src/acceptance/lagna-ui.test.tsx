@@ -1,4 +1,5 @@
 // «Lag nå» i brukergrensesnittet, server-rendret (ingen nettleser): teksten en skjermleser får.
+// Ligger i src/acceptance/ (ikke src/views/), så regel-skanningen i regler.test.ts bare ser produksjonskoden.
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -8,8 +9,8 @@ import type { InventoryEvent } from '../engine/inventory';
 import type { Ctx } from '../engine/planner';
 import type { Settings } from '../engine/types';
 import { initialState, type AppState } from '../store';
-import CookNowView from './CookNowView';
-import ListView from './ListView';
+import CookNowView from '../views/CookNowView';
+import ListView from '../views/ListView';
 import { totalWithOffers } from '../engine/offerTotal';
 
 const html = (C: unknown, props: Record<string, unknown>) => renderToStaticMarkup(createElement(C as ComponentType<Record<string, unknown>>, props));
@@ -43,7 +44,10 @@ describe('Lag nå (visning)', () => {
     expect(t).toContain('Demopriser, ikke en garanti for sluttpris');
     expect(t).toContain('Legg manglende på handlelista');
     expect(t).toContain('Inneholder: gluten'); // allergentekst på hver rett
-    expect(t).not.toMatch(/garantert|allergenfri/i);
+    // Samme regel som regler.test.ts, men på teksten brukeren faktisk ser: løfteord står bare i benektende setninger.
+    const promises = t.split(/(?<=[.!?])\s+/).filter((x) => /garant|allergenfri|fri for allergener|sluttpris|billigst/i.test(x));
+    expect(promises.length).toBeGreaterThan(0);
+    for (const x of promises) expect(x).toMatch(/\b(ikke|aldri|uten)\b/i);
   });
 
   it('allergi vinner: retter med allergenet vises aldri, og antallet skjulte står i teksten', () => {
