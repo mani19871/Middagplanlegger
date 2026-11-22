@@ -1,0 +1,18 @@
+# Hold imaget lite og uten hemmeligheter
+node_modules
+dist
+.git
+.github
+.gitignore
+.env
+.env.*
+*.pem
+*.key
+data
+phase0
+docs
+scripts
+*.md
+Dockerfile
+.dockerignore
+npm-debug.log*

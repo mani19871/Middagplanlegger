@@ -1,0 +1,32 @@
+# Kontinuerlig integrasjon: typesjekk, tester og bygg. Ingen deploy-steg (bevisst).
+# Skriptene tilsvarer package.json: «npm run build» = tsc --noEmit && vite build, «npm test» = vitest run.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typesjekk
+        run: npx tsc --noEmit
+      - name: Tester
+        run: npx vitest run
+      - name: Bygg
+        run: npx vite build
