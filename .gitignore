@@ -1,3 +1,4 @@
 node_modules
 dist
 phase0/*/out/
+data/
