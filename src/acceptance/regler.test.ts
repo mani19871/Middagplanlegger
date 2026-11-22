@@ -90,14 +90,23 @@ describe('regel 6: bare avtalte kilder, ingen egen henting av kundeaviser', () =
     }
     expect([...hosts].filter((h) => !['localhost', '127.0.0.1', 'api.etilbudsavis.dk', 'www.matvaretabellen.no'].includes(h))).toEqual([]);
   });
-  it('serveren lagrer ikke tilbud: ingen filskriving i server/index.ts, og tilbud når aldri synk-databasen', () => {
-    // Synk-databasen (server/storage/) holder bare husstand, hendelser og dokumenter (docs/synk.md).
+  it('tilbud lagres bare i egen tilbudsdatabase (server/offers/), aldri i synk-lagringen eller i klientens synkdata', () => {
+    // Synk-databasen (server/storage/) holder bare husstand, hendelser og dokumenter (docs/synk.md). Tilbud og priser fra
+    // Tjek lagres (brukerens opplysning om avtalen, phase0/tjek-avtale.md) i en egen SQLite-fil uten persondata.
     const src = stripComments(text('server/index.ts'));
     expect(src).not.toMatch(/writeFile|appendFile|createWriteStream|mongodb|redis/i);
-    // Tilbudsdata (cache/offers) sendes aldri inn i lagringen, og lagrings- og synk-koden kjenner ikke tilbudskildene.
+    // Tilbudsdata (cache/offers) sendes aldri inn i synk-lagringen, og lagrings- og synk-koden kjenner ikke tilbudskildene.
     expect(src).not.toMatch(/(storage|syncApi)[^\n]*(cache|offers)/i);
     for (const f of tracked.filter((x) => /^server\/(storage|sync)\//.test(x) && code(x) && !isTest(x))) {
       expect(stripComments(text(f)), f).not.toMatch(/from '[^']*offers[^']*'|LiveOffer|tjek/i);
+    }
+    // Tilbudslagringen kjenner ikke husstandene: ingen import fra synk-lagringen eller synk-koden.
+    const offerFiles = tracked.filter((x) => /^server\/offers\//.test(x) && code(x) && !isTest(x));
+    expect(offerFiles.length).toBeGreaterThan(0);
+    for (const f of offerFiles) expect(stripComments(text(f)), f).not.toMatch(/from '[^']*(storage|sync)\/[^']*'/);
+    // Klientens synk (src/sync/) tar aldri med tilbud: de synkes ikke mellom enheter.
+    for (const f of tracked.filter((x) => /^src\/sync\//.test(x) && code(x) && !isTest(x))) {
+      expect(stripComments(text(f)), f).not.toMatch(/from '[^']*offers[^']*'|LiveOffer|NormalizedOffer/);
     }
   });
 });
