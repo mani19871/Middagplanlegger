@@ -1,40 +1,53 @@
 # Kundeavis-rettigheter per kjede
 
-Status 2026-11-22: **ikke kontrollert.** Kjedenes nettsteder (rema.no, kiwi.no, coop.no, meny.no, spar.no, joker.no, bunnpris.no, europris.no, norgesgruppen.no) og `tjek.com` er blokkert i miljøets nettverk, og tilgang er ikke godkjent. Ingen vilkår, om-oss-sider eller aviser er lest eller hentet. Ingen avis er lagret.
+Status 2026-11-22: **kjedenes offentlige sider er lest** (om-oss, personvern, bruker- og salgsbetingelser der de fantes, og forsiden for å se hvor avisen publiseres). Alle sider er hentet 2026-11-22 fra adressene i tabellen. **Ingen avis er åpnet, lest, hentet eller lagret**: vi har bare notert hvor kjeden selv lenker til avisen (CLAUDE.md regel 6).
 
-Kjedene under er de vi har **sett som dealere i Tjek-treff** (2026-11-21, `phase0/RESULTS.md` § Tjek). At en kjede finnes i Tjek betyr ikke at Tjek har rett til å la oss vise kjedens aviser.
+Dette er ikke en juridisk vurdering. Sitater er ordrett; oppsummeringer er nøkterne. **«Ikke dokumentert»** betyr at vi ikke fant noe om punktet på sidene vi leste, eller at det er uklart. Det betyr ikke at noe er tillatt.
 
-Kolonnen «Eier/avsender» er ikke kontrollert mot kilde. Den skal fylles ut fra kjedens egen side (firmanavn, organisasjonsnummer, kontakt for samarbeid). Anbefalt visningsmåte er satt etter det vi faktisk vet: **ingenting er lest**, så alle står på forsiktig standard.
+Kjedene er de vi har **sett som dealere i Tjek-treff** (2026-11-21, `phase0/RESULTS.md` § Tjek). At en kjede finnes i Tjek betyr ikke at Tjek har rett til å la oss vise kjedens aviser (se `tjek-avtale.md`, Terms § 8.3).
 
-| Kjede (Tjek-dealer) | Eier/avsender | Hvor avisen er offentlig tilgjengelig | Kjedens vilkår for bruk av avis/tilbudsdata | Anbefalt visningsmåte nå |
+## Hovedfunn
+
+1. **Ingen kjede har offentlige vilkår om at andre kan vise eller bruke kundeavisen eller tilbudene deres.** Ingen av sidene vi leste nevner API, datafeed, partnerprogram eller Tjek.
+2. **Meny, SPAR og Joker** (NorgesGruppen) har en eksplisitt opphavsrettsklausul (§ 16 «Copyright») i bruker- og salgsbetingelsene: innhold på nettsidene, blant annet *«informasjon om produkter»*, *«bilder/grafikk»* og *«annet innhold på disse nettsidene»*, *«under enhver omstendighet ikke kan lastes ned, kopieres eller benyttes på annen måte uten at dette er eksplisitt tillatt etter ufravikelig lovgivning eller etter uttrykkelig skriftlig forhåndssamtykke»* fra henholdsvis MENY AS og Kjøpmannshuset Norge AS. Klausulen står i betingelsene for nettbutikken; om den er ment å gjelde avis og tilbud, er ikke tolket her.
+3. **Rema 1000, Kiwi, Coop, Bunnpris, Europris og NorgesGruppen**: ingen bruksvilkår for nettstedets innhold funnet. Rema har bare vilkår for app og brukerkonto; Europris har vilkår for egen app.
+4. **Bunnpris** lenker fra forsiden til avisen hos en tredjepartstjeneste (publuu.com); **Joker** lenker til `publ.joker.no`. De andre viser avisen på egne sider. Leverandøren bak visningen er ikke kjent (ikke undersøkt videre).
+5. **Matkroken og Nærbutikken**: ikke undersøkt (nettstedene var ikke blant vertene som ble åpnet).
+
+## Tabell
+
+| Kjede (Tjek-dealer) | Eier/avsender (kilde) | Hvor avisen er offentlig (kjedens egen lenke) | Kjedens vilkår for bruk av innhold, avis og tilbud | Anbefalt visningsmåte nå |
 | --- | --- | --- | --- | --- |
-| REMA 1000 | Ikke kontrollert | Ikke kontrollert (kjedens egen nettside) | Ikke kontrollert, vert ikke tilgjengelig | Ingen avisinnhold. Tilbudsliste kun via Tjek live, i den grad avtalen tillater (se `tjek-avtale.md`) |
-| KIWI | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Coop Extra | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Coop Prix | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Coop Mega | Ikke kontrollert (ingen relevante Tjek-treff i vår måling) | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Obs | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Coop Marked | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Meny | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| SPAR | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Joker | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Bunnpris | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Europris | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Matkroken | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
-| Nærbutikken | Ikke kontrollert | Ikke kontrollert | Ikke kontrollert, vert ikke tilgjengelig | Som over |
+| REMA 1000 | REMA 1000 Norge AS, org.nr. 982 254 604 ([rema.no/om-rema/personvern/](https://www.rema.no/om-rema/personvern/)). «REMA 1000 eies av Reitan Retail» ([rema.no/om-rema/](https://www.rema.no/om-rema/)). Kontakt for personvern: kontakt@rema.no, personvernombud@rema.no | Forsiden: «Kundeavis – Se ukens kundeavis» med lenke til [rema.no/kampanjer/](https://www.rema.no/kampanjer/). Kundeavis sendes også på e-post med samtykke (personvernerklæringen § 6.4) | **Ikke dokumentert.** [rema.no/om-rema/personvern/vilkar/](https://www.rema.no/om-rema/personvern/vilkar/) har bare «Brukervilkår for Reitan Retail» og «Brukervilkår for REMA-appen» (brukerkonto, app, bonus); ingen klausul om gjenbruk av nettstedets innhold funnet | Ingen avisinnhold. Tilbud bare via Tjek live, i den grad avtalen tillater (`tjek-avtale.md`) |
+| KIWI | KIWI Norge AS, org.nr. 975959171, «heleid selskap i NorgesGruppen», tlf. 32244000, resepsjon@kiwi.no ([kiwi.no/personvernerklaering](https://kiwi.no/personvernerklaering)). Presse: [kiwi.no/pressekontakter](https://kiwi.no/pressekontakter) | Forsiden: «Se ukens kundeavis! Skriv inn ditt postnummer og se din lokale kundeavis». Personvernerklæringen nevner «Sanity for visning av kundeavis i KIWI PLUSS-app» | **Ikke dokumentert.** Forsiden lenker bare til personvern og informasjonskapsler; `kiwi.no/vilkar` og `kiwi.no/brukervilkar` gir 404 | Som over |
+| Coop Extra, Coop Prix, Coop Mega, Obs, Coop Marked | Coop Norge SA, Postboks 21 Haugenstua, 0915 Oslo, org.nr. 936 560 288; samvirkelagene er også behandlingsansvarlige for noe ([coop.no/personvern](https://www.coop.no/personvern)). Coop Norge SA eies av samvirkelagene ([coop.no/om-coop](https://www.coop.no/om-coop)) | [coop.no/kundeavis](https://www.coop.no/kundeavis) («Les ukens kundeavis her! Velg kjede…»); egne sider for Prix (`/coop-prix/kundeavis`), Mega (`/coop-mega/kundeavis-fra-coop-mega`) og Marked (`/coop-marked-matkroken/kundeavisen`). Obs lenker til obs.no (ikke lest) | **Ikke dokumentert.** Ingen bruksvilkår for nettstedet funnet (`coop.no/vilkar` gir 404; vilkårssidene som finnes gjelder medlemskap, Coopay og CoopKey) | Som over |
+| Meny | MENY AS, org.nr. 977066727, «heleid selskap i NorgesGruppen» ([meny.no/personvern/personvernerklaring](https://meny.no/personvern/personvernerklaring)). Kontakt: nettside@meny.no | [meny.no/varer/tilbud](https://meny.no/varer/tilbud) (lenket fra forsiden) | **Dokumentert, begrensende:** [meny.no/personvern/bruker-og-salgsbetingelser](https://meny.no/personvern/bruker-og-salgsbetingelser) § 16 Copyright: *«Alt innhold på disse nettsidene er MENY AS eller underleverandør av nevntes eiendom og er beskyttet etter bl.a. opphavsretts-, markedsførings- og varemerkelovgivningen. Dette innebærer at varemerker, firmanavn, produktnavn, informasjon om produkter, herunder bl.a. oppskrifter med bilder, omtale av produktene og vekt, bilder/grafikk, design, typografi og layout og annet innhold på disse nettsidene under enhver omstendighet ikke kan lastes ned, kopieres eller benyttes på annen måte uten at dette er eksplisitt tillatt etter ufravikelig lovgivning eller etter uttrykkelig skriftlig forhåndssamtykke fra MENY AS.»* | Som over. Ikke hent noe fra meny.no |
+| SPAR | Kjøpmannshuset Norge AS, org.nr. 977 263 646; «SPAR er en del av Kjøpmannshuset AS som er et heleid selskap i NorgesGruppen», tlf. 21 61 20 00, nettside@spar.no ([spar.no/personvern-og-vilkar](https://spar.no/personvern-og-vilkar)) | [spar.no/spar-kundeavis](https://spar.no/spar-kundeavis) (lenket fra forsiden) | **Dokumentert, begrensende:** [spar.no/bruker-og-salgsbetingelser-i-spar-nettbutikk](https://spar.no/bruker-og-salgsbetingelser-i-spar-nettbutikk) § 16 Copyright: samme ordlyd som Meny, med *«Kjøpmannshuset Norge AS»* som eier og samtykkegiver | Som over. Ikke hent noe fra spar.no |
+| Joker | JOKER AS, «del av Kjøpmannshuset AS som er et heleid selskap i NorgesGruppen», Kjøpmannshuset org.nr. 977 263 646, nettside@Joker.no ([joker.no/personvern2](https://joker.no/personvern2)) | Forsiden: «Søk etter kundeavis med postnummer» og lenke til `https://publ.joker.no/sondagsavis` (ikke åpnet) | **Dokumentert, begrensende:** [joker.no/bruker--og-salgsbetingelser-nettbutikk](https://joker.no/bruker--og-salgsbetingelser-nettbutikk) § 16 Copyright: samme ordlyd som Meny, med *«Kjøpmannshuset Norge AS»* | Som over. Ikke hent noe fra joker.no |
+| Bunnpris | I.K. Lykke Drift AS, org.nr. 914048117, Munkegaten 48, 7005 Trondheim, firmapost@bunnpris.no, +47 73 88 00 00 ([bunnpris.no/personvernerklaering-informasjonskapsler](https://www.bunnpris.no/personvernerklaering-informasjonskapsler)) | Forsiden («Kundeavis og tilbud») lenker til `https://publuu.com/flip-book/883737/2595235`, en tredjepartstjeneste (ikke åpnet) | **Ikke dokumentert.** Ingen bruksvilkår funnet (`bunnpris.no/vilkar` gir 404) | Som over |
+| Europris | Europris AS, Dikeveien 57, 1661 Rolvsøy. Bunnteksten på europris.no sier «Kopibeskyttet © Europris AS … Org.nr: 987 553 014»; app-vilkårene sier «Europris AS med org.nr. 986 762 469». **To ulike numre; ikke avklart** | [europris.no/kundeavis](https://www.europris.no/kundeavis) | **Ikke dokumentert for nettsted og avis.** [europris.no/app-terms](https://www.europris.no/app-terms) gjelder egen app (§ 2: *«Du kan ikke kopiere, modifisere, distribuere eller selge noen del av programvaren i Appen»*). Bunnteksten sier «Kopibeskyttet ©» uten nærmere vilkår | Som over |
+| Matkroken | Ikke dokumentert (nettstedet ikke lest) | Ikke dokumentert. Coop.no har en side kalt `/coop-marked-matkroken/kundeavisen`; hva det sier om eierskap, er ikke undersøkt | Ikke dokumentert | Som over |
+| Nærbutikken | Ikke dokumentert (nettstedet ikke lest) | Ikke dokumentert | Ikke dokumentert | Som over |
+
+**NorgesGruppen (konsernet bak KIWI, MENY og Kjøpmannshuset):** NorgesGruppen ASA, org.nr. 819 731 322, Karenslyst allé 12-14, Oslo ([norgesgruppen.no/personvern/](https://www.norgesgruppen.no/personvern/)). Ingen vilkår om innhold, avis eller tilbudsdata funnet på norgesgruppen.no (`/vilkar/` gir 404). Presserom: kommunikasjon.ntb.no (ikke lest).
 
 Andre dealere sett i Tjek-treffene (stort sett ikke dagligvare, ikke vurdert): Afood Market, Apotek 1, Biltema, CC Mat, Clas Ohlson, Gigaboks, Holdbart, Jacobs, Kids Outlet, Lekia, Megaflis, Price Lagerbutikk, Ringo, Rusta, Scandinavian Park, Skeidar, Søstrene Grene.
 
-## Sjekkliste per kjede (det som må leses og hvor)
-For hver kjede, fra kjedens **egen offentlige side** (ikke skraping; bare vilkår, om-oss, personvern/«bruksvilkår», presse/samarbeid):
-1. **Avsender:** firmanavn, eier/konsern, kontakt for samarbeid/data (ofte «presse», «samarbeid», «leverandør» eller kundeservice).
-2. **Hvor avisen publiseres:** kjedens egen tilbuds-/avissider og hvilke tredjepartstjenester de bruker (f.eks. Tjek).
-3. **Nettstedets bruksvilkår:** hva som står om gjenbruk av innhold, bilder, priser, automatisk uthenting, og lenking.
-4. **Opphavsrett/varemerke:** vilkår for logo og bilder.
-5. **Eventuelt API/data for partnere:** står det noe offentlig om datafeed eller partnerprogram?
-6. **Tilbudsvilkår som må tolkes riktig:** medlemspris, mengdekjøp, kampanjeområde.
+## Hva som ikke er undersøkt
 
-Anbefalt visningsmåte avgjøres per kjede først etter at punktene 1–5 er lest, med valg mellom: (a) lenke til kjedens egen avis, (b) liste over enkelttilbud fra en avtalt kilde, (c) ingen visning. Inntil videre: (c) for avisinnhold, ingen bilder, ingen lagring (CLAUDE.md).
+- Selve avisene og visningsløsningene (publ.joker.no, publuu.com, kjedenes avissider): ikke åpnet, med vilje.
+- `robots.txt` og tekniske sperrer: ikke sjekket (det er ikke vilkår, og vi skal ikke hente aviser uansett).
+- obs.no, matkroken.no, nærbutikken, Reitan Retail, presserom hos NTB: ikke blant vertene som ble åpnet.
+- Om opphavsrettsklausulene hos Meny/SPAR/Joker gjelder avis og tilbud, og om pris og varenavn i et tilbud er vernet: krever juridisk vurdering, ikke gjort.
 
-## Hva som trengs for å gjøre dette
-Godkjenning (via `update_environment`) av de enkelte vertene over, én om gangen, eller at brukeren leverer vilkårene som filer i repoet.
+## Sjekkliste per kjede (det som gjenstår)
+1. **Avsender:** registrert over for alle unntatt Matkroken og Nærbutikken. Kontakt for samarbeid/data (ikke bare personvern) er **ikke dokumentert** for noen kjede.
+2. **Hvor avisen publiseres:** registrert over (bare lenker). Hvilken leverandør som står bak visningen, er ikke dokumentert.
+3. **Nettstedets bruksvilkår:** funnet for Meny, SPAR, Joker (begrensende). Ikke funnet for de andre.
+4. **Opphavsrett/varemerke:** Meny, SPAR og Joker sier logo og innhold er vernet. Ikke dokumentert for de andre.
+5. **API/data for partnere:** ingenting offentlig hos noen kjede.
+6. **Tilbudsvilkår** (medlemspris, mengdekjøp, kampanjeområde): ikke undersøkt.
+
+Anbefalt visningsmåte avgjøres per kjede med valg mellom: (a) lenke til kjedens egen avis, (b) liste over enkelttilbud fra en avtalt kilde, (c) ingen visning. **Inntil skriftlig avtale med Tjek (og eventuelt kjeden) foreligger: (c) for avisinnhold, ingen bilder, ingen lagring** (CLAUDE.md). Alternativ (a), en ren lenke til kjedens egen side, er ikke vurdert juridisk.
+
+Henvendelsesutkastene i `phase0/utkast/` (Rema 1000, Kiwi/NorgesGruppen, Coop, Tjek) er **ikke sendt** og skal ikke sendes uten at brukeren ber om det. Kontaktadressene over kan brukes til å rette dem når brukeren bestemmer seg.

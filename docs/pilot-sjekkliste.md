@@ -1,10 +1,30 @@
 # Pilotsjekkliste: før dere inviterer ekte familier
 
-**Status: UTKAST, skrevet 2026-11-22.** For eieren av prosjektet, uten krav til teknisk bakgrunn. Dette er én samlet avkrysningsliste over alt som andre dokumenter sier må være på plass, pluss en testplan for selve pilotuka og hva som skal måles. Den er ikke juridisk rådgivning, og ingenting her er bestilt, avtalt eller utført hos noen leverandør.
+**Status: UTKAST, skrevet 2026-11-22; eierens beslutninger fra samme dag er ført inn i del A (se «Beslutninger 2026-11-22» under).** For eieren av prosjektet, uten krav til teknisk bakgrunn. Dette er én samlet avkrysningsliste over alt som andre dokumenter sier må være på plass, pluss en testplan for selve pilotuka og hva som skal måles. Den er ikke juridisk rådgivning, og ingenting her er bestilt, avtalt eller utført hos noen leverandør.
 
 **Hovedregel:** ingen ekte familie inviteres før alle punkter merket **STOPP** er krysset av. De andre punktene bør være gjort, men kan avtales bort med åpne øyne (skriv hvorfor i Merknad).
 
 Kilder (les ved behov): [`synk.md`](synk.md) («Må på plass før ekte familier», «Kjente svakheter»), [`hosting.md`](hosting.md) (avsnitt 7 «Spørsmål eier må svare på», avsnitt 8 «Kjøre med Docker»), [`personvern/`](personvern/README.md) (seks utkast), [`fase1-status.md`](fase1-status.md) (kontroll mot godkjenningskriteriene), [`plan.md`](plan.md) (faser og kriterier), [`drift/`](drift/) (Compose-eksempel, Caddy, sikkerhetskopiskript).
+
+## Beslutninger 2026-11-22 (kort)
+
+Kilde: eierens svar i koordineringschatten 2026-11-22. Ført inn i A og E under.
+
+| Spørsmål | Svar | Uavklart |
+| --- | --- | --- |
+| Behandlingsansvarlig | **AVVR AS, org.nr. 935941644** | Adresse er ikke oppgitt (trengs i personvernerklæringen) |
+| Driftsansvarlig | **«Admin» (rolle)** | Navn på person og responstid. Listen krever en person, ikke en rolle |
+| Kontakt-e-post for personvern | **UAVKLART: ikke bestemt** | Alt |
+| Domene | **UAVKLART: ikke avklart** | Alt |
+| Hosting | Ikke valgt. Eier spurte om «webhotel» | Se [`hosting.md`](hosting.md), avsnitt 0 «Webhotel eller VPS?» |
+| Pilot | **Lukket pilot, hele Norge** | Antall husstander, startdato |
+| Oppbevaring av inaktive husstander | **730 dager** (`SYNC_RETENTION_DAYS=730`) | Logger og sikkerhetskopier. Se D15: tokenet utløper etter 180 dager |
+| Nøkkel til sikkerhetskopiene | Eier vil ha hjelp til oppsett | Hvem de to personene er |
+| Allergi-begrensningen (valg A) | **Godtatt** for piloten | – |
+| Fagperson-gjennomgang | **Ikke nå;** bare lukket pilot | Se B1: punktet er fortsatt STOPP |
+| Eier godkjenner nye medlemmer | **Nei,** invitasjonen holder | – |
+| Skriftlig Tjek-avtale | Eier sier den finnes og vil sende den | **Ikke levert.** Innholdet er ikke kjent |
+| Henvendelser til kjeder og Tjek (`phase0/utkast/`) | **Skal ikke sendes** nå | – |
 
 ## Slik bruker du listen
 
@@ -18,18 +38,18 @@ Ingen kan gjøre resten før disse er svart på. Hele listen med bakgrunn står 
 
 | # | Punkt | STOPP | Ansvarlig | Status | Merknad / svar |
 | --- | --- | --- | --- | --- | --- |
-| A1 | **Behandlingsansvarlig:** hvem er den juridiske parten (person, enkeltpersonforetak, AS)? Navn, organisasjonsnummer, adresse. Må tegne leverandøravtaler og stå i personvernerklæringen | STOPP | Eier | ☐ | |
-| A2 | **Driftsansvarlig:** navn, og akseptabel responstid hvis appen er nede (samme dag / neste virkedag). Én person som får varsler og oppdaterer | STOPP | Eier | ☐ | |
-| A3 | **Hosting:** velg leverandør og region i EØS (anbefalt: europeisk VPS, alternativ A i `hosting.md`; PaaS hvis ingen kan drifte). Månedlig tak i kroner | STOPP | Eier | ☐ | |
-| A4 | **Konto og domene** eies av deg, ikke utvikleren. Hvilket domenenavn? To-faktor på begge kontoene | STOPP | Eier | ☐ | |
-| A5 | **Personvernhenvendelser:** hvilken e-postadresse, og hvem svarer innen 30 dager? Opprett postkassen | STOPP | Eier | ☐ | |
-| A6 | **Piloten:** lukket gruppe (invitasjon) eller åpen? Antall husstander, hvilke 3–5 områder, startdato. Betaling i piloten (anbefalt: nei) | | Eier | ☐ | |
-| A7 | **Oppbevaringstid** for husstandsdata og hendelser etter siste bruk (forslag [12] måneder), loggtid ([14] dager), sikkerhetskopier ([30] dager). Se `personvern/01-oversikt-behandling.md`, avsnitt 4 | STOPP | Eier + Fagperson | ◐ forslag finnes | |
-| A8 | **Aksepterer du pilotavgrensningen for allergier?** Kostkrav og allergier deles ikke mellom enheter (valg A). En voksen sin telefon uten filter kan lage en plan med allergener for hele husstanden; avbøtet med alltid synlig «Inneholder: …» og banner, ikke fjernet (`synk.md`, «Kostkrav og allergier»). Ja/nei, og at deltakerne får vite det | STOPP | Eier | ☐ | |
-| A9 | **Nøkkel til sikkerhetskopiene:** hvem to personer holder den private nøkkelen (ikke på serveren), og hvor? | STOPP | Eier | ☐ | |
+| A1 | **Behandlingsansvarlig:** hvem er den juridiske parten (person, enkeltpersonforetak, AS)? Navn, organisasjonsnummer, adresse. Må tegne leverandøravtaler og stå i personvernerklæringen | STOPP | Eier | ◐ | **AVVR AS, org.nr. 935941644** (2026-11-22). Adresse ikke oppgitt. AVVR AS må også være kontoeier og part i leverandøravtalene |
+| A2 | **Driftsansvarlig:** navn, og akseptabel responstid hvis appen er nede (samme dag / neste virkedag). Én person som får varsler og oppdaterer | STOPP | Eier | ◐ | **«Admin» (rolle)** (2026-11-22). Mangler: hvilken person som har rollen, og responstid |
+| A3 | **Hosting:** velg leverandør og region i EØS (anbefalt: europeisk VPS, alternativ A i `hosting.md`; PaaS hvis ingen kan drifte). Månedlig tak i kroner | STOPP | Eier | ☐ | Ikke valgt. Et vanlig webhotel passer ikke; se `hosting.md`, avsnitt 0 |
+| A4 | **Konto og domene** eies av deg, ikke utvikleren. Hvilket domenenavn? To-faktor på begge kontoene | STOPP | Eier | ☐ | **UAVKLART:** domene ikke avklart (2026-11-22) |
+| A5 | **Personvernhenvendelser:** hvilken e-postadresse, og hvem svarer innen 30 dager? Opprett postkassen | STOPP | Eier | ☐ | **UAVKLART:** kontakt-e-post ikke bestemt (2026-11-22). Henger sammen med domenet (A4) |
+| A6 | **Piloten:** lukket gruppe (invitasjon) eller åpen? Antall husstander, hvilke 3–5 områder, startdato. Betaling i piloten (anbefalt: nei) | | Eier | ◐ | **Lukket pilot, hele Norge** (2026-11-22). Antall husstander, startdato og betaling ikke avgjort |
+| A7 | **Oppbevaringstid** for husstandsdata og hendelser etter siste bruk, loggtid ([14] dager), sikkerhetskopier ([30] dager). Se `personvern/01-oversikt-behandling.md`, avsnitt 4 | STOPP | Eier + Fagperson | ◐ | **Inaktive husstander: 730 dager** (2026-11-22), settes som `SYNC_RETENTION_DAYS=730` i `.env.drift` (standard i koden er 365). Logger og sikkerhetskopier ikke avgjort. **Må ses sammen med D15** (tokenet utløper etter 180 dager) |
+| A8 | **Aksepterer du pilotavgrensningen for allergier?** Kostkrav og allergier deles ikke mellom enheter (valg A). En voksen sin telefon uten filter kan lage en plan med allergener for hele husstanden; avbøtet med alltid synlig «Inneholder: …» og banner, ikke fjernet (`synk.md`, «Kostkrav og allergier»). Ja/nei, og at deltakerne får vite det | STOPP | Eier | ☑ | **Godtatt** (2026-11-22). Deltakerne må fortsatt få vite det (B12) |
+| A9 | **Nøkkel til sikkerhetskopiene:** hvem to personer holder den private nøkkelen (ikke på serveren), og hvor? | STOPP | Eier | ☐ | Eier vil ha hjelp til oppsett (2026-11-22). Fremgangsmåte: `hosting.md`, avsnitt 0, steg 6. De to personene er ikke valgt |
 | A10 | **Tap av siste timer ved gjenoppretting:** er det akseptabelt at hver enhet må kobles på nytt etter en gjenoppretting som taper data (se C9)? Hvor ofte skal kopien tas (forslag: daglig)? | | Eier | ☐ | |
-| A11 | **Tjek:** foreligger skriftlig avtale? Bruken er foreløpig bare live-visning i minnet, uten lagring. Legg avtalen i `phase0/tjek-avtale.md` når den finnes | | Eier | ☐ | Opplyst muntlig, ikke dokumentert i repoet |
-| A12 | **Hvem kvalitetssikrer personverndokumentene** (jurist/rådgiver) og når? Se B1 | STOPP | Eier | ☐ | |
+| A11 | **Tjek:** foreligger skriftlig avtale? Bruken er foreløpig bare live-visning i minnet, uten lagring. Legg avtalen i `phase0/tjek-avtale.md` når den finnes | | Eier | ◐ | Eier sier avtalen finnes og vil sende den (2026-11-22); **ikke levert**. Tjeks offentlige vilkår er lest: API-et er for kunder med avtale (`phase0/tjek-avtale.md`) |
+| A12 | **Hvem kvalitetssikrer personverndokumentene** (jurist/rådgiver) og når? Se B1 | STOPP | Eier | ☐ | **Ikke nå;** eier vil bare kjøre lukket pilot (2026-11-22). Se B1 |
 
 ## B. Personvern og juss (Eier + Fagperson)
 
@@ -37,7 +57,7 @@ Alle personverndokumentene er **utkast skrevet av en utviklerassistent** og avst
 
 | # | Punkt | STOPP | Ansvarlig | Status | Se |
 | --- | --- | --- | --- | --- | --- |
-| B1 | **Fagperson har gjennomgått alle seks utkastene** og skriftlig sagt hva som må rettes | STOPP | Fagperson | ☐ | [personvern/README](personvern/README.md) |
+| B1 | **Fagperson har gjennomgått alle seks utkastene** og skriftlig sagt hva som må rettes | STOPP | Fagperson | ☐ | [personvern/README](personvern/README.md). Eier har bestemt «ikke nå, bare lukket pilot» (2026-11-22). Etter hovedregelen øverst er punktet fortsatt åpent: skal piloten starte uten, må eier skrive det i del H, med begrunnelse. B2, B3 og B10 forutsetter også en fagperson |
 | B2 | **Art. 9-vurdering:** (a) gjelder det kostkrav lagret bare på brukerens egen enhet i appen vår, og (b) kan plan, handleliste, beholdning og fritekst (etiketter, egne handlelinjer) indirekte avsløre helse eller livssyn slik at datasettet må behandles varsomt? | STOPP | Fagperson | ☐ | `01`, avsnitt 3 og 2b; `06` |
 | B3 | **DPIA-terskelen** dokumentert og signert av behandlingsansvarlig (utkastet konkluderer trolig «ikke full DPIA i piloten, men DPIA-lett»). Datatilsynets fulle liste er ikke lest | STOPP | Eier + Fagperson | ◐ utkast | `03` |
 | B4 | **Personvernerklæring** ferdig (fyll ut alle [hakeparenteser]), godkjent av fagperson og publisert på en fast adresse | STOPP | Eier + Fagperson | ◐ utkast | `02` |
@@ -86,20 +106,21 @@ Fra `synk.md` («Kjente svakheter» og «Må på plass før ekte familier») og 
 | D6 | **Oppbevaring:** rutine som sletter husstander som er inaktive etter avtalt tid, og eventuelt komprimerer gamle uker; kvoter per husstand. Bygget: `server/retention.ts`, `SYNC_RETENTION_DAYS` (standard 365 = forslag, `0` = av), ved oppstart og hver 6. time, samme sletting som «Slett husstanden». Gamle uker komprimeres ikke. Fristen må avgjøres (A7) | STOPP hvis erklæringen lover det | Utvikler | ◐ bygget, frist ikke avgjort | `synk.md`, `personvern/01` 4 |
 | D7 | **Eksport** av husstandens data (JSON) for innsyn og portabilitet, eller en dokumentert manuell rutine som fagperson godtar. Bygget: «Last ned mine data» på Husstand-skjermen (enhetens data + `GET /api/household/export`) | | Utvikler | ☑ | `personvern/05` 5 |
 | D8 | **«Vis enhets-id»** på Husstand-skjermen, så brukere kan identifisere seg ved en henvendelse (eller annen bekreftelsesmåte). Bygget (også i personvern-arket). Fortsatt svak identitetsbekreftelse: id-en er synlig for alle medlemmer | | Utvikler | ☑ | `personvern/05` 3 |
-| D9 | **Token-utløp/rotasjon** og/eller godkjenning av nye medlemmer (invitasjon uten godkjenning er en kjent svakhet). Glidende utløp finnes (180 dager); bare eier inviterer. «Eier godkjenner nye medlemmer» er utsatt (ikke bygget, `synk.md`) | | Utvikler | ◐ | `synk.md` |
+| D9 | **Token-utløp/rotasjon** og/eller godkjenning av nye medlemmer (invitasjon uten godkjenning er en kjent svakhet). Glidende utløp finnes (180 dager); bare eier inviterer. «Eier godkjenner nye medlemmer» er utsatt (ikke bygget, `synk.md`) | | Utvikler | ◐ | `synk.md`. **Eier: godkjenning av nye medlemmer trengs ikke, invitasjonen holder** (2026-11-22). Rotasjon er ikke bygget. Utløpet må ses sammen med D15 |
 | D10 | **Etiketter:** vurder faste forslag i stedet for fritekst for å redusere fare for navn og helseopplysninger | | Utvikler + Fagperson | ☐ | `personvern/01` 8 |
 | D11 | **Sletting av lokale data** synlig også før første plan. Bygget: «Slett alt på denne enheten …» på Husstand-skjermen, med bekreftelse | | Utvikler | ☑ | `fase1-status.md` |
 | D12 | **CI** grønn på hovedbranchen: typesjekk, vitest (inkl. synk-serveren), kontrast, bygg, bygg av serveren og røyktest av produksjonsbygget, og `npm audit --omit=dev` (siste blokkerer ikke). Nettleserjobben (`e2e:sync`, `check:pwa`, `check:a11y`, og CSP/PWA/e2e mot det bygde serveren) og imagejobben (`docker build`, start, helsesjekk) er valgfrie; kjør dem for hånd før piloten | | Utvikler | ☑ jobbene finnes (ikke kjørt på GitHub-maskinene) | `.github/workflows/ci.yml` |
 | D13 | **Skjermleser- og tastaturtest** av hele flyten på ekte telefon (automatiske sjekker finnes, men er ikke nok) | | Utvikler | ◐ automatiske sjekker | `fase1-status.md` |
 | D14 | **Produksjonsbygg av serveren:** `npm run build:server` (esbuild, én fil), `npm start`, slankt flertrinns Docker-image uten `node_modules`/tsx (417 → 200 MB; 107 → 54 MB komprimert), `docker stop` ryddig (SIGTERM). Prøvd i sandkasse mot Compose, backup og gjenoppretting; `check:csp`, `check:pwa` og `e2e-sync` består mot bygget | | Utvikler | ☑ prøvd i sandkasse | `hosting.md` 8; `sikkerhet.md` S17 |
+| D15 | **Tokenutløp (180 dager) er kortere enn oppbevaringstiden (730 dager).** Et enhetstoken slutter å virke etter 180 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`, standard 180). Har ingen i husstanden brukt appen på 180 dager, kan ingen åpne husstanden, laste ned dataene («Last ned mine data») eller slette den i appen, men dataene blir liggende på serveren til 730 dager etter siste bruk, altså rundt 550 dager der brukerne bare kan få dem slettet eller utlevert ved å skrive til oss (og kontakt-e-posten er ikke bestemt, A5). Personvern-arket i appen (`src/views/PrivacySheet.tsx`) viser «12 måneder» som forslag når serveren ikke oppgir tiden, og sier at tokenet utløper etter 180 dager; begge må stemme med det som velges. Ingen kode er endret | STOPP (del av A7) | Eier + Utvikler | ☐ | **Forslag (eier velger ett):** (a) sett også `SYNC_TOKEN_IDLE_DAYS=730` i `.env.drift`, så husstanden kan brukes, eksporteres og slettes i hele oppbevaringstiden. Bare konfigurasjon. Ulempe: en glemt eller mistet telefon har gyldig nøkkel i opptil to år, til eieren fjerner den. (b) Sett oppbevaringstiden ned til tokenutløpet (180 dager), eller begge til 365. (c) Senere, i en synk-økt med test: slett husstanden når siste gyldige token utløper, eller varsle i appen før utløpet. (d) Behold 180/730 og skriv i personvernerklæringen at husstanden ikke kan åpnes etter 180 dager og at sletting før 730 dager skjer på e-post; krever A5. **Anbefaling for lukket pilot: (a) eller (b)**, fordi (d) forutsetter en kontaktadresse som ikke finnes ennå. Se også `synk.md`, «Oppbevaringstid» |
 
 ## E. Produkt, innhold og avtaler (Eier + Redaktør)
 
 | # | Punkt | STOPP | Ansvarlig | Status | Se |
 | --- | --- | --- | --- | --- | --- |
 | E1 | **Fase 0-porten:** er dekningen god nok til å love noe om pris i pilotområdene? Per `fase1-status.md` er det ingen ferske priser fra Rema 1000 og Coop, og Kiwi bare for 5 av 24 varer. Uten ekte prisdata: kjør piloten som test av plan, handleliste og synk, ikke av pris | STOPP | Eier | ◐ delvis | `phase0/RESULTS.md` |
-| E2 | **Pilotområder** (3–5, by og distrikt) valgt | | Eier | ☐ | `plan.md` |
-| E3 | **Rettigheter:** bare avtalte kilder; ingen kundeaviser hentes uten avtale (CLAUDE.md regel 6) | STOPP | Eier | ◐ bare Tjek live-visning | `THIRD_PARTY.md` |
+| E2 | **Pilotområder** (3–5, by og distrikt) valgt | | Eier | ☑ | `plan.md`. **Hele Norge, lukket pilot** (2026-11-22). Pris kan uansett ikke måles (E1) |
+| E3 | **Rettigheter:** bare avtalte kilder; ingen kundeaviser hentes uten avtale (CLAUDE.md regel 6) | STOPP | Eier | ◐ bare Tjek live-visning | `THIRD_PARTY.md`. Offentlige vilkår lest 2026-11-22: Tjek-API for kunder med avtale (avtalen ikke levert); Meny, SPAR og Joker krever skriftlig samtykke for bruk av innhold; ingen kjede gir offentlig tillatelse (`phase0/kundeavis-rettigheter.md`) |
 | E4 | **Redaktør** har gått gjennom varekoblinger og regelfil for tilbud i pilotområdene | | Redaktør | ☐ | `CLAUDE.md` |
 
 ## F. Testplan for pilotuka: to telefoner, én handleuke

@@ -21,7 +21,7 @@ Se også [`../pilot-sjekkliste.md`](../pilot-sjekkliste.md) (alt som må være p
 - **Aldri på serveren:** postnummer, allergier og kostkrav (valg A), tilbud fra Tjek, planhistorikk, passord, e-post, navn, posisjon.
 - **På enheten:** alt over pluss kostkrav, postnummer og **enhetstokenet i klartekst i `localStorage`**.
 - **Sletting:** eier sletter husstanden med kaskade; spor kan ligge kort i `-wal` og i sikkerhetskopier. Fjernede medlemmer ligger igjen som rad til husstanden slettes (svakhet).
-- **Ikke bygget:** eksport, automatisk sletting etter inaktivitet, lenke til personvernerklæring i appen, samtykkeskjerm (ikke nødvendig i piloten).
+- **Bygget siden første utkast:** eksport («Last ned mine data»), automatisk sletting etter inaktivitet (`SYNC_RETENTION_DAYS`), arket «Personvern» i appen (utkast). **Ikke bygget:** samtykkeskjerm (ikke nødvendig i piloten).
 
 ## Hva som er sjekket og ikke sjekket
 
@@ -29,6 +29,14 @@ Se også [`../pilot-sjekkliste.md`](../pilot-sjekkliste.md) (alt som må være p
 - **Ikke sjekket:** alle paragrafhenvisninger i personvernforordningen (GDPR) er fra generell kunnskap og må kontrolleres; norske særregler (personopplysningsloven, ekomloven); Datatilsynets fullstendige liste over behandlinger som alltid krever DPIA; leverandørenes vilkår.
 - **Avstemt mot synk-løsningen (2026-11-22):** hvilke felt som lagres, at e-post ikke brukes, at kostkrav og postnummer ikke synkes, og hvordan sletting virker er lest i koden. Sletting (kaskade), WAL-spor, volum, sikkerhetskopi og gjenoppretting er prøvd i en Docker-kjøring (ikke hos en leverandør). **Hvis synk-løsningen endres** (f.eks. kontoer, deling av kostkrav, nye felt, oppbevaringsrutine, rettet fjerning av medlemmer), må dokumentene gås gjennom på nytt. Merk også: det finnes ingen aldersgruppe i datamodellen (tidligere utkast sa det).
 
-## Åpne punkter som krever eierens svar
+## Eierens beslutninger og åpne punkter (2026-11-22)
 
-Se `docs/hosting.md` avsnitt 7 for hele listen. De viktigste for personvern: hvem som er behandlingsansvarlig, hvilken e-postadresse brukerne kan kontakte, valgt hostingleverandør, og hvem som kvalitetssikrer disse dokumentene.
+Ført inn i dokumentene 01, 02, 03 og 05:
+
+- **Behandlingsansvarlig:** AVVR AS, org.nr. 935941644. Adresse ikke oppgitt.
+- **Driftsansvarlig:** «Admin» (rolle). Personen er ikke navngitt.
+- **Oppbevaringstid for inaktive husstander:** 730 dager (`SYNC_RETENTION_DAYS=730`). Logger og sikkerhetskopier er ikke avgjort ([14] og [30] dager står som forslag).
+- **Pilot:** lukket, hele Norge.
+- **Fagperson:** ikke nå. Dokumentene forblir utkast; det står fortsatt i sjekklisten som STOPP (B1).
+
+Fortsatt **UAVKLART**: kontakt-e-post for personvern, domene (der erklæringen skal publiseres), hostingleverandør (dermed databehandler, land og overføringsgrunnlag), og hvordan tokenutløpet (180 dager) skal stemme med oppbevaringstiden (730 dager), se `../pilot-sjekkliste.md`, D15. Hele listen: `docs/hosting.md` avsnitt 7.

@@ -3,7 +3,7 @@
 **Spørsmål:** Har Tjek (eTilbudsavis) tilbud fra de norske kjedene vi mangler ferske priser for i Kassalapp (Rema 1000, Kiwi, Coop-formater), for varene i de samme ti prøvekurvene (`../kassalapp-import/baskets.json`)? Er tilbudene gyldige nå, og har de pris og mengde slik at pakningspris kan regnes?
 
 ## Status for tillatelse (viktig)
-Brukeren har opplyst muntlig at Tjek har gitt tillatelse til å bruke dataene. **Det er ikke dokumentert.** Skriftlig avtale/vilkår fra Tjek må innhentes før noe av dette brukes utover denne målingen. API-et svarer med `Link: <https://tjek.com/terms>; rel="terms-of-service"`; vilkårene er ikke lest eller akseptert her. Målingen er skrivebeskyttet og lagrer bare tellinger, aldri tilbudstekst eller bilder.
+Brukeren har opplyst muntlig at Tjek har gitt tillatelse til å bruke dataene. **Det er ikke dokumentert.** Skriftlig avtale/vilkår fra Tjek må innhentes før noe av dette brukes utover denne målingen. API-et svarer med `Link: <https://tjek.com/terms>; rel="terms-of-service"`. Vilkårene er lest 2026-11-22 (se `phase0/tjek-avtale.md`), men ikke akseptert her; de sier at API-et er for kunder med avtale. Brukeren sier at en skriftlig avtale finnes; den er ikke levert. Målingen er skrivebeskyttet og lagrer bare tellinger, aldri tilbudstekst eller bilder.
 
 ## Endepunkter (offentlig, uten nøkkel, observert 2026-11-21)
 Referanse: repoet olgasafonova/tilbudstrolden-mcp (MIT), `src/api.ts` og `src/offer-parsing.ts`.

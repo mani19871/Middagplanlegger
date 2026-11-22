@@ -1,8 +1,44 @@
 # Hvor skal appen kjøre? Beslutningsguide for eier
 
-**Status: UTKAST, skrevet 2026-11-22; avsnitt 2, 3 og 8 avstemt samme dag mot den bygde synk-serveren.** Skrevet for en eier uten teknisk bakgrunn. Ingenting her er bestilt, og ingen kontoer er opprettet. Avsnitt 8 er prøvd i en Docker-kjøring i en sandkasse (ikke hos en leverandør); se «Hva som er testet». Alt som skal gjøres før ekte familier står samlet i [`pilot-sjekkliste.md`](pilot-sjekkliste.md).
+**Status: UTKAST, skrevet 2026-11-22; avsnitt 2, 3 og 8 avstemt samme dag mot den bygde synk-serveren.** Skrevet for en eier uten teknisk bakgrunn. Ingenting her er bestilt, og ingen kontoer er opprettet. Avsnitt 8 er prøvd i en Docker-kjøring i en sandkasse (ikke hos en leverandør); se «Hva som er testet». Alt som skal gjøres før ekte familier står samlet i [`pilot-sjekkliste.md`](pilot-sjekkliste.md). **Oppdatert 2026-11-22** med eierens svar (avsnitt 7) og et kort avsnitt om webhotel (avsnitt 0).
 
 **Les dette først om tallene.** Alle priser, regioner og vilkår under er fra min generelle kunnskap, ikke slått opp i dag. De er satt opp som grove intervaller i norske kroner (regnet med ca. 11 kr per euro og 10 kr per dollar) og kan være feil eller utdaterte. Alt som står under «Må verifiseres» (siste del av dokumentet) må sjekkes mot leverandørens egne prissider og vilkår før noe bestilles. Dokumentet er ikke juridisk rådgivning.
+
+## 0. Webhotel eller VPS? (kort, for deg som ikke er teknisk)
+
+**Kort svar: et vanlig webhotel passer ikke.** Et webhotel (delt hosting, slik man ofte får sammen med et domene) er laget for nettsider i PHP med en MySQL-database: du får en mappe på en maskin som deles med mange andre kunder, ikke en egen maskin. Appen vår trenger noe annet:
+
+1. **En Node-server som kjører hele tiden.** Synk mellom telefonene og henting av tilbud skjer i ett program som alltid må være i gang. Et webhotel starter som regel bare et skript når noen åpner en side, og stopper det igjen.
+2. **En databasefil (SQLite) på varig disk, med én skriver.** Husstandene ligger i én fil som må overleve omstart, tas sikkerhetskopi av på en bestemt måte (avsnitt 8) og aldri skrives av to programmer samtidig.
+3. **Docker.** Oppsettet vi har prøvd (Docker-image, Caddy for HTTPS, sikkerhetskopiskript) forutsetter at vi kan kjøre Docker. Det får man ikke på delt hosting.
+4. **Kontroll over logger og nettverk.** Vi må vite hva som logges (IP-adresser er personopplysninger) og kunne hente tilbud fra Tjek.
+
+Noen webhotell tilbyr «Node.js-støtte». Det er som regel ikke nok: uten Docker, uten valg av Node-versjon (vi trenger Node 22.23.5, avsnitt 8) og ofte med prosesser som stoppes. Det er ikke prøvd, og vi anbefaler det ikke.
+
+**Et webhotel kan likevel være nyttig til to ting:** kjøp av domene og en e-postadresse (for eksempel til personvernhenvendelser, som ikke er bestemt ennå). Domenet kan da pekes til serveren der appen kjører.
+
+**Anbefalt: en liten VPS (leid virtuell maskin) i EU, for eksempel hos Hetzner, med Caddy foran appen.** Det er alternativ A under.
+
+| | 1. VPS i EU (f.eks. Hetzner), drift selv | 2. Administrert plattform (PaaS) med EU-region (f.eks. Render, Fly.io) | 3. VPS i EU + innleid driftshjelp |
+| --- | --- | --- | --- |
+| Omtrentlig pris per måned (grovt, ikke slått opp i dag) | ca. 100–200 kr (liten server ca. 50–100 kr, lagring til sikkerhetskopi ca. 30–50 kr, domene ca. 10–20 kr) | ca. 150–400 kr (instans + disk; prisen kan variere med bruk) + domene | Som 1, pluss timer til den som drifter (timepris må innhentes; regn med 1–3 timer i måneden når alt kjører) |
+| Hva du selv må gjøre | Opprette konto og server, og ha en person («Admin») som tar oppdateringer, sikkerhetskopi og varsler. Vi har skrevet oppsett og skript (avsnitt 8) | Opprette konto og sette opp appen fra Docker-imaget; mindre vedlikehold av maskinen. Mer papirarbeid for personvern (selskapene er trolig amerikanske: overføringsgrunnlag, underleverandører) | Opprette konto i AVVR AS sitt navn og gi driftshjelpen tilgang. Inngå avtale med driftshjelpen (også databehandleravtale) |
+| Passer når | «Admin» er en person som kan følge en sjekkliste i terminal | Ingen kan eller vil drifte en maskin | Ingen i selskapet kan drifte, men du vil ha data og leverandør i EØS |
+| Personvern | Enklest: europeisk selskap, data i EØS | Data i EØS, men leverandør utenfor EØS | Som 1, pluss én databehandler til |
+
+Prisene er fra generell kunnskap, ikke kontrollert mot leverandørenes prissider 2026-11-22. Sjekk før bestilling (avsnitt 9).
+
+**Hva vi trenger fra deg, steg for steg** (alternativ 1; for 2 og 3 er steg 1–3 og 6 like):
+
+1. **Bestem hvem «Admin» er:** en navngitt person som får varsler, tar oppdateringer omtrent én gang i måneden og kan gjøre en gjenoppretting. Hvis ingen kan det, velg alternativ 2 eller 3.
+2. **Domene og e-post:** kjøp et domene i **AVVR AS** sitt navn (gjerne hos en norsk registrar; et webhotel holder til dette) og opprett en e-postadresse for personvern, f.eks. `personvern@<domenet>`. Det avgjør de to uavklarte punktene (domene og kontakt-e-post). Slå på to-faktor.
+3. **Konto hos VPS-leverandøren** i AVVR AS sitt navn, med to-faktor. Godta leverandørens databehandleravtale i kundeportalen og lagre en kopi med dato (`personvern/04-databehandleravtaler-sjekkliste.md`). Sett et budsjettvarsel.
+4. **Bestill den minste serveren** med Ubuntu (LTS) i en region i EU (f.eks. Tyskland eller Finland). Legg inn Admins SSH-nøkkel (offentlig del) ved bestilling. Del aldri passord eller private nøkler i chat eller e-post.
+5. **Pek domenet til serveren:** en A-post (og AAAA for IPv6) i domenets DNS-innstillinger, til serverens IP-adresse.
+6. **Nøkkel til sikkerhetskopiene** (du ba om hjelp): på din egen PC, ikke på serveren, lag et nøkkelpar med verktøyet `age` (`age-keygen -o middag-backup.key`). Filen inneholder en privat nøkkel og skriver ut en offentlig nøkkel som begynner med `age1…`. Den **offentlige** nøkkelen gis til Admin og settes som `BACKUP_AGE_RECIPIENT` på serveren (avsnitt 8). Den **private** nøkkelfilen lagres hos **to navngitte personer** (f.eks. i hver sin passordhåndterer, eller en kryptert minnepinne i safe), aldri på serveren. Mistes den, kan ingen kopi leses. Vi kan gå gjennom dette sammen; skriv ned hvem de to er (sjekklisten A9).
+7. **Lagring til sikkerhetskopiene** et annet sted enn serveren, i EØS (f.eks. leverandørens lagringstjeneste), med sletting etter 30 dager (forslag, ikke avgjort).
+8. **Admin setter opp appen** etter avsnitt 8 («Pilotoppsett med Docker Compose og Caddy»): fyller `.env.drift` med `DOMENE`, `SYNC_SECRET` og `SYNC_RETENTION_DAYS=730`, og tar stilling til tokenutløpet (sjekklisten D15).
+9. **Gjenopprettingsøvelse og testuke** (sjekklisten C7 og F) før første familie inviteres.
 
 ## 1. Kort versjon
 
@@ -119,7 +155,7 @@ Navnene er eksempler, ikke en vurdering eller anbefaling av én bestemt leverand
 
 ## 6. Anbefaling
 
-### Pilot (3–5 områder, noen hundre husstander)
+### Pilot (lukket, hele Norge; antatt noen hundre husstander)
 
 **Alternativ A: leid VPS i EU/EØS hos en europeisk leverandør**, med:
 
@@ -143,6 +179,27 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 - Før bred lansering: gjennomgå personvernvurderingen (DPIA) på nytt og få den kvalitetssikret (`docs/personvern/03-dpia-vurdering.md`).
 
 ## 7. Spørsmål eier må svare på
+
+**Svar 2026-11-22** (eierens beslutninger; samlet også i `pilot-sjekkliste.md`):
+
+| # | Svar | Uavklart |
+| --- | --- | --- |
+| 1 | **AVVR AS, org.nr. 935941644** er behandlingsansvarlig | Adresse (til personvernerklæringen) |
+| 2 | Driftsansvarlig: **«Admin» (rolle)** | Hvilken person, og responstid |
+| 3 | – | Månedlig tak ikke oppgitt |
+| 4 | – | Ikke besvart. Anbefaling: europeisk leverandør (avsnitt 0) |
+| 5 | Konto og domene: AVVR AS (følger av svar 1) | **UAVKLART: domenet er ikke avklart** |
+| 6 | – | **UAVKLART: kontakt-e-post for personvern er ikke bestemt** |
+| 7 | **Lukket pilot, hele Norge** | Antall husstander, startdato, betaling |
+| 8 | **730 dager** for inaktive husstander (`SYNC_RETENTION_DAYS=730`) | Logger og sikkerhetskopier. Tokenutløpet (180 dager) er kortere: se `pilot-sjekkliste.md`, D15 |
+| 9 | **Ingen fagperson nå,** bare lukket pilot | Når en fagperson skal se på dokumentene |
+| 10 | Eier vil ha **hjelp til oppsett** av sikkerhetskopinøkkelen | Hvem de to nøkkelholderne er (fremgangsmåte: avsnitt 0, steg 6) |
+| 11 | – | Ikke besvart |
+| 12 | Eier sier en skriftlig Tjek-avtale finnes og vil sende den | **Ikke levert** (`phase0/tjek-avtale.md`) |
+| – | Hosting: eier vet ikke, spurte om webhotel | Se avsnitt 0 |
+| – | Eier-godkjenning av nye medlemmer: **nei**, invitasjonen holder | – |
+
+Spørsmålene slik de ble stilt:
 
 1. **Hvem er behandlingsansvarlig?** En person, et enkeltpersonforetak eller et AS? Det må finnes en juridisk part som tegner leverandøravtaler og står i personvernerklæringen.
 2. **Hvem tar driftsansvaret?** Navn, og hva er akseptabel responstid hvis appen er nede (samme dag, neste virkedag)? Er det greit at piloten kan være nede noen timer?
@@ -194,6 +251,8 @@ SYNC_SECRET=… npm start   # node dist-server/index.mjs (kjør fra repoets rot:
 | `DATA_DIR` | `/data` i imaget (`data/` utenfor Docker) | I bruk. Katalogen der synk-serveren lagrer `middag.sqlite`. Monter et volum her. |
 | `SYNC_DB` | `$DATA_DIR/middag.sqlite` | I bruk. Overstyrer hele stien til databasen (`:memory:` bare til test). |
 | `SYNC_SECRET` | tilfeldig per start | **Skal settes i drift.** Hemmelighet for invitasjonskoder (HMAC). Mangler den, skriver serveren en advarsel og alle aktive invitasjoner blir ugyldige ved hver omstart. Lag den med `openssl rand -hex 32`. Enhetstokenene avhenger **ikke** av den (bare sha256 av tokenet lagres), så å miste eller bytte den logger ingen ut, den ugyldiggjør bare ubrukte invitasjoner. Aldri i Dockerfile eller git. |
+| `SYNC_RETENTION_DAYS` | `365` | I bruk. Husstander uten autentisert aktivitet på så mange dager slettes automatisk (`0` = av; ugyldig verdi gir 365). **Eierens valg 2026-11-22: `730`.** Se `docs/synk.md`, «Oppbevaringstid». |
+| `SYNC_TOKEN_IDLE_DAYS` | `180` | I bruk. Dager uten bruk før et enhetstoken slutter å virke (`0` = aldri). Kortere enn oppbevaringstiden på 730 dager; se `pilot-sjekkliste.md`, D15. |
 | `TRUST_PROXY` | ikke satt | `1` når serveren står bak en egen reverse proxy (Caddy), så ratebegrensningen bruker klientens IP fra `X-Forwarded-For`. |
 | `KASSALAPP_TOKEN` | ikke satt | **Reservert, ikke i bruk av serveren ennå.** Brukes i dag bare av `phase0/kassalapp-import/probe.mjs`. Hemmelighet: send den inn ved oppstart, aldri i Dockerfile eller git. |
 | `NODE_USE_ENV_PROXY` | ikke satt | Bare hvis serveren står bak en utgående proxy (f.eks. firmanettverk) og skal hente tilbud derfra. |
@@ -288,7 +347,7 @@ Sikkerhetskopier og volumkopier tatt før slettingen inneholder fortsatt dataene
 ### Slettefrist for sikkerhetskopier
 
 - **Frist:** kopier slettes etter `BACKUP_KEEP_DAYS` dager (standard 30, forslag fra personvernutkastet; må avgjøres av eier). `backup.sh` sletter bare kopiene i `./backup`. **Kopier som er flyttet til ekstern lagring, må ha samme frist der** (livssyklusregel hos lagringsleverandøren, eller et eget ryddeskript). Ellers holder ikke fristen i personvernerklæringen.
-- **Hva fristen betyr:** en husstand som er slettet (av eieren eller automatisk etter `SYNC_RETENTION_DAYS`), finnes i kopiene i høyst `BACKUP_KEEP_DAYS` dager etter slettingen. Lengste tid data om en inaktiv husstand ligger hos oss er altså `SYNC_RETENTION_DAYS + BACKUP_KEEP_DAYS` (med standardverdiene 365 + 30 dager).
+- **Hva fristen betyr:** en husstand som er slettet (av eieren eller automatisk etter `SYNC_RETENTION_DAYS`), finnes i kopiene i høyst `BACKUP_KEEP_DAYS` dager etter slettingen. Lengste tid data om en inaktiv husstand ligger hos oss er altså `SYNC_RETENTION_DAYS + BACKUP_KEEP_DAYS` (med standardverdiene 365 + 30 dager; med eierens valg 730 + 30 = 760 dager).
 - **Etter gjenoppretting:** oppbevaringsjobben kjører ved oppstart og sletter husstander som fortsatt er inaktive, så sletting for inaktivitet gjentas av seg selv. Husstander som **eieren** slettet etter kopitidspunktet, kommer derimot tilbake og må slettes igjen for hånd (se «slett igjen» i `docs/personvern/05-innsyn-retting-sletting.md`).
 
 ### Hva som er testet (2026-11-22, sandkasse med Docker 29.10 og Compose 5.7)

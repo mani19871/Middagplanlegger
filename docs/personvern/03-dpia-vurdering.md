@@ -48,7 +48,7 @@ Mine vurderinger for piloten (noen hundre husstander, ingen KI, ingen betaling):
 - **Bred lansering og fase 3 (KI, betaling, bilder):** trolig ja. Gjør full DPIA **før** disse behandlingene starter, og før bred lansering gjennomgås terskelen på nytt.
 - Det som gir sterkest utslag mot konklusjonen: at kostkrav senere synkes til serveren (valg B i `06-samtykke-helsekost.md`), at fritekstfelt i praksis fylles med helseopplysninger eller navn, at hendelsesloggen oppbevares uten tak og blir en vanelogg over tid, eller at omfanget blir stort.
 
-**Beslutning:** [Ja/Nei DPIA i piloten. Dato. Signert av behandlingsansvarlig og rådgiver.] **[Fylles ut.]**
+**Beslutning:** [Ja/Nei DPIA i piloten. Dato. Signert av behandlingsansvarlig (AVVR AS) og rådgiver.] **[Fylles ut.]** Eieren har 2026-11-22 bestemt at en fagperson ikke skal se på dokumentene nå, og at piloten er lukket. Da må beslutningen signeres av AVVR AS alene, og det bør stå at den ikke er vurdert av fagperson.
 
 ## 5. DPIA-lett for piloten (utkast, bygger på minimumsinnholdet i art. 35 nr. 7, må verifiseres)
 

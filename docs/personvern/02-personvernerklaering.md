@@ -18,7 +18,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 
 ## Hvem er ansvarlig?
 
-[Navn på behandlingsansvarlig, organisasjonsnummer, adresse] er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: [e-postadresse].
+AVVR AS (org.nr. 935941644), [adresse: ikke oppgitt ennå], er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: **[e-postadresse: UAVKLART, ikke bestemt]**.
 
 ## Hva vi lagrer, og hvorfor
 
@@ -26,7 +26,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 
 | Hva | Hvorfor | Hvor lenge |
 | --- | --- | --- |
-| Valgte butikker, budsjett, antall butikkstopp, hvilke dager dere lager middag og hvor lang tid, om tilbud brukes og hvilke kjeder | Regne ut ukeplan og anslått pris | Til husstanden slettes, og senest når ingen enhet i husstanden har vært i kontakt med serveren på [12 måneder] (automatisk; fristen er konfigurerbar og ikke avgjort) |
+| Valgte butikker, budsjett, antall butikkstopp, hvilke dager dere lager middag og hvor lang tid, om tilbud brukes og hvilke kjeder | Regne ut ukeplan og anslått pris | Til husstanden slettes, og senest når ingen enhet i husstanden har vært i kontakt med serveren på 730 dager (om lag to år; automatisk, eierens valg 2026-11-22) |
 | Etiketter for personer («Voksen 1», «Barn 1»), porsjonsstørrelse, dager hjemme. Etiketten er fritekst: skriv ikke navn eller helseopplysninger der | Regne ut hvor mye mat dere trenger | Samme |
 | Plan (hvilke middager), handleliste med avkrysninger og egne linjer du skriver inn, kjøp, det dere har hjemme, hva som er laget, og valg ved utsolgt vare | Gi dere samme plan og liste på alle enhetene | Samme |
 | Hvilke enheter som er med: en tilfeldig enhets-id, en etikett du velger («Voksen 2»), når enheten ble med og sist var i bruk (avrundet til minutt), og en kode som bare lagres i uleselig form (sha256) | Koble enhetene til samme husstand og vite hvem som har krysset av | Til husstanden slettes. Fjernes en enhet, blir en tom «rad» med id og etikett liggende til husstanden slettes [dette skal endres] |
@@ -41,7 +41,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 | Teknisk logg: i vårt oppsett lagres ikke IP-adresse eller innhold i tilgangslogg [må bekreftes for valgt leverandør]. IP-adressen din brukes kort i serverens minne for å stoppe misbruk og glemmes når serveren starter på nytt | Sikkerhet og feilretting | [14] dager hvis noe logges |
 | Henvendelser du sender oss | Svare deg | [12] måneder etter at saken er avsluttet |
 
-Hvis ingen enhet i en husstand har vært i kontakt med serveren på [12] måneder, sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. Det som er lagret på enhetene dine, slettes ikke. [Bygget, `SYNC_RETENTION_DAYS`; fristen må avgjøres.]
+Hvis ingen enhet i en husstand har vært i kontakt med serveren på 730 dager (om lag to år), sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. Det som er lagret på enhetene dine, slettes ikke. [Bygget, `SYNC_RETENTION_DAYS=730`, eierens valg 2026-11-22. **Åpent (pilot-sjekkliste D15):** nøkkelen til husstanden slutter å virke etter 180 dager uten bruk. Med dagens innstilling kan dere da ikke åpne, laste ned eller slette husstanden i appen, men den ligger hos oss til dag 730; sletting før det må skje på e-post. Teksten må rettes når eieren har valgt løsning.]
 
 Merk: selv om vi ikke lagrer allergier og kostkrav som egne opplysninger, kan planen og handlelisten din si noe om hva dere spiser og kjøper. Skriv ikke helseopplysninger eller navn i etiketter og egne handlelinjer.
 
@@ -62,7 +62,7 @@ Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å la
 
 - **Du og de du inviterer til husstanden.** Alle voksne i husstanden kan se og endre alt husstanden har delt (plan, liste, innstillinger, hvem som har krysset av). Den som har en gyldig invitasjonskode innen 24 timer, kan bli med, så del koden bare med den du vil invitere.
 - **Vår leverandør av drift og lagring** ([navn, land for datasenter]). De behandler opplysningene på våre vegne og har ikke lov til å bruke dem til egne formål. Vi har [databehandleravtale]. [Underleverandører: liste eller lenke.]
-- **Vi** ([navngitte roller]) har bare tilgang når det trengs for drift og feilretting.
+- **Vi** (driftsansvarlig, rollen «Admin» i AVVR AS [navn føres i den interne tilgangslisten]) har bare tilgang når det trengs for drift og feilretting.
 
 Tilbudsinformasjon hentes av vår server fra [Tjek]. Vi sender ikke opplysninger om deg eller husstanden din dit. Kilden ser bare serverens adresse.
 
@@ -83,7 +83,7 @@ Du har rett til å:
 - **protestere mot** eller **få begrenset** behandling i enkelte tilfeller,
 - **trekke samtykke** der behandlingen bygger på samtykke.
 
-Send e-post til [adresse]. Vi svarer innen en måned. Vi kan be deg bekrefte at du hører til husstanden, men vi ber ikke om mer personopplysninger enn nødvendig for det. Hvordan vi behandler dem, står i vår interne rutine.
+Send e-post til **[adresse: UAVKLART, ikke bestemt]**. Vi svarer innen en måned. Vi kan be deg bekrefte at du hører til husstanden, men vi ber ikke om mer personopplysninger enn nødvendig for det. Hvordan vi behandler dem, står i vår interne rutine.
 
 **Sletting:** når eieren sletter husstanden i appen (bekreftes ved å skrive SLETT), fjernes dataene fra systemet vårt med en gang, og de andre enhetene i husstanden kobles fra. Spor i serverens databasefil overskrives i løpet av kort tid. Sikkerhetskopier overskrives innen [30] dager, og kopiene brukes bare til gjenoppretting etter feil. Det som ligger på enhetene dine, sletter du selv (valget «Slett også alt som er lagret på denne enheten», eller «Slett lokale data»).
 

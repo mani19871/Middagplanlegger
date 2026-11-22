@@ -1,6 +1,6 @@
 # Fase 0 – resultater
 
-Status: **delvis**. Kassalapp-importtesten og Tjek-dekningsmålingen er kjørt (2026-11-21). Rettigheter og kjedeavtaler er kartlagt men ikke avklart (§ 3), og to av portkriteriene krever data vi ikke har (se «Port»).
+Status: **delvis**. Kassalapp-importtesten og Tjek-dekningsmålingen er kjørt (2026-11-21). Tjeks og kjedenes offentlige vilkår er lest 2026-11-22 (§ 3), men visningsmåten er ikke avklart: den skriftlige Tjek-avtalen er ikke levert, og ingen kjede gir offentlig tillatelse til gjenbruk. To av portkriteriene krever data vi ikke har (se «Port»).
 
 ## 1. Kassalapp-importtest
 
@@ -84,8 +84,8 @@ Full utskrift (per kurv, per vare og kjede): kjør `probe.mjs`; rådata skrives 
 
 Kjørt 2026-11-21 (én kjøring, 24 API-kall, 0 feil). Skript: `phase0/tjek-probe/probe.mjs`. Bare tellinger er lagret; ingen tilbudstekst eller bilder.
 
-### Tillatelse og vilkår (ikke dokumentert)
-Brukeren har opplyst **muntlig** at Tjek har gitt tillatelse til å bruke dataene. Det er ikke dokumentert her. **Skriftlig avtale/vilkår fra Tjek må innhentes** (lisens for visning og viderebruk, rate limit, krediteringskrav) før noe brukes utover denne målingen. API-et svarte uten nøkkel (HTTP 200) og peker med `Link`-headeren til `https://tjek.com/terms`; de vilkårene er ikke lest her. For å nå verten ble `api.etilbudsavis.dk` lagt til i tillatte verter i miljøet «Default» (etter godkjenning); det gjelder også senere sesjoner i det miljøet til det fjernes.
+### Tillatelse og vilkår
+Brukeren har opplyst at Tjek har gitt tillatelse og at det finnes en skriftlig avtale, som brukeren vil sende. **Avtalen er ikke levert og ikke dokumentert her.** Tjeks offentlige vilkår (`https://tjek.com/terms`, siste revisjon 21. februar 2023) er lest 2026-11-22; se `phase0/tjek-avtale.md`. De sier blant annet at API-et *«is only available to customers»* (tjek.com/apis-and-sdks), at kunden bare kan bruke API-et til *«the agreed Services on the Customer's own platforms»* (§ 8.2), og at bruken ikke skal overstige 8 000 000 kall per måned per land med mindre annet er avtalt (§ 8.5). Hva vår avtale sier om omfang, lagring, bilder, kreditering og pris, er ikke dokumentert. API-et svarte uten nøkkel (HTTP 200); det sier ikke noe om hva som er tillatt. For å nå verten ble `api.etilbudsavis.dk` lagt til i tillatte verter i miljøet «Default» (etter godkjenning); det gjelder også senere sesjoner i det miljøet til det fjernes.
 
 ### Metode
 - Endepunkter etter repoet olgasafonova/tilbudstrolden-mcp (MIT): `GET /v2/dealers`, `GET /v2/offers/search?query=…&country_id=NO&limit=100`. Felt: `pricing.price`, `quantity.size.from` + `quantity.unit.symbol` eller `quantity.pieces.from`, `run_from`, `run_till`, `dealer.name`, `dealer.country.id`.
@@ -131,19 +131,21 @@ Tjek fyller **ikke** Kassalapps hull for ordinærpris: det er tilbud (tidsavgren
 3. Treffene er vurdert automatisk med de samme ordreglene som for Kassalapp (øvre/nedre grense ukjent). Hvor godt Tjeks søk finner varer (recall) er ikke målt.
 4. Én kjøring på én dag; ikke målt over to kampanjeperioder.
 5. Dealerlisten er en nedre grense (bare dealere med treff på våre 24 varer).
-6. Rettigheter (visning, viderebruk, avisbilder) er ikke avklart (se over).
+6. Rettigheter (visning, viderebruk, avisbilder) er ikke avklart: offentlige vilkår er lest, vår avtale er ikke levert (se over og § 3).
 
 ## 3. Rettigheter og avtaler (status 2026-11-22)
 
-Ingenting her er avklart; det er kartlagt hva som mangler og hvorfor.
+Offentlige vilkår er lest 2026-11-22 (nettverket ble åpnet for tjek.com og kjedenes nettsteder). Ingenting er avklart for vår bruk; det som står under er hva sidene sier, ikke en juridisk vurdering.
 
-- **Tjek-vilkår:** `phase0/tjek-avtale.md` har tabellen over det som må dokumenteres (omfang, lagring, avissider, bilder, kreditering, rate limit, pris, land/kjeder, varighet, oppsigelse m.m.). **Alt står som «ikke dokumentert».** Brukeren har opplyst muntlig at Tjek har godkjent bruk; ingen skriftlig avtale ligger i repoet. Tjeks offentlige vilkår (`tjek.com/terms`) er **ikke lest**: verten er blokkert i miljøets nettverk, og tilgang er ikke godkjent.
-- **Kundeavis-rettigheter per kjede:** `phase0/kundeavis-rettigheter.md` lister de 14 dagligvare-/lavpriskjedene vi har sett i Tjek-treff, med sjekkliste for hva som må leses hos hver kjede. **Ingen kjedevilkår er kontrollert** (kjedenes nettsteder er blokkert). Anbefalt visningsmåte er derfor forsiktig standard for alle: ingen avisinnhold, ingen bilder, ingen lagring, bare Tjek-live der avtalen tillater det.
-- **Kjedeavtaler:** utkast til henvendelser (ikke sendt) i `phase0/utkast/`: Rema 1000, Kiwi/NorgesGruppen, Coop og oppfølging til Tjek. Spørsmål om omfang, per-utsalg-priser, oppdatering, lisens, vilkår og pris. Avsender er plassholder `[AVSENDER]`.
+- **Tjek-vilkår:** `phase0/tjek-avtale.md`. Lest: tjek.com/terms, /apis-and-sdks, /info og /privacy. Vilkårene beskriver API-tilgang for **kunder med avtale**; omfang, pris og varighet står i avtalen (§ 1.2, § 2, § 3, § 8). Dokumentert fra offentlige vilkår: tak på 8 000 000 kall per måned per land (§ 8.5), bruk bare på kundens egne plattformer (§ 8.2), skriftlig godkjenning og rettighetshavernes samtykke for bruk utenfor (§ 8.3), ingen KI-trening (§ 8.6), automatisk fornyelse og seks måneders oppsigelse før kvartalsslutt (§ 2.2), dansk rett. **Ikke dokumentert:** vår avtale (brukeren sier den finnes og vil sende den), lagring, avissider, bilder, kreditering, pris, kjeder, geografi.
+- **Kundeavis-rettigheter per kjede:** `phase0/kundeavis-rettigheter.md`. Lest: rema.no, kiwi.no, coop.no, meny.no, spar.no, joker.no, bunnpris.no, europris.no, norgesgruppen.no (om-oss, personvern, vilkår, forsidens avislenke). Eier og org.nr. er registrert for alle ni. **Meny, SPAR og Joker** har en opphavsrettsklausul om at innhold på nettsidene ikke kan *«lastes ned, kopieres eller benyttes på annen måte»* uten lov eller *«uttrykkelig skriftlig forhåndssamtykke»*. **De andre** har ingen bruksvilkår for nettstedets innhold som vi fant. **Ingen kjede** sier noe offentlig om API, datafeed, partnerprogram eller Tjek. Matkroken og Nærbutikken er ikke undersøkt. Anbefalt visningsmåte er uendret: ingen avisinnhold, ingen bilder, ingen lagring, bare Tjek-live der avtalen tillater det.
+- **Kjedeavtaler:** utkast til henvendelser i `phase0/utkast/`: Rema 1000, Kiwi/NorgesGruppen, Coop og oppfølging til Tjek. **Ikke sendt, og skal ikke sendes** uten at brukeren ber om det (brukerens beslutning 2026-11-22). Avsender er plassholder `[AVSENDER]`; behandlingsansvarlig er nå AVVR AS (org.nr. 935941644), men avsender er ikke byttet ut fordi utkastene ikke skal sendes nå.
 
 ## Port – Fase 0
 
 - [ ] Kildedekning dokumentert per område og kjede, med mangelliste — **delvis**: Kassalapp og Tjek (tilbud) dokumentert (over); kjedeavtaler: utkast til henvendelser finnes (ikke sendt); Open Prices ikke vurdert.
 - [ ] Ti prøvekurver sammenlignet med faktiske kjøp i ulike landsdeler — **ikke gjort**: kurvene er laget og kjørt mot Kassalapp, men det finnes ingen kvitteringer å sammenligne med.
 - [ ] Prisgrunnlag for en reell prøvehandel — **ikke gjort**: avhenger av kvitteringer og en kilde med fersk Rema/Kiwi/Coop-pris.
-- [ ] Tillatt visningsmåte avklart for hver kundeavis — **ikke avklart**: kartlagt (se § 3), men ingen vilkår er lest og ingen skriftlig avtale foreligger. Gjenstår: skriftlig avtale fra Tjek, lese kjedenes vilkår (krever tilgang til nettstedene eller at brukeren leverer dem), og sende henvendelsene i `phase0/utkast/`.
+- [ ] Tillatt visningsmåte avklart for hver kundeavis — **ikke avklart**: Tjeks og ni kjeders offentlige vilkår er lest (§ 3). Ingen kjede gir offentlig tillatelse; tre (Meny, SPAR, Joker) krever skriftlig forhåndssamtykke for bruk av innhold. Tjeks vilkår legger omfanget i en avtale som ikke er levert. Gjenstår: (1) brukeren leverer den skriftlige Tjek-avtalen, (2) Matkroken og Nærbutikken, (3) avklaring med kjedene, hvis brukeren bestemmer det (utkastene er ikke sendt).
+
+**Pilotområde:** brukeren har valgt hele Norge (lukket pilot). Det endrer ikke tallene over: Kassalapp-prisene varierer ikke per område, og Tjek-søket skiller ikke på utsalg. Pris kan fortsatt ikke måles i piloten (se `docs/pilot-sjekkliste.md`, E1).

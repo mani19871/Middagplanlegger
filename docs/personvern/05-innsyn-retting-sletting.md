@@ -8,7 +8,7 @@
 - **Gratis** for vanlige henvendelser.
 - **Ikke samle mer data for å oppfylle en rettighet.** Vi har få data om hvem personen er. Identitet bekreftes med det vi allerede har (se avsnitt 3).
 - Hver henvendelse føres i et enkelt register (dato mottatt, type, hvem som behandlet, dato besvart, utfall). Ikke lagre selve dataene i registeret.
-- **Ansvarlig for rutinen:** [navn]. **Postkasse:** [e-postadresse].
+- **Ansvarlig for rutinen:** AVVR AS (behandlingsansvarlig); den som svarer: [navn, ikke bestemt]. **Postkasse:** **[UAVKLART: e-postadresse ikke bestemt]**.
 
 ## 2. Typer henvendelser
 
@@ -72,13 +72,13 @@ Kontrollert mot koden (`server/sync/api.ts`, `server/storage/sqlite.ts`, `src/vi
 - [x] Mulighet til å **fjerne en enhet** fra husstanden (eier) og å forlate den selv. **Svakhet:** fjernet enhet beholdes som rad med id og etikett til husstanden slettes.
 - [x] Ingen kostkrav, tokens eller husstands-id-er i serverlogger: appen logger bare oppstart og `synk-feil: <feilmelding>`; ingen tilgangslogg. (Feilmeldingen er ikke kontrollert for alle databasefeil.)
 - [x] «Tøm lokal data»: «Slett alt på denne enheten …» på Husstand-skjermen (alltid synlig, med bekreftelse), i tillegg til «Slett lokale data» i plan-skjemaet og valget ved sletting av husstand.
-- [x] **Automatisk sletting etter inaktivitet:** `SYNC_RETENTION_DAYS` (standard 365, `0` = av; fristen er ikke avgjort), ved oppstart og hver 6. time, samme sletting som «Slett husstand». «Sist aktiv» = siste autentiserte kall fra en enhet i husstanden; inaktivitet er eneste kriterium, og ingen varsles på forhånd (vi har ingen kontakt). Loggen får bare antall. Se `docs/synk.md`, «Oppbevaringstid».
+- [x] **Automatisk sletting etter inaktivitet:** `SYNC_RETENTION_DAYS` (standard 365, `0` = av; eierens valg 2026-11-22: 730), ved oppstart og hver 6. time, samme sletting som «Slett husstand». «Sist aktiv» = siste autentiserte kall fra en enhet i husstanden; inaktivitet er eneste kriterium, og ingen varsles på forhånd (vi har ingen kontakt). Loggen får bare antall. Se `docs/synk.md`, «Oppbevaringstid».
 
 ## 6. Personvernbrudd (kort)
 
 Et personvernbrudd er brudd på sikkerheten som fører til utilsiktet tap, endring eller utlevering av personopplysninger. Slik går vi frem (må verifiseres):
 
-1. Den som oppdager det, varsler **[driftsansvarlig]** med en gang. Skriv ned tidspunkt, hva som skjedde og hva som er berørt.
+1. Den som oppdager det, varsler **driftsansvarlig («Admin»; [navn])** med en gang. Skriv ned tidspunkt, hva som skjedde og hva som er berørt.
 2. Stans lekkasjen (rotér nøkler og tokens, ta ned tjenesten om nødvendig). Behold bevis.
 3. Vurder risiko for de registrerte. Hvis bruddet sannsynligvis innebærer en risiko, meld til **Datatilsynet uten ugrunnet opphold og om mulig innen 72 timer** (art. 33, må verifiseres).
 4. Er risikoen **høy** (f.eks. kostkrav eller helseopplysninger er lekket), varsle også de registrerte (art. 34, må verifiseres).

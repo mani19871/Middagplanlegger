@@ -144,7 +144,7 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 
 - **Siste aktivitet** er seneste «sist sett» blant husstandens enheter, ellers når husstanden ble opprettet. «Sist sett» oppdateres ved hvert autentiserte kall (synk, Husstand-skjermen), med minutt-oppløsning. En enhet som har appen åpen med nett, synker hvert 10. sekund og holder husstanden i live. Inaktivitet er **eneste** kriterium.
 - **Ingen varsel før sletting:** vi har ingen kontaktinformasjon. Personvern-arket sier hva som gjelder, og en enhet som kommer tilbake etter slettingen får `401`, kobles fra og beholder sine lokale data.
-- **Samspill med tokenutløp:** med standardverdiene slutter et token å virke etter 180 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`), så en husstand der ingen har vært aktive på 180 dager er i praksis ubrukelig før den slettes ved 365 dager. Er `SYNC_RETENTION_DAYS` kortere enn tokenutløpet, er det oppbevaringstiden som gjelder.
+- **Samspill med tokenutløp:** med standardverdiene slutter et token å virke etter 180 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`), så en husstand der ingen har vært aktive på 180 dager er i praksis ubrukelig før den slettes ved 365 dager. Er `SYNC_RETENTION_DAYS` kortere enn tokenutløpet, er det oppbevaringstiden som gjelder. **Åpent (2026-11-22):** med eierens valg 730 dager og tokenutløp 180 dager kan ingen åpne, eksportere eller slette en husstand i appen i rundt 550 dager før den slettes. Forslag og valg: `docs/pilot-sjekkliste.md`, D15. Ingen kode er endret.
 - **Sikkerhetskopier:** se `docs/hosting.md`, avsnitt 8 («Slettefrist for sikkerhetskopier»). Gjenopprettes en eldre kopi, sletter jobben ved oppstart de husstandene som fortsatt er inaktive, så sletting for inaktivitet gjentas av seg selv; sletting gjort av eieren gjør ikke det.
 
 ## Drift
@@ -157,7 +157,7 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 | `TRUST_PROXY` | av | `1` bak nøyaktig én kjent reverse proxy |
 | `SYNC_TOKEN_IDLE_DAYS` | 180 | Dager uten bruk før et enhetstoken slutter å virke (`0` = aldri) |
 | `SYNC_MAX_TOTAL_MB` | 4096 | Tak for alle husstanders hendelser samlet |
-| `SYNC_RETENTION_DAYS` | 365 | Husstander uten aktivitet i så mange dager slettes automatisk (`0` = av; ugyldig verdi gir 365). Forslag fra driftsdokumentet, ikke avgjort. Se «Oppbevaringstid» |
+| `SYNC_RETENTION_DAYS` | 365 | Husstander uten aktivitet i så mange dager slettes automatisk (`0` = av; ugyldig verdi gir 365). Eierens valg for piloten (2026-11-22): `730`, satt i `docs/drift/env.eksempel`; standarden i koden er uendret. Se «Oppbevaringstid» |
 | `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
 
 `node:sqlite` er innebygd i Node 22 og er eksperimentell (skriver en «ExperimentalWarning» ved start; versjonen er festet i `Dockerfile`, se `docs/hosting.md`, «node:sqlite»). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører, aldri `cp` av bare hovedfilen (WAL); krypter kopien. Ferdig skript (`VACUUM INTO` + age-kryptering), Docker Compose med Caddy og gjenopprettingsprosedyre: `docs/drift/` og `docs/hosting.md`, avsnitt 8.
@@ -195,7 +195,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 - **Klientens klokke** bestemmer rekkefølgen i loggen. Tid langt fram klippes til mottakstid, men en enhet (eller et medlem som vil) kan tilbakedatere hendelser, og enheten som sendte en klippet hendelse beholder sin egen tid lokalt (`docs/sikkerhet.md`, S5).
 - **Mistet eierenhet.** Er eierens enhet borte, kan ingen fjerne medlemmer eller slette husstanden; de andre kan bare forlate (siste som går sletter alt). Overføring av eierskap mangler.
 - **Allergier deles ikke** (se «Kostkrav og allergier» over). En enhet uten filter kan lage en plan med allergener for hele husstanden; avbøtet med synlig allergentekst og banner, ikke fjernet.
-- **Oppbevaringstid bare for hele husstanden.** Inaktive husstander slettes (se «Oppbevaringstid»), men i en aktiv husstand komprimeres ikke loggen og gamle uker slettes ikke. Fristen (365 dager) er et forslag, ikke avgjort.
+- **Oppbevaringstid bare for hele husstanden.** Inaktive husstander slettes (se «Oppbevaringstid»), men i en aktiv husstand komprimeres ikke loggen og gamle uker slettes ikke. Eieren har valgt 730 dager for piloten (2026-11-22); standarden i koden er 365.
 - **Eksporten** er en ren kopi av det som er lagret (hendelser i rå form med engelske feltnavn fra protokollen), ikke en forklart rapport. Den inneholder også andre medlemmers etiketter og hendelser (husstandens felles data); om det er riktig ved innsyn for én person, må fagperson vurdere.
 - **Fjernede medlemmer** beholdes som rad (offentlig id, etiketten «Tidligere medlem», uten token og «sist sett») og hendelsene deres blir i husstanden til den slettes.
 - **Planversjoner og allergifilter.** Versjonene deles, men kostkrav og allergier gjør ikke. En enhet med aktivt allergifilter bruker ikke et fastholdt produkt med allergentreff eller uavklart status (motorens valg brukes i stedet), så den kan vise et annet produkt enn de andre på den linja, og kjøp på de to linjene telles hver for seg.
@@ -213,7 +213,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 1. **Hosting med TLS** (HTTPS foran serveren, f.eks. Caddy), varig volum for databasen, `SYNC_SECRET` som hemmelighet, `TRUST_PROXY=1` bak proxyen. Se `docs/hosting.md`.
 2. **Sikkerhetskopi og gjenoppretting**, kryptert, med slettefrist som følger GDPR-sletting, og en prøvd gjenoppretting.
 3. **Personvernerklæring, behandlingsprotokoll og DPIA-vurdering** oppdatert mot denne løsningen (`docs/personvern/`), behandlingsansvarlig avklart, **databehandleravtaler** med hosting- og backupleverandør.
-4. **Oppbevaringstid** avgjort (`SYNC_RETENTION_DAYS`, bygget for hele husstanden) og slettefrist for sikkerhetskopier; eventuelt sletting av gamle uker i aktive husstander (ikke bygget).
+4. **Oppbevaringstid** avgjort (`SYNC_RETENTION_DAYS`, bygget for hele husstanden; eieren har valgt 730 dager, men samspillet med tokenutløpet er åpent, `pilot-sjekkliste.md` D15) og slettefrist for sikkerhetskopier; eventuelt sletting av gamle uker i aktive husstander (ikke bygget).
 5. **Overvåking** av feilrater og databasestørrelse uten å logge innhold, token eller invitasjonskoder.
 6. **Sikkerhet:** gjennomgang gjort (`docs/sikkerhet.md`); punktene under «Må på plass før ekte familier» der gjelder.
 7. **Test på to ekte telefoner** over mobilnett, med appen installert, gjennom en hel handleuke.

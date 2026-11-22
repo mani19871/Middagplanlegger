@@ -10,8 +10,9 @@ Dette dokumentet kan danne grunnlag for oversikten over behandlingsaktiviteter (
 
 | Rolle | Hvem |
 | --- | --- |
-| Behandlingsansvarlig | **[Må avklares av eier: juridisk person, navn, organisasjonsnummer, adresse]** |
-| Kontakt for personvern | **[E-postadresse må opprettes]** |
+| Behandlingsansvarlig | **AVVR AS, org.nr. 935941644** (eierens beslutning 2026-11-22). Adresse: [ikke oppgitt] |
+| Driftsansvarlig | **«Admin»** (rolle i AVVR AS, 2026-11-22). [Navnet på personen føres i tilgangslisten, avsnitt 5] |
+| Kontakt for personvern | **[UAVKLART: e-postadresse ikke bestemt, postkassen ikke opprettet]** |
 | Personvernombud | Trolig ikke påkrevd i piloten (må verifiseres, art. 37) |
 | Databehandlere | Hostingleverandør og tilleggstjenester, se `04-databehandleravtaler-sjekkliste.md` |
 
@@ -81,7 +82,7 @@ Artikkel 9 gjelder «særlige kategorier», blant annet helseopplysninger og opp
 
 | Data | Forslag til oppbevaring | Slik er det bygget i dag |
 | --- | --- | --- |
-| Husstandsdata (1–6) | Så lenge husstanden bruker appen. Slettes automatisk **[12] måneder** etter siste aktivitet. Slettes straks ved sletting av husstand | **Sletting på forespørsel virker** («Slett husstanden», bare eier, bekreftes ved å skrive SLETT; siste medlem som forlater slettet også). **Automatisk sletting etter inaktivitet er ikke bygget.** Tallet [12] er et forslag. `last_seen` finnes og kan brukes til en slik rutine, men ingen kjører den |
+| Husstandsdata (1–6) | Så lenge husstanden bruker appen. Slettes automatisk **730 dager** etter siste aktivitet (eierens valg 2026-11-22). Slettes straks ved sletting av husstand | **Sletting på forespørsel virker** («Slett husstanden», bare eier, bekreftes ved å skrive SLETT; siste medlem som forlater slettet også). **Automatisk sletting etter inaktivitet er bygget** (`server/retention.ts`): settes med `SYNC_RETENTION_DAYS=730` (standard i koden er 365). **Åpent:** enhetstokenet slutter å virke etter 180 dager uten bruk, så husstanden kan ikke åpnes, eksporteres eller slettes i appen de siste rundt 550 dagene (`../pilot-sjekkliste.md`, D15) |
 | Hendelser (`events`) | Samme som husstandsdata. Kan kortes ned (f.eks. gamle uker) | Vokser uten tak og komprimeres ikke. Oppbevaringstid for gamle uker er ikke bestemt |
 | Kostkrav (3) | – | Lagres ikke på serveren (valg A). På enheten til brukeren trekkes de ved «Slett lokale data» |
 | Fjernede medlemmer | Slettes ved fjerning, eller senest sammen med husstanden | **Beholdes som rad** (offentlig id, etikett, uten token) til husstanden slettes. Se «Svakheter» |
@@ -112,7 +113,7 @@ Prinsipp: minst mulig tilgang, navngitte personer, og en liste over hvem som har
 
 ## 6. Lokal lagring i nettleseren
 
-Appen lagrer hele sin tilstand (plan, innstillinger, **kostkrav og postnummer**, beholdning, handleliste, utboks) under nøkkelen `middag-state-v1` i `localStorage`, og en tilfeldig enhets-id under `middag-enhet`, for at den skal virke uten nett. **Når enheten er med i en husstand, ligger også enhetstokenet i klartekst i `middag-state-v1`.** Det betyr at skadelig kode i appen (XSS) som kan lese `localStorage` får full tilgang til husstanden, og at den som har tilgang til en ulåst telefon eller nettleserprofil har det samme. Det finnes ingen utløpstid eller rotasjon av tokenet; en tapt enhet må fjernes av eieren. Sikkerhetsgjennomgangen (`docs/sikkerhet.md`, hvis den foreligger) og et CSP-hode foran appen er tiltak som ikke er på plass i dette dokumentets versjon.
+Appen lagrer hele sin tilstand (plan, innstillinger, **kostkrav og postnummer**, beholdning, handleliste, utboks) under nøkkelen `middag-state-v1` i `localStorage`, og en tilfeldig enhets-id under `middag-enhet`, for at den skal virke uten nett. **Når enheten er med i en husstand, ligger også enhetstokenet i klartekst i `middag-state-v1`.** Det betyr at skadelig kode i appen (XSS) som kan lese `localStorage` får full tilgang til husstanden, og at den som har tilgang til en ulåst telefon eller nettleserprofil har det samme. Tokenet har glidende utløp (slutter å virke etter 180 dager uten bruk, `SYNC_TOKEN_IDLE_DAYS`), men roteres ikke; en tapt enhet må fjernes av eieren. Sikkerhetsgjennomgangen (`docs/sikkerhet.md`, hvis den foreligger) og et CSP-hode foran appen er tiltak som ikke er på plass i dette dokumentets versjon.
 
 Lagring av opplysninger i brukerens utstyr er regulert av ekomloven (samtykke kreves som hovedregel, med unntak for lagring som er strengt nødvendig for en tjeneste brukeren ber om). Hvilken paragraf og om vår bruk faller under unntaket, må verifiseres. Vi bruker ingen sporings- eller annonseinformasjonskapsler, ingen informasjonskapsler i det hele tatt (tokenet sendes i `Authorization`-hodet), og bør ikke innføre det uten ny vurdering. Appen viser i dag ingen lenke til personvernerklæringen (ingen treff på «personvern» i `src/`): den må på plass før piloten.
 
