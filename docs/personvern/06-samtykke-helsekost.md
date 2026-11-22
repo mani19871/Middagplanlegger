@@ -9,7 +9,7 @@
 ## 0. Hva valg A betyr i praksis (bygget)
 
 - Kostkrav ligger bare i `localStorage` på hver enhet. En voksen som blir med i en husstand beholder sine egne krav, og krav fra andre enheter kommer aldri inn.
-- **Ingen deling:** en annen voksen sin enhet uten allergifilter kan lage en plan med allergener for hele husstanden. Appen varsler i plan-skjemaet, men det er en reell produktsikkerhetsrisiko (se `docs/synk.md`, «Allergier deles ikke»). Eier må vite at den er akseptert i piloten.
+- **Ingen deling:** en annen voksen sin enhet uten allergifilter kan lage en plan med allergener for hele husstanden. Avbøtet, ikke fjernet: retter og handlelinjer viser alltid «Inneholder: …» uansett filter, en enhet uten filter i en husstand med flere medlemmer får et banner, og plan-skjemaet sier at filtre må legges inn på hver enhet (`docs/synk.md`, «Kostkrav og allergier: bevisst pilotavgrensning»). Det er fortsatt en reell produktsikkerhetsrisiko, og eier må vite at den er akseptert i piloten.
 - Spørsmål 6 i avsnitt 6 er dermed besvart for piloten: den kjøres med kostkrav bare lokalt.
 - **Det som fortsatt trenger en fagpersons svar selv med valg A:** (1) er lagring på brukerens egen enhet i appen vår noe vi må vurdere som behandling av helseopplysninger; (2) kan plan, handleliste og fritekst indirekte avsløre helse eller livssyn slik at hele datasettet må behandles varsomt (`01-oversikt-behandling.md`, avsnitt 2b og 3).
 - **Hvis valg B senere bygges**, må dette på plass først: samtykkeskjerm slik som under, samtykkelogg, bryter som sletter kostkrav fra serveren (inkludert hendelser og utboks som inneholder dem), og en egen modell for at to voksne kan ha ulike krav (i dag er kostkrav husstandsnivå i `Settings`, ikke per person).

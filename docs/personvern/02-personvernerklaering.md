@@ -56,7 +56,7 @@ Vi bruker ikke opplysningene til markedsføring, og profilene til barn brukes al
 
 ## Allergier og kostkrav: du må legge dem inn på hver enhet
 
-Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å lagre dem hos oss, fordi vi ikke gjør det. Konsekvensen er at **de ikke deles**: har du lagt inn nøtteallergi på din telefon, vet ikke den andre voksne sin telefon om det, og en plan laget der kan inneholde nøtter. Appen varsler om dette i plan-skjemaet. Legg inn de samme kravene på alle enheter som lager planer. [Se `06-samtykke-helsekost.md` for hva som må på plass hvis vi senere vil dele dem.]
+Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å lagre dem hos oss, fordi vi ikke gjør det. Konsekvensen er at **de ikke deles**: har du lagt inn nøtteallergi på din telefon, vet ikke den andre voksne sin telefon om det, og en plan laget der kan inneholde nøtter. Appen viser alltid hva en rett inneholder av allergener (uansett filter), viser et varsel på en enhet uten filter, og sier fra i plan-skjemaet. Legg inn de samme kravene på alle enheter som lager planer. [Se `06-samtykke-helsekost.md` for hva som må på plass hvis vi senere vil dele dem.]
 
 ## Hvem får se opplysningene?
 

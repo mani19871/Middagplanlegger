@@ -159,46 +159,136 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 
 ## 8. Kjøre med Docker
 
-Imaget bygges av `Dockerfile` (flertrinns, kjører som bruker `node`, uten hemmeligheter, med helsesjekk).
+Imaget bygges av `Dockerfile` (flertrinns, kjører som bruker `node` med uid/gid 1000, uten hemmeligheter, med helsesjekk). Et ferdig pilotoppsett med Caddy foran ligger i [`docs/drift/`](drift/) (`docker-compose.yml`, `Caddyfile`, `env.eksempel`, `backup.sh`); det er beskrevet i «Pilotoppsett» under.
 
 ```sh
 docker build -t middagsplanlegger .
 
 docker run -d --name middagsplanlegger \
-  --restart unless-stopped \
+  --restart unless-stopped --init \
   -p 127.0.0.1:8787:8787 \
-  -e PORT=8787 \
+  -e TRUST_PROXY=1 \
   -v middag-data:/data \
-  middagsplanlegger
-```
-
-Porten bindes til `127.0.0.1` så bare en proxy på samme maskin (f.eks. Caddy) når den. Åpne ikke porten direkte mot internett.
-
-| Miljøvariabel | Standard | Status |
-| --- | --- | --- |
-| `PORT` | `8787` | I bruk. Porten serveren lytter på. |
-| `DATA_DIR` | `/data` | I bruk. Katalogen (montert som volum) der synk-serveren lagrer `middag.sqlite`. Uten volum forsvinner husstandene når containeren byttes. `SYNC_DB` overstyrer hele stien. Se `docs/synk.md`. |
-| `SYNC_SECRET` | tilfeldig per start | Hemmelighet for invitasjonskoder (HMAC). Mangler den, slutter aktive invitasjoner å virke ved omstart. Send den inn som hemmelighet (som `KASSALAPP_TOKEN` under), aldri i Dockerfile eller git. |
-| `TRUST_PROXY` | ikke satt | `1` når serveren står bak en egen reverse proxy (Caddy), så ratebegrensningen bruker klientens IP fra `X-Forwarded-For`. |
-| `KASSALAPP_TOKEN` | ikke satt | **Reservert, ikke i bruk av serveren ennå.** Brukes i dag bare av `phase0/kassalapp-import/probe.mjs`. Hemmelighet: send den inn ved oppstart, aldri i Dockerfile eller git (se under). |
-| `NODE_USE_ENV_PROXY` | ikke satt | Bare hvis serveren står bak en utgående proxy (f.eks. firmanettverk). |
-
-Hemmeligheter ved oppstart, uten å skrive dem i kommandolinjen (de havner ellers i historikken):
-
-```sh
-# Filen .env.drift ligger bare på serveren, utenfor repoet, med rettighet 600:
-#   KASSALAPP_TOKEN=...
-docker run -d --name middagsplanlegger --restart unless-stopped \
-  -p 127.0.0.1:8787:8787 -v middag-data:/data \
   --env-file /srv/middag/.env.drift \
   middagsplanlegger
 ```
 
-På PaaS og skyleverandører legges nøkkelen i plattformens hemmelighetslager ("secrets").
+Porten bindes til `127.0.0.1` så bare en proxy på samme maskin (f.eks. Caddy) når den. **Åpne ikke porten direkte mot internett, og sett aldri `TRUST_PROXY=1` hvis serveren kan nås uten om proxyen:** da kan hvem som helst forfalske IP-adressen sin og gå utenom ratebegrensningen.
 
-Sjekk at den kjører: `docker ps` viser `healthy` etter ca. 20–30 sekunder; `curl -I http://127.0.0.1:8787/` gir `200`.
+### Miljøvariabler
 
-**Hva som er testet (2026-11-22):** imaget ble bygd og startet i en sandkasse, kjørte som bruker `node` (uid 1000), svarte `200` på `/` og `/api/offers` (status «loading» før første tilbudshenting), og helsesjekken ble `healthy`. Imaget er ca. 416 MB fordi serveren kjører TypeScript direkte (`tsx`) og trenger hele `node_modules`; det kan gjøres mindre når serveren får eget byggesteg. For å få `npm ci` til å virke i sandkassen måtte byggingen kjøres med vertens nettverk og sandkassens sertifikat. Den innsjekkede Dockerfilen er uendret, men det er ikke testet at den bygger på en vanlig maskin med direkte internett. Volum (`/data`) er ikke testet mot databasefilen: synk-serveren (`docs/synk.md`) er ferdig og prøvd med `npm run server`, men ikke i Docker-imaget. Ikke testet: HTTPS/Caddy, sikkerhetskopi, gjenoppretting, utrulling hos noen leverandør.
+| Variabel | Standard | Status |
+| --- | --- | --- |
+| `PORT` | `8787` | I bruk. Porten serveren lytter på. |
+| `DATA_DIR` | `/data` i imaget (`data/` utenfor Docker) | I bruk. Katalogen der synk-serveren lagrer `middag.sqlite`. Monter et volum her. |
+| `SYNC_DB` | `$DATA_DIR/middag.sqlite` | I bruk. Overstyrer hele stien til databasen (`:memory:` bare til test). |
+| `SYNC_SECRET` | tilfeldig per start | **Skal settes i drift.** Hemmelighet for invitasjonskoder (HMAC). Mangler den, skriver serveren en advarsel og alle aktive invitasjoner blir ugyldige ved hver omstart. Lag den med `openssl rand -hex 32`. Enhetstokenene avhenger **ikke** av den (bare sha256 av tokenet lagres), så å miste eller bytte den logger ingen ut, den ugyldiggjør bare ubrukte invitasjoner. Aldri i Dockerfile eller git. |
+| `TRUST_PROXY` | ikke satt | `1` når serveren står bak en egen reverse proxy (Caddy), så ratebegrensningen bruker klientens IP fra `X-Forwarded-For`. |
+| `KASSALAPP_TOKEN` | ikke satt | **Reservert, ikke i bruk av serveren ennå.** Brukes i dag bare av `phase0/kassalapp-import/probe.mjs`. Hemmelighet: send den inn ved oppstart, aldri i Dockerfile eller git. |
+| `NODE_USE_ENV_PROXY` | ikke satt | Bare hvis serveren står bak en utgående proxy (f.eks. firmanettverk) og skal hente tilbud derfra. |
+| `NODE_ENV` | `production` (satt i imaget) | Ingen kjent virkning på serveren. |
+| `DOMENE`, `DATA_VOLUME` | – | Bare i Compose-eksempelet (`docs/drift/`): domenet Caddy henter sertifikat for, og navnet på datavolumet. |
+
+Hemmeligheter ved oppstart, uten å skrive dem i kommandolinjen (de havner ellers i skallets historikk): legg dem i en fil som bare ligger på serveren, utenfor repoet, med rettighet 600, og bruk `--env-file` (eller `env_file:` i Compose). `docs/drift/.gitignore` hindrer at `.env.drift` sjekkes inn. På PaaS og skyleverandører legges nøkkelen i plattformens hemmelighetslager («secrets»).
+
+### Volum, filrettigheter og én-prosess-regelen
+
+- **Hva som skal ligge på volumet:** `/data` med `middag.sqlite` og, mens serveren kjører, `middag.sqlite-wal` og `middag.sqlite-shm` (WAL-modus). **De tre filene hører sammen.** Ikke kopier, flytt eller slett bare én av dem mens serveren kjører, og aldri legg en gammel `-wal` ved en gjenopprettet database.
+- **Eier og rettigheter:** prosessen kjører som uid/gid **1000** (`node`). Et **navngitt Docker-volum** (`-v middag-data:/data`) arver eierskapet fra imaget og virker uten videre (kontrollert). Et **vertskatalog-volum** (`bind mount`) må klargjøres på verten:
+  ```sh
+  sudo mkdir -p /srv/middag/data && sudo chown 1000:1000 /srv/middag/data && sudo chmod 700 /srv/middag/data
+  docker run … -v /srv/middag/data:/data …
+  ```
+  Serveren oppretter databasefilene med lesetilgang for alle (`rw-r--r--`, kontrollert), så rettighetene på katalogen (700) er det som holder andre brukere på verten ute. På systemer med SELinux trengs normalt også `:Z` etter volumnavnet (ikke prøvd).
+- **Lokal disk, ikke nettverksdisk.** SQLite i WAL-modus virker ikke pålitelig over NFS/SMB. Bruk vertens lokale disk eller leverandørens blokklagring.
+- **Én prosess, én container per volum.** Start aldri to servere mot samme databasefil (ratebegrensningen ligger i minnet, og SQLite tillater én skriver).
+- **Feil volum gir tom database, uten feilmelding.** I testkjøringen startet serveren uten problem mot et tomt volum og opprettet en ny, tom database; alle enhetstokener ga da `401`, og helsesjekken var «healthy». Etter hver omstart, flytting eller gjenoppretting: kontroller at volumet er riktig (`docker compose exec app ls -la /data` og at en kjent enhet fortsatt får `200` fra `/api/household`).
+- **Diskplass:** databasen vokser uten tak (ingen kvoter eller sletting av gamle uker er bygget). Sett et diskvarsel.
+- **Kryptering i hvile:** volumet er ikke kryptert av appen. Bruk leverandørens diskkryptering eller kryptert filsystem, og krypter alle kopier. Avklares per leverandør (`docs/personvern/04-databehandleravtaler-sjekkliste.md`).
+
+### Helsesjekk
+
+Serveren har **ingen egen helse-rute** (kontrollert i `server/index.ts` og `server/sync/api.ts`); `/` returnerer appen for alle ukjente stier, så den sier lite alene. `HEALTHCHECK` i `Dockerfile` gjør derfor to kall mot den kjørende serveren: (1) `GET /api/household` med et ugyldig, men riktig formatert, token må gi `401 ikke_autentisert` (går gjennom synk-API-et og slår opp i databasen, så en databasefeil gir `500` og «unhealthy»), og (2) `GET /` må gi `200` (appen er bygget). Sjekken endrer ingenting. `docker ps` viser `healthy` etter ca. 20–30 sekunder. **Sjekken er prøvd i positiv retning** (blir «healthy»); at den blir «unhealthy» ved en databasefeil er ikke prøvd. Siden et feil volum ikke gir feil (se over), fanger den heller ikke det. *Forslag til synk-økten:* en `GET /healthz` som kjører `SELECT 1` og returnerer antall rader per tabell (ingen innhold), slik at både helsesjekken og en ekstern oppetidssjekk kan bruke den.
+
+### node:sqlite: eksperimentelt i Node 22
+
+Synk-serveren bruker `node:sqlite` (innebygd i Node, ingen ekstern avhengighet eller native bygging). I Node 22 er den **eksperimentell**: den skriver `ExperimentalWarning: SQLite is an experimental feature and might change at any time` ved hver oppstart, og grensesnittet kan endres mellom Node-versjoner. Slik håndterer vi det:
+
+- **Versjonen er festet** i `Dockerfile` (`ARG NODE_VERSION=22.23.5`, bildet `node:22.23.5-alpine`, med SQLite 3.54.1). Dette er versjonen alt i dette dokumentet er prøvd mot. `docker build` gir samme versjon hver gang, ellers kunne et nytt «22-alpine» byttet Node under oss uten at noen testet det. CI bruker `node-version: 22` (siste 22.x): en CI som er grønn mot en annen 22.x enn imaget gir ikke full trygghet.
+- **Minste versjon:** etter min kunnskap er `node:sqlite` først tilgjengelig uten kommandolinjeflagg fra Node 22.13 (eldre 22.x krever `--experimental-sqlite`). Dette er ikke kontrollert mot Nodes dokumentasjon; bruk ikke eldre enn den festede versjonen.
+- **Ved enhver endring av Node-versjon** (også sikkerhetsoppdateringer): bygg på nytt, kjør `npx vitest run server/sync src/sync`, og gjør gjenopprettingsøvelsen (under) før den rulles ut.
+- **Datafilen er vanlig SQLite**, ikke et Node-spesifikt format. En endring i `node:sqlite` kan altså ikke låse dataene inne: sikkerhetskopier kan åpnes med hvilket som helst `sqlite3`-verktøy, og lagringslaget (`SyncStorage`) kan byttes til PostgreSQL (`docs/synk.md`).
+- **Levetid:** Node 22 når slutten av støtteperioden sin i løpet av 2027 (må verifiseres mot Nodes utgivelsesplan). Planlegg et valg før pilotens slutt: hev Node (da må det sjekkes hvor langt `node:sqlite` er kommet der; må verifiseres), eller gå til PostgreSQL eller en pakket SQLite-driver.
+- **Ikke skjul advarselen** (f.eks. med `--disable-warning`): den er et nyttig tegn på at vi står på eksperimentell grunn.
+
+### Pilotoppsett med Docker Compose og Caddy
+
+Filene i [`docs/drift/`](drift/): `docker-compose.yml` (app + Caddy, volum for databasen, `read_only`, ingen ekstra rettigheter, loggstørrelse begrenset), `Caddyfile` (HTTPS med automatisk sertifikat, videresending til `app:8787`, noen sikkerhetshoder, ingen tilgangslogg), `env.eksempel` og `backup.sh`. **Dette er et eksempel, ikke utrullet hos noen leverandør.**
+
+1. Server (VPS) i EØS med Docker og Compose; brannmur åpen bare for 22 (fra kjente adresser), 80 og 443. Domenet peker (A/AAAA) på serveren **før** første oppstart, ellers får ikke Caddy sertifikat.
+2. `git clone` repoet til f.eks. `/srv/middagsplanlegger`, `cd docs/drift`.
+3. `cp env.eksempel .env.drift && chmod 600 .env.drift`, og fyll ut `DOMENE` og `SYNC_SECRET` (`openssl rand -hex 32`).
+4. `docker compose --env-file .env.drift up -d --build`, så `docker compose --env-file .env.drift ps` (app skal være `healthy`).
+5. Åpne `https://<domene>/`, opprett en husstand fra to enheter og sjekk at de ser hverandre.
+6. Sett opp daglig sikkerhetskopi (under) og **gjør gjenopprettingsøvelsen før ekte familier inviteres.**
+7. Oppdatering: `git pull && docker compose --env-file .env.drift up -d --build`. Husk Node-regelen over. Tilbakerulling: sett `image:` til en tidligere merket versjon (`docker tag` før hver oppdatering).
+
+Bare Caddy publiserer porter; appen er nåbar bare gjennom Caddy, som `TRUST_PROXY=1` forutsetter. Caddy overskriver `X-Forwarded-For` med klientens adresse (standardoppførsel; ikke sett `trusted_proxies` uten en annen proxy foran). HSTS er satt kort (1 døgn) til alt er prøvd. Det er **ikke** satt noe `Content-Security-Policy`-hode: det hører til sikkerhetsgjennomgangen og må prøves mot appen først. Sertifikater ligger i volumet `caddy-data`; mist det ikke.
+
+### Sikkerhetskopi og gjenoppretting
+
+**Ikke kopier `middag.sqlite` med `cp` mens serveren kjører.** Nyere endringer ligger i `-wal`-filen, så en kopi av bare hovedfilen kan mangle dem eller være ufullstendig. (I en test manglet en kopi av bare hovedfilen hele husstanden som var opprettet like før.) To brukbare måter:
+
+1. **`backup.sh` i `docs/drift/`** (prøvd): kjører SQLite sin `VACUUM INTO` inne i app-containeren, som gir én konsistent, fullstendig fil mens serveren kjører; kontrollerer den med `PRAGMA integrity_check`; krypterer den med `age` (offentlig nøkkel) eller `gpg` **før** den forlater containeren (ukryptert kopi skrives aldri til verten); og sletter lokale kopier eldre enn 30 dager (`BACKUP_KEEP_DAYS`, forslag fra personvernutkastet). Kjør det daglig, f.eks. fra cron:
+   ```
+   17 3 * * *  cd /srv/middagsplanlegger/docs/drift && BACKUP_AGE_RECIPIENT=age1… ./backup.sh >> /var/log/middag-backup.log 2>&1
+   ```
+   Skriptet sender ikke kopien noe sted. Kopier `docs/drift/backup/*.age` til separat lagring i EØS (egen avtale, egen slettefrist). **Den private nøkkelen skal ikke ligge på serveren;** den må finnes hos minst to personer, ellers er kopiene verdiløse.
+2. **`sqlite3 middag.sqlite ".backup kopi.sqlite"`** (som i `docs/synk.md`) fra et verktøy med `sqlite3` på verten. Imaget har ikke `sqlite3`-kommandoen. Ikke prøvd her. (Node 22.23.5 har også en `backup()`-funksjon i `node:sqlite`; ikke prøvd.) Et volumøyeblikksbilde fra leverandøren er ikke prøvd som sikkerhetskopi.
+
+**Gjenoppretting (prøvd mot et nytt, tomt volum, med kopi laget av `backup.sh`).** Bruk et *nytt* volum og la det gamle stå urørt til alt er kontrollert; da trenger vi ikke slette noe i det gamle, og vi kan gå tilbake:
+
+```sh
+cd /srv/middagsplanlegger/docs/drift
+docker compose --env-file .env.drift stop app
+age -d -i <privat-nøkkel> -o /tmp/restore/middag.sqlite backup/middag-<tid>.sqlite.age       # på en trygg maskin
+docker volume create middag-data-gjenopprettet
+docker run --rm --user 1000:1000 -v middag-data-gjenopprettet:/data -v /tmp/restore:/in:ro \
+  middagsplanlegger:pilot sh -c 'cp /in/middag.sqlite /data/middag.sqlite'
+echo "DATA_VOLUME=middag-data-gjenopprettet" >> .env.drift      # peker Compose på det nye volumet
+docker compose --env-file .env.drift up -d
+```
+
+Kontroller etterpå at en kjent enhet får `200` fra `/api/household` med sitt token og at medlemslisten er riktig. Bruk **samme `SYNC_SECRET`** som før, ellers er åpne invitasjoner ugyldige (enhetstokenene er upåvirket). Slett den dekrypterte filen i `/tmp/restore` straks. Når alt virker: fjern det gamle volumet **og** gamle kopier etter slettefristen (de inneholder data til husstander som kan være slettet siden; se «slett igjen» i `docs/personvern/05-innsyn-retting-sletting.md`).
+
+**Viktig bivirkning for enhetene (funnet i test, ikke rettet):** hver enhet husker hvor langt den har lest (`cursor`). Er kopien eldre enn det enhetene har sett, vil nye endringer få løpenumre enhetene allerede regner som lest, og **enhetene slutter å motta dem uten feilmelding**; endringer enheten allerede hadde levert etter kopitidspunktet er borte fra serveren og sendes ikke på nytt (utboksen er tømt). I en prøve med to enheter mottok den ene 0 av 1 nye hendelser etter gjenoppretting til en kopi som manglet de to siste, mens en *ny* enhet så riktig innhold. Inntil klienten håndterer dette (forslag til synk-økten: serveren oppgir sin siste løpenummer, og klienten nullstiller `cursor` og legger lokal logg i utboksen på nytt når `cursor` er større; alt er idempotent på id), må **hver enhet kobles fra og bli med på nytt** etter en gjenoppretting som taper data (Husstand → forlat, ny invitasjon; lokale data beholdes og lastes opp igjen ved første tilkobling, `docs/synk.md`, «Første tilkobling»). Gjenopprettingsøvelsen må derfor også dekke dette.
+
+### Sletting og WAL
+
+Sletter eieren en husstand, fjernes radene med en gang (kaskade; `PRAGMA secure_delete` nuller sidene). Men innholdet kan ligge igjen i `middag.sqlite-wal` en kort tid. I prøven var en slettet etikett fortsatt i `-wal` rett etter slettingen og borte etter en checkpoint. Driftsansvarlig kan tvinge den ved en slettebegjæring, uten å stoppe serveren:
+
+```sh
+docker compose --env-file .env.drift exec app node --no-warnings -e \
+  'const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync("/data/middag.sqlite");d.exec("PRAGMA busy_timeout=5000");console.log(d.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get())'
+```
+
+Sikkerhetskopier og volumkopier tatt før slettingen inneholder fortsatt dataene til de roterer ut.
+
+### Hva som er testet (2026-11-22, sandkasse med Docker 29.10 og Compose 5.7)
+
+**Testet:**
+- `docker build` av `Dockerfile` (med ARG for Node-versjon, ny helsesjekk) lykkes og gir ca. 417 MB. *Merk:* i sandkassen måtte byggingen kjøres med `--network host` og sandkassens sertifikat lagt inn for `npm ci` (nettverkspolicy); **Dockerfilen er ikke endret for det**, og er ikke bygget på en vanlig maskin med direkte internett.
+- Compose-oppsettet (app + Caddy) startet; appen ble `healthy`; `https://localhost/` ga `200` via Caddy (selvsignert sertifikat for `localhost`); HSTS-, nosniff- og referrer-hoder ble satt; appen kjørte som uid 1000, med skrivebeskyttet rotfilsystem og skrivbar `/data`; en husstand ble opprettet gjennom Caddy.
+- Navngitt volum: databasefilene ble opprettet i `/data` og eid av `node`. Husstand og token overlevde både `docker restart` og at containeren ble fjernet og en ny startet mot samme volum (`200`).
+- `backup.sh` med `age`: lagde en kryptert, integritetskontrollert kopi; avviste å kjøre uten mottaker.
+- Gjenoppretting til nytt volum: gammelt token ga `200` og medlemmer og invitasjon var tilbake; en husstand laget etter kopitidspunktet manglet, som forventet.
+- Sletting: kaskade (`households`, `devices`, `events`) og `401` på gammelt token både for lesing og skriving; etikett i `-wal` til checkpoint.
+- Tomt volum gir stille ny tom database (feil volum merkes ikke).
+- Loggene: ingen forespørselslinjer fra Caddy, og appen logget bare oppstart og `ExperimentalWarning`.
+- `docker stop` tok ca. 0,3 s med og uten `--init`.
+- Bivirkning av gjenoppretting for enhetenes cursor (se over), prøvd mot en lokal server.
+
+**Ikke testet:** at `docker compose up --build` bygger imaget (jeg bygde imaget for seg og brukte `--no-build`); hosting hos noen leverandør; ekte domene og Let's Encrypt (bare Caddys lokale selvsignerte sertifikat); at `TRUST_PROXY` faktisk leser klientens adresse gjennom Caddy (ikke målt); brannmur; `cron`; opplasting av kopi til ekstern lagring; `gpg`-varianten av `backup.sh`; `sqlite3 .backup`; volumøyeblikksbilder; bind mount og SELinux; at helsesjekken blir «unhealthy» ved databasefeil; lastprøving; ytelse; at den eldre `22-alpine` ga samme resultat (den er identisk med den festede per testdato); at imaget er bygget og kjørt på en annen CPU-arkitektur enn testmaskinens.
 
 ## 9. Må verifiseres av en person før beslutning
 
@@ -210,3 +300,6 @@ Sjekk at den kjører: `docker ps` viser `healthy` etter ca. 20–30 sekunder; `c
 - Hvilke sikkerhetskopifunksjoner og varig disk hver plattform faktisk tilbyr for en embedded database.
 - Om de valgte leverandørene godtar vårt bruksområde (helserelaterte kostvalg kan gjøre behandlingen mer sensitiv).
 - Domenepriser og registrar for .no.
+- Node 22 sin siste støttedato og hvor stabil `node:sqlite` er i versjonen vi eventuelt hever til (avsnitt 8, «node:sqlite»).
+- At valgt leverandør tilbyr diskkryptering, hva som er logget i nettverkslaget (IP-adresser), og hvordan øyeblikksbilder/sikkerhetskopier slettes.
+- At `TRUST_PROXY=1` bak Caddy gir riktig klient-IP (ikke målt), og at brannmuren hindrer direkte tilgang til port 8787.

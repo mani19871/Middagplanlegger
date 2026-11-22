@@ -125,7 +125,7 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 | `SYNC_SECRET` | tilfeldig per prosess | Hemmelighet for invitasjonskoder. Uten den slutter aktive koder å virke ved omstart. Sett den som hemmelighet ved oppstart, aldri i repoet |
 | `TRUST_PROXY` | av | `1` bak en kjent reverse proxy |
 
-`node:sqlite` er innebygd i Node 22 (skriver en «ExperimentalWarning» ved start). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører; krypter kopien.
+`node:sqlite` er innebygd i Node 22 og er eksperimentell (skriver en «ExperimentalWarning» ved start; versjonen er festet i `Dockerfile`, se `docs/hosting.md`, «node:sqlite»). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører, aldri `cp` av bare hovedfilen (WAL); krypter kopien. Ferdig skript (`VACUUM INTO` + age-kryptering), Docker Compose med Caddy og gjenopprettingsprosedyre: `docs/drift/` og `docs/hosting.md`, avsnitt 8.
 
 ### Koble på PostgreSQL
 
@@ -159,6 +159,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 - **Planversjoner synkes ikke.** `planHistory` (godkjente versjoner og fastholdte produkter, `activePin`) er lokal. Har én enhet en godkjent liste med fastholdte produkter og en annen ikke, kan de etter en prisendring vise ulike produkter på samme vare, og kjøp på de to linjene telles da hver for seg. Krever en egen modell (versjoner som hendelser) før det kan deles.
 - **Ratebegrensning i minnet** virker bare med én serverprosess. Flere prosesser trenger felles teller (Redis eller databasen).
 - **Flere faner på samme enhet** deler token og localStorage; de kan skrive over hverandres lokale tilstand (gjaldt også før synk).
+- **Gjenoppretting fra en eldre sikkerhetskopi bryter enhetenes cursor (funnet i test 2026-11-22, ikke rettet).** `GET /api/sync?after=<cursor>` returnerer bare hendelser med løpenummer over cursor, og klienten har ingen håndtering av at cursor er større enn serverens siste løpenummer. Etter en gjenoppretting som mangler de siste hendelsene får nye hendelser løpenumre enhetene allerede regner som lest, og enheter som hadde hentet lenger enn kopien mottar dem aldri, uten feilmelding; hendelser de allerede hadde levert etter kopitidspunktet er borte fra serveren og sendes ikke på nytt (utboksen er tømt). En ny enhet ser riktig innhold. Forslag: serveren oppgir sin siste løpenummer, og klienten nullstiller cursor og legger lokal logg i utboksen på nytt når cursor er foran (alt er idempotent på id). Til det er rettet: koble alle enheter fra og på igjen etter en gjenoppretting som taper data (`docs/hosting.md`, «Sikkerhetskopi og gjenoppretting»).
 - **Ingen kryptering i hvile** utover det plattformen gir; databasefil og sikkerhetskopier må krypteres av drift.
 
 ## Må på plass før ekte familier
