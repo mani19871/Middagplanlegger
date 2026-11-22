@@ -1,6 +1,6 @@
 # Middagsplanlegger (fase 1: familieversjon som webapp)
 
-Norsk middagsplanlegger etter planen «Fullstendig plan: norsk middagsplanlegger».
+Norsk middagsplanlegger etter planen «Fullstendig plan: norsk middagsplanlegger». **Appen heter «Husvett»** (eierens beslutning 2026-11-22, domene `husvett.no`); «Middagsplanlegger» er prosjekt-, repo- og Docker-navnet og er uendret. Navnetilgjengelighet og varemerke er ikke sjekket (`docs/pilot-sjekkliste.md`, E5).
 
 - `src/engine/planner.ts`: deterministisk planmotor (øre, hele pakninger, delte pakninger, beholdning, én vs. to butikker, budsjettsvar, bytteforskjell på hele kurven).
 - `src/data/`: **demodata** (oppdiktede butikker, priser, aviser). Ekte prisdata avklares i fase 0.

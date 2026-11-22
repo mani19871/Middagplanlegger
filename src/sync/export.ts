@@ -19,7 +19,7 @@ export interface DeviceExport {
   serverMerknad: string;
 }
 
-const TEXT = 'Kopi av opplysningene Middagsplanlegger har om deg og husstanden din. «enhet» er det som er lagret i nettleseren på '
+const TEXT = 'Kopi av opplysningene Husvett har om deg og husstanden din. «enhet» er det som er lagret i nettleseren på '
   + 'denne enheten. «server» er det serveren har lagret om husstanden (bare hvis enheten er med i en husstand). Nøkkelen som '
   + 'gir tilgang til husstanden er ikke med. Formatet er JSON og kan leses av andre programmer.';
 

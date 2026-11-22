@@ -85,7 +85,7 @@ class HttpError extends Error { constructor(public status: number, public code: 
 const STREAMED = Symbol('strømmet');
 /** Hendelser per side i eksporten (holder minnebruken nede for store husstander). */
 const EXPORT_PAGE = 2000;
-const EXPORT_TEXT = 'Alt serveren har lagret om husstanden din i Middagsplanlegger, slik det ligger i databasen. Enheter vises med '
+const EXPORT_TEXT = 'Alt serveren har lagret om husstanden din i Husvett, slik det ligger i databasen. Enheter vises med '
   + 'offentlig enhets-id og etikett. Nøkler (token), invitasjonskoder og interne id-er er ikke med. Postnummer, kostkrav og '
   + 'allergier lagres aldri på serveren og finnes bare på enhetene.';
 

@@ -87,4 +87,4 @@ Et personvernbrudd er brudd på sikkerheten som fører til utilsiktet tap, endri
 
 ## 7. Svarmaler (innsyn)
 
-> Hei. Vi har mottatt forespørselen din om innsyn i opplysninger vi har om husstanden din i Middagsplanlegger. Vedlagt (eller via lenken under, gyldig i 7 dager) er en kopi av opplysningene. Der står også hva vi bruker dem til, hvem som får dem, hvor lenge vi oppbevarer dem og hvilke rettigheter du har. Du kan be oss rette eller slette opplysningene, eller slette hele husstanden i appen. Hvis du mener vi behandler opplysninger feil, kan du klage til Datatilsynet. Hilsen [navn], kontakt@husvett.no.
+> Hei. Vi har mottatt forespørselen din om innsyn i opplysninger vi har om husstanden din i Husvett. Vedlagt (eller via lenken under, gyldig i 7 dager) er en kopi av opplysningene. Der står også hva vi bruker dem til, hvem som får dem, hvor lenge vi oppbevarer dem og hvilke rettigheter du har. Du kan be oss rette eller slette opplysningene, eller slette hele husstanden i appen. Hvis du mener vi behandler opplysninger feil, kan du klage til Datatilsynet. Hilsen [navn], kontakt@husvett.no.

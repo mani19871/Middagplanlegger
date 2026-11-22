@@ -1,7 +1,7 @@
 > **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse før bruk.**
 > Tekst i [hakeparenteser] må fylles ut eller avgjøres. **Avstemt 2026-11-22 mot synk-løsningen** (`docs/synk.md`, koden): erklæringen beskriver nå hva appen faktisk lagrer (kostkrav og postnummer synkes ikke). Den må likevel ikke publiseres før en fagperson har lest den, og den må oppdateres hvis noe i appen endres. Appen har et ark «Personvern» (Husstand-skjermen og bunnen av hver side) med en kortere tekst bygget på dette utkastet, merket UTKAST og «ikke ferdig vurdert av fagperson»; den må byttes når erklæringen er godkjent.
 
-# Personvernerklæring for Middagsplanlegger (pilot)
+# Personvernerklæring for Husvett (pilot)
 
 Sist oppdatert: [dato]
 

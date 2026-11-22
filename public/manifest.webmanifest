@@ -1,6 +1,6 @@
 {
-  "name": "Middagsplanlegger",
-  "short_name": "Middag",
+  "name": "Husvett",
+  "short_name": "Husvett",
   "description": "Ukeplan for middag, én handlekurv og anslått pris.",
   "start_url": "/",
   "scope": "/",

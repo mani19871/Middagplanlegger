@@ -100,7 +100,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <span className="logo"><Leaf /><span><b>Matuke</b><small>{weekLabel(weekStart())}</small></span></span>
+        <span className="logo"><Leaf /><span><b>Husvett</b><small>{weekLabel(weekStart())}</small></span></span>
         <div className="headchips">
           <button className="household" aria-label="Endre hvem som spiser" onClick={() => { setTab('Uka'); setMode('edit'); }}>
             👥 {adults} voksne, {kids} barn ⌄</button>
