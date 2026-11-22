@@ -24,7 +24,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 | S4 | Middels | Ingen kvoter: et medlem eller stjålet token kan fylle disken; mange husstander likeså | Rettet |
 | S5 | Middels | Tidspunkt fram i tid ligger sist i loggen for alltid | Rettet (klippes) |
 | S6 | Middels | Invitasjonskode gir medlemskap uten godkjenning; alle medlemmer kan invitere | Delvis: bare eieren inviterer (`403 bare_eier`), samlet gjettegrense, kvote på koder; «eier godkjenner nye medlemmer» er en senere beslutning |
-| S7 | Middels | Token utløper aldri | Rettet (glidende utløp, 180 dager); rotasjon ikke bygget |
+| S7 | Middels | Token utløper aldri | Rettet (glidende utløp, standard 730 dager etter eierens valg 2026-11-22); rotasjon ikke bygget |
 | S8 | Lav | Fjernede medlemmer beholder etikett og «sist sett» | Rettet (anonymiseres) |
 | S9 | Lav | IPv6-klient kan bytte adresse for hvert forsøk | Rettet (/64) |
 | S10 | Lav | Feilmeldinger i logg og i `/api/offers` | Rettet |
@@ -93,7 +93,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 
 ### S7 Middels: token utløp og rotasjon
 
-- **Rettet:** glidende utløp. Et token som ikke er brukt på `SYNC_TOKEN_IDLE_DAYS` dager (standard 180, `0` = av), slutter å virke; enheten forlater husstanden (eierskap går videre, siste som går sletter husstanden) og beholder dataene lokalt (klienten får `401` og kobler fra med melding). Hver bruk forlenger. Sjekkes når tokenet brukes. Husstander ingen bruker, fjernes av oppbevaringsjobben (`server/retention.ts`, `SYNC_RETENTION_DAYS`, standard 365 dager; docs/synk.md).
+- **Rettet:** glidende utløp. Et token som ikke er brukt på `SYNC_TOKEN_IDLE_DAYS` dager (standard 730 etter eierens valg 2026-11-22; `0` = aldri; ugyldig verdi gir 730), slutter å virke; enheten forlater husstanden (eierskap går videre, siste som går sletter husstanden) og beholder dataene lokalt (klienten får `401` og kobler fra med melding). Hver bruk forlenger. Sjekkes når tokenet brukes. Husstander ingen bruker, fjernes av oppbevaringsjobben (`server/retention.ts`, `SYNC_RETENTION_DAYS`, standard 365 dager; docs/synk.md).
 - **Ikke bygget:** en rute for å rotere token. Rotasjon gir lite her: et token stjålet ved XSS kan roteres av angriperen først, og et brutt svar under rotasjon låser en ekte enhet ute uten en overgangsperiode med to gyldige token (krever ny kolonne og klientlogikk i `src/sync/`). Tap av en enhet håndteres ved at eieren fjerner den. Vurder rotasjon sammen med HttpOnly-cookie (S2).
 
 ### S8 Lav: fjernede medlemmer
@@ -174,7 +174,7 @@ Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å s
 
 | Miljøvariabel | Standard | Hva |
 | --- | --- | --- |
-| `SYNC_TOKEN_IDLE_DAYS` | 180 | Dager uten bruk før et enhetstoken slutter å virke. `0` = aldri |
+| `SYNC_TOKEN_IDLE_DAYS` | 730 | Dager uten bruk før et enhetstoken slutter å virke. `0` = aldri |
 | `SYNC_MAX_TOTAL_MB` | 4096 | Tak for alle husstanders hendelser samlet |
 | `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
 | `TRUST_PROXY` | av | `1` bak nøyaktig én proxy; siste adresse i `X-Forwarded-For` brukes |

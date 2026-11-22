@@ -12,12 +12,20 @@ interface Props {
   retentionDays?: number;
 }
 
+/** Standard tokenutløp på serveren (`DEFAULT_TOKEN_IDLE_DAYS` i server/retention.ts; testet mot den). Serveren oppgir ikke tallet til appen. */
+export const TOKEN_IDLE_DEFAULT_DAYS = 730;
+
+/** Hva som skjer med en enhet som ikke har vært i kontakt med serveren på lenge. Sier bare standarden; serveren kan være satt opp annerledes. */
+export function tokenIdleText(): string {
+  return `En enhet som ikke har vært i kontakt med serveren på lenge, mister nøkkelen og forlater husstanden (standard ${TOKEN_IDLE_DEFAULT_DAYS} dager, om lag to år; serveren kan være satt opp annerledes).`;
+}
+
 /** Hvor lenge serveren beholder husstanden. Sier bare det serveren har oppgitt; ellers forslaget og at det ikke er bestemt. */
 export function retentionText(days: number | undefined, connected: boolean): string {
   if (days === undefined) {
     return connected
       ? 'Fikk ikke hentet serverens oppbevaringstid akkurat nå.'
-      : 'Serveren kan være satt opp til å slette husstander som ikke har vært i bruk på en tid. Forslaget er 12 måneder, men det er ikke endelig bestemt. Du ser hva som gjelder her når enheten er med i en husstand.';
+      : 'Serveren kan være satt opp til å slette husstander som ikke har vært i bruk på en tid. Forslaget er 730 dager (om lag to år), men det er ikke endelig bestemt. Du ser hva som gjelder her når enheten er med i en husstand.';
   }
   if (days === 0) return 'Denne serveren sletter ikke husstander automatisk. Husstanden ligger der til eieren sletter den eller den siste forlater den.';
   const months = days % 365 === 0 ? `${days / 365 === 1 ? '12 måneder' : `${days / 365} år`} (${days} dager)` : `${days} dager`;
@@ -91,7 +99,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
       <ul className="plain">
         <li>Til eieren sletter husstanden, eller til den siste forlater den.</li>
         <li>{retentionText(days, connected)}</li>
-        <li>En enhet som ikke har vært i kontakt med serveren på lenge, mister nøkkelen og forlater husstanden (standard 180 dager).</li>
+        <li>{tokenIdleText()}</li>
         <li>En fjernet enhet blir stående som «Tidligere medlem» med enhets-id, og endringene den gjorde blir liggende, til husstanden slettes.</li>
         <li>Sikkerhetskopier av serveren kan inneholde slettede data en tid etter slettingen. Hvor lenge er ikke endelig bestemt (forslag: 30 dager).</li>
       </ul>

@@ -9,7 +9,7 @@ import { ingredients } from '../src/data/catalog';
 import { collectOffers, type LiveOffer } from '../src/offers/service';
 import { TjekSource } from '../src/offers/tjek';
 import { createApp } from './app';
-import { retentionDaysFrom, startRetention } from './retention';
+import { retentionDaysFrom, startRetention, tokenIdleMsFrom } from './retention';
 import { SqliteStorage } from './storage/sqlite';
 import { createSyncApi } from './sync/api';
 
@@ -20,10 +20,9 @@ const PORT = Number(process.env.PORT ?? 8787);
 const DB = process.env.SYNC_DB ?? join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'middag.sqlite');
 if (DB !== ':memory:') mkdirSync(dirname(DB), { recursive: true });
 if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskoder blir ugyldige når serveren startes på nytt.');
-// Token som ikke er brukt på SYNC_TOKEN_IDLE_DAYS dager slutter å virke (0 = av). SYNC_MAX_TOTAL_MB: tak for alle
+// Token som ikke er brukt på SYNC_TOKEN_IDLE_DAYS dager slutter å virke (standard 730, 0 = aldri). Se server/retention.ts. SYNC_MAX_TOTAL_MB: tak for alle
 // husstanders hendelser samlet (vern mot full disk). Se docs/sikkerhet.md.
 const dbExisted = DB !== ':memory:' && existsSync(DB);
-const idleDays = Number(process.env.SYNC_TOKEN_IDLE_DAYS ?? 180);
 const totalMb = Number(process.env.SYNC_MAX_TOTAL_MB ?? 0);
 // Husstander uten aktivitet i SYNC_RETENTION_DAYS dager slettes automatisk (standard 365, 0 = av). Se server/retention.ts.
 const retentionDays = retentionDaysFrom(process.env.SYNC_RETENTION_DAYS);
@@ -34,7 +33,7 @@ else if (!dbExisted) console.warn(`Synk-databasen fantes ikke og er opprettet to
 else console.log(`Synk-databasen: ${DB} (${storage.counts().households} husstander).`);
 const syncApi = createSyncApi({
   storage, secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
-  tokenIdleMs: Number.isFinite(idleDays) && idleDays > 0 ? idleDays * 86_400_000 : undefined,
+  tokenIdleMs: tokenIdleMsFrom(process.env.SYNC_TOKEN_IDLE_DAYS),
   quotas: Number.isFinite(totalMb) && totalMb > 0 ? { totalEventBytes: totalMb * 1024 * 1024 } : undefined,
   retentionDays,
 });

@@ -30,15 +30,29 @@ Prisene er fra generell kunnskap, ikke kontrollert mot leverandørenes prissider
 
 **Hva vi trenger fra deg, steg for steg** (alternativ 1; for 2 og 3 er steg 1–3 og 6 like):
 
-1. **Bestem hvem «Admin» er:** en navngitt person som får varsler, tar oppdateringer omtrent én gang i måneden og kan gjøre en gjenoppretting. Hvis ingen kan det, velg alternativ 2 eller 3.
-2. **Domene og e-post:** kjøp et domene i **AVVR AS** sitt navn (gjerne hos en norsk registrar; et webhotel holder til dette) og opprett en e-postadresse for personvern, f.eks. `personvern@<domenet>`. Det avgjør de to uavklarte punktene (domene og kontakt-e-post). Slå på to-faktor.
+1. **Bestem hvem som har rollen «Admin»:** «Admin» er en rolle i AVVR AS og navngis ikke i dokumentene (eierens beslutning 2026-11-22); den som har rollen får varsler, tar oppdateringer omtrent én gang i måneden og kan gjøre en gjenoppretting. Hvis ingen kan det, velg alternativ 2 eller 3.
+2. **Domene og e-post:** kjøp et **nytt** domene i **AVVR AS** sitt navn (se «Slik velger og kjøper du et .no-domene» under; gjerne hos en norsk registrar; et webhotel holder til dette) og opprett en e-postadresse for personvern, f.eks. `personvern@<domenet>`. Det avgjør de to uavklarte punktene (domene og kontakt-e-post). Slå på to-faktor.
 3. **Konto hos VPS-leverandøren** i AVVR AS sitt navn, med to-faktor. Godta leverandørens databehandleravtale i kundeportalen og lagre en kopi med dato (`personvern/04-databehandleravtaler-sjekkliste.md`). Sett et budsjettvarsel.
 4. **Bestill den minste serveren** med Ubuntu (LTS) i en region i EU (f.eks. Tyskland eller Finland). Legg inn Admins SSH-nøkkel (offentlig del) ved bestilling. Del aldri passord eller private nøkler i chat eller e-post.
 5. **Pek domenet til serveren:** en A-post (og AAAA for IPv6) i domenets DNS-innstillinger, til serverens IP-adresse.
 6. **Nøkkel til sikkerhetskopiene** (du ba om hjelp): på din egen PC, ikke på serveren, lag et nøkkelpar med verktøyet `age` (`age-keygen -o middag-backup.key`). Filen inneholder en privat nøkkel og skriver ut en offentlig nøkkel som begynner med `age1…`. Den **offentlige** nøkkelen gis til Admin og settes som `BACKUP_AGE_RECIPIENT` på serveren (avsnitt 8). Den **private** nøkkelfilen lagres hos **to navngitte personer** (f.eks. i hver sin passordhåndterer, eller en kryptert minnepinne i safe), aldri på serveren. Mistes den, kan ingen kopi leses. Vi kan gå gjennom dette sammen; skriv ned hvem de to er (sjekklisten A9).
 7. **Lagring til sikkerhetskopiene** et annet sted enn serveren, i EØS (f.eks. leverandørens lagringstjeneste), med sletting etter 30 dager (forslag, ikke avgjort).
-8. **Admin setter opp appen** etter avsnitt 8 («Pilotoppsett med Docker Compose og Caddy»): fyller `.env.drift` med `DOMENE`, `SYNC_SECRET` og `SYNC_RETENTION_DAYS=730`, og tar stilling til tokenutløpet (sjekklisten D15).
+8. **Admin setter opp appen** etter avsnitt 8 («Pilotoppsett med Docker Compose og Caddy»): fyller `.env.drift` med `DOMENE`, `SYNC_SECRET`, `SYNC_RETENTION_DAYS=730` og `SYNC_TOKEN_IDLE_DAYS=730` (innloggingens levetid, avgjort i sjekklisten D15; 730 er også standarden i koden).
 9. **Gjenopprettingsøvelse og testuke** (sjekklisten C7 og F) før første familie inviteres.
+
+### Slik velger og kjøper du et .no-domene (for lekmann)
+
+Dette er en veiledning; ingenting er kjøpt eller bestilt, og tallene under er **omtrentlige og må sjekkes** hos registraren før du betaler (jeg har ikke slått opp noen priser).
+
+1. **Hva et domene er:** navnet folk skriver i nettleseren, f.eks. `middagsplanlegger.no`. Du leier det (vanligvis ett år om gangen) og betaler fornyelse hvert år. Appen virker ikke på et domene før domenet peker på serveren (punkt 5 under).
+2. **Hvem selger det:** `.no` forvaltes av Norid, men du kjøper ikke direkte av Norid. Du kjøper hos en **registrar** (et selskap som er godkjent av Norid til å selge .no-domener). Norid har en oppdatert liste over registrarer på norid.no (søk «finn registrar»); velg en fra den listen. Mange webhoteller er registrarer. Sammenlign pris (førsteår og fornyelse), om to-faktor finnes, om du får styre DNS-innstillingene selv, og om e-post eller videresending av e-post følger med.
+3. **Omtrentlig pris (omtrentlig, må sjekkes):** et .no-domene koster gjerne et sted mellom 100 og 300 kr i året, men prisene varierer mellom registrarer og kan ha tilbudspris første år. Eventuell e-posttjeneste (en egen postkasse for personvern) kommer i tillegg hvis den ikke følger med; sjekk dette.
+4. **Hva som trengs:** domenet skal stå i **AVVR AS** sitt navn (org.nr. 935941644), ikke i en privatpersons navn, så selskapet kan styre det og så personvernerklæringen peker på riktig part. Registraren ber om organisasjonsnummer, selskapets adresse og en kontaktperson med e-postadresse (reglene for .no krever tilknytning til Norge, og en organisasjon må være registrert i Enhetsregisteret; sjekk gjeldende regler hos Norid). Kontoen hos registraren bør eies av selskapet, med to-faktor, og innloggingen bør ikke bare ligge hos én person. Domenenavn kan bestå av bokstaver (også æ, ø og å), tall og bindestrek; velg et kort navn uten bindestreker hvis mulig, og sjekk at navnet er ledig.
+5. **Pek domenet mot serveren (DNS):** når du har en VPS (f.eks. hos Hetzner, hvis det blir valgt; hosting er ikke valgt ennå) får serveren en offentlig IP-adresse. I registrarens DNS-innstillinger (eller i leverandørens egen DNS-tjeneste, hvis du flytter DNS dit) legger du inn:
+   - en **A-post** for domenet (eller underdomenet appen skal ligge på, f.eks. `app`) med IPv4-adressen til serveren, og
+   - en **AAAA-post** med IPv6-adressen, hvis serveren har en.
+   Les verdiene av i kundeportalen til VPS-leverandøren. Endringen kan ta fra noen minutter til noen timer før den virker overalt. Sjekk med `nslookup <domene>` (Windows, Mac eller Linux) at svaret er serverens IP-adresse. Sett så samme domenenavn som `DOMENE` i `.env.drift`; Caddy henter da sertifikat (HTTPS) av seg selv, forutsatt at port 80 og 443 er åpne i brannmuren og at DNS peker riktig **før** første oppstart.
+6. **Etterpå:** slå på automatisk fornyelse (eller sett en påminnelse), ellers mister du domenet og appen slutter å virke. Domenenavnet må også inn i personvernerklæringen og i kontakt-e-postadressen (`personvern@<domenet>`); det avgjør de to uavklarte punktene domene og kontakt-e-post (`pilot-sjekkliste.md`, A4 og A5).
 
 ## 1. Kort versjon
 
@@ -184,14 +198,14 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 
 | # | Svar | Uavklart |
 | --- | --- | --- |
-| 1 | **AVVR AS, org.nr. 935941644** er behandlingsansvarlig | Adresse (til personvernerklæringen) |
-| 2 | Driftsansvarlig: **«Admin» (rolle)** | Hvilken person, og responstid |
+| 1 | **AVVR AS, org.nr. 935941644** er behandlingsansvarlig. Forretningsadresse: **Smedalsvegen 14, 2067 Jessheim** (Enhetsregisteret, data.brreg.no, oppslag 2026-11-22) | – |
+| 2 | Driftsansvarlig: **«Admin» (rolle; navngis ikke)** | Responstid er ikke bestemt |
 | 3 | – | Månedlig tak ikke oppgitt |
 | 4 | – | Ikke besvart. Anbefaling: europeisk leverandør (avsnitt 0) |
-| 5 | Konto og domene: AVVR AS (følger av svar 1) | **UAVKLART: domenet er ikke avklart** |
+| 5 | Konto og domene: AVVR AS (følger av svar 1). Eier vil kjøpe et **nytt** domene (ikke kjøpt) | **UAVKLART: domenenavnet.** Se «Slik velger og kjøper du et .no-domene» |
 | 6 | – | **UAVKLART: kontakt-e-post for personvern er ikke bestemt** |
 | 7 | **Lukket pilot, hele Norge** | Antall husstander, startdato, betaling |
-| 8 | **730 dager** for inaktive husstander (`SYNC_RETENTION_DAYS=730`) | Logger og sikkerhetskopier. Tokenutløpet (180 dager) er kortere: se `pilot-sjekkliste.md`, D15 |
+| 8 | **730 dager** for inaktive husstander (`SYNC_RETENTION_DAYS=730`) | Logger og sikkerhetskopier. Innloggingens levetid (`SYNC_TOKEN_IDLE_DAYS`) er satt til samme 730 dager (`pilot-sjekkliste.md`, D15, avgjort) |
 | 9 | **Ingen fagperson nå,** bare lukket pilot | Når en fagperson skal se på dokumentene |
 | 10 | Eier vil ha **hjelp til oppsett** av sikkerhetskopinøkkelen | Hvem de to nøkkelholderne er (fremgangsmåte: avsnitt 0, steg 6) |
 | 11 | – | Ikke besvart |
@@ -252,7 +266,7 @@ SYNC_SECRET=… npm start   # node dist-server/index.mjs (kjør fra repoets rot:
 | `SYNC_DB` | `$DATA_DIR/middag.sqlite` | I bruk. Overstyrer hele stien til databasen (`:memory:` bare til test). |
 | `SYNC_SECRET` | tilfeldig per start | **Skal settes i drift.** Hemmelighet for invitasjonskoder (HMAC). Mangler den, skriver serveren en advarsel og alle aktive invitasjoner blir ugyldige ved hver omstart. Lag den med `openssl rand -hex 32`. Enhetstokenene avhenger **ikke** av den (bare sha256 av tokenet lagres), så å miste eller bytte den logger ingen ut, den ugyldiggjør bare ubrukte invitasjoner. Aldri i Dockerfile eller git. |
 | `SYNC_RETENTION_DAYS` | `365` | I bruk. Husstander uten autentisert aktivitet på så mange dager slettes automatisk (`0` = av; ugyldig verdi gir 365). **Eierens valg 2026-11-22: `730`.** Se `docs/synk.md`, «Oppbevaringstid». |
-| `SYNC_TOKEN_IDLE_DAYS` | `180` | I bruk. Dager uten bruk før et enhetstoken slutter å virke (`0` = aldri). Kortere enn oppbevaringstiden på 730 dager; se `pilot-sjekkliste.md`, D15. |
+| `SYNC_TOKEN_IDLE_DAYS` | `730` | I bruk. Innloggingens levetid: dager uten bruk før et enhetstoken slutter å virke (glidende; hver bruk forlenger). `0` = aldri; ugyldig verdi gir 730 og en advarsel. **Eierens valg 2026-11-22: 730**, samme som `SYNC_RETENTION_DAYS` i piloten; se `pilot-sjekkliste.md`, D15. En mistet telefon har gyldig nøkkel i opptil så mange dager til eieren fjerner enheten. |
 | `TRUST_PROXY` | ikke satt | `1` når serveren står bak en egen reverse proxy (Caddy), så ratebegrensningen bruker klientens IP fra `X-Forwarded-For`. |
 | `KASSALAPP_TOKEN` | ikke satt | **Reservert, ikke i bruk av serveren ennå.** Brukes i dag bare av `phase0/kassalapp-import/probe.mjs`. Hemmelighet: send den inn ved oppstart, aldri i Dockerfile eller git. |
 | `NODE_USE_ENV_PROXY` | ikke satt | Bare hvis serveren står bak en utgående proxy (f.eks. firmanettverk) og skal hente tilbud derfra. |

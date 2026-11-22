@@ -8,6 +8,9 @@
 import type { SyncStorage } from './storage/types';
 
 export const DEFAULT_RETENTION_DAYS = 365;
+/** Tokenutløp (SYNC_TOKEN_IDLE_DAYS): samme som oppbevaringstiden for inaktive husstander i piloten (730 dager), så en
+ *  husstand kan åpnes, eksporteres og slettes i appen så lenge den ligger på serveren. */
+export const DEFAULT_TOKEN_IDLE_DAYS = 730;
 const DAY_MS = 86_400_000;
 /** Høyst så mange husstander per transaksjon, så en stor opprydding ikke holder skrivelåsen lenge. */
 const BATCH = 500;
@@ -21,6 +24,24 @@ export function retentionDaysFrom(value: string | undefined, warn: (m: string) =
     return DEFAULT_RETENTION_DAYS;
   }
   return n;
+}
+
+/** Leser SYNC_TOKEN_IDLE_DAYS (dager uten bruk før et enhetstoken slutter å virke). Tom: standard. 0: aldri utløp. Ugyldig
+ *  verdi gir standard og en advarsel (aldri «aldri utløp» ved en skrivefeil). */
+export function tokenIdleDaysFrom(value: string | undefined, warn: (m: string) => void = console.warn): number {
+  if (value === undefined || value.trim() === '') return DEFAULT_TOKEN_IDLE_DAYS;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) {
+    warn(`SYNC_TOKEN_IDLE_DAYS er ugyldig; bruker ${DEFAULT_TOKEN_IDLE_DAYS} dager.`);
+    return DEFAULT_TOKEN_IDLE_DAYS;
+  }
+  return n;
+}
+
+/** Tokenutløpet i millisekunder for synk-API-et; `undefined` (= aldri) når dagene er 0. */
+export function tokenIdleMsFrom(value: string | undefined, warn: (m: string) => void = console.warn): number | undefined {
+  const days = tokenIdleDaysFrom(value, warn);
+  return days > 0 ? days * DAY_MS : undefined;
 }
 
 /** Én runde: sletter alle husstander som sist var aktive før `now - days`. Returnerer antall. `days` 0 gjør ingenting. */

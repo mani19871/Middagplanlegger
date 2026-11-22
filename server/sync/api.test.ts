@@ -15,7 +15,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_RETENTION_DAYS, retentionDaysFrom, runRetention, startRetention } from '../retention';
+import { DEFAULT_RETENTION_DAYS, DEFAULT_TOKEN_IDLE_DAYS, retentionDaysFrom, runRetention, startRetention, tokenIdleDaysFrom, tokenIdleMsFrom } from '../retention';
 
 type Srv = Awaited<ReturnType<typeof startTestServer>>;
 let srv: Srv;
@@ -613,5 +613,56 @@ describe('oppbevaringstid (automatisk sletting etter inaktivitet)', () => {
     const { B } = await household();
     expect((await B.household()).retentionDays).toBe(365);
     expect((await B.exportData()).husstand.oppbevaringDager).toBe(365);
+  });
+});
+
+describe('tokenutløp (SYNC_TOKEN_IDLE_DAYS, glidende)', () => {
+  const D = 86_400_000;
+
+  it('standard er 730 dager (samme som oppbevaringstiden for inaktive husstander i piloten); 0 = av; ugyldig verdi gir standard', () => {
+    const warn: string[] = [];
+    expect(DEFAULT_TOKEN_IDLE_DAYS).toBe(730);
+    expect(tokenIdleDaysFrom(undefined)).toBe(730);
+    expect(tokenIdleDaysFrom('  ')).toBe(730);
+    expect(tokenIdleDaysFrom('0')).toBe(0);
+    expect(tokenIdleDaysFrom(' 30 ')).toBe(30);
+    for (const v of ['-1', 'av', '1.5', 'NaN']) expect(tokenIdleDaysFrom(v, (m) => warn.push(m))).toBe(730);
+    expect(warn).toHaveLength(4);
+    expect(warn[0]).toMatch(/SYNC_TOKEN_IDLE_DAYS/);
+    // Millisekunder til serveren; 0 betyr «aldri utløp» (undefined).
+    expect(tokenIdleMsFrom(undefined)).toBe(730 * D);
+    expect(tokenIdleMsFrom('30')).toBe(30 * D);
+    expect(tokenIdleMsFrom('0')).toBeUndefined();
+  });
+
+  it('standardverdien: tokenet virker i 729 dager uten bruk og er ugyldig etter 731', async () => {
+    await srv.close();
+    srv = await startTestServer({ tokenIdleMs: tokenIdleMsFrom(undefined) });
+    const { A, B } = await household();
+    srv.advance(729 * D);
+    expect(await code(A.household())).toBe('ok'); // bruk forlenger
+    srv.advance(729 * D);
+    expect(await code(A.household())).toBe('ok'); // glidende: 1458 dager etter opprettelsen, men aldri 730 uten bruk
+    expect(await code(B.household())).toBe('401 ikke_autentisert'); // B har ikke vært brukt på 1458 dager
+  });
+
+  it('utløpet følger konfigurasjonen: 731 dager uten bruk gir 401 med standard; 31 dager med SYNC_TOKEN_IDLE_DAYS=30', async () => {
+    await srv.close();
+    srv = await startTestServer({ tokenIdleMs: tokenIdleMsFrom(undefined) });
+    let h = await household();
+    srv.advance(731 * D);
+    expect(await code(h.A.household())).toBe('401 ikke_autentisert');
+    await srv.close();
+    srv = await startTestServer({ tokenIdleMs: tokenIdleMsFrom('30') });
+    h = await household();
+    srv.advance(29 * D);
+    expect(await code(h.A.household())).toBe('ok');
+    srv.advance(31 * D);
+    expect(await code(h.A.household())).toBe('401 ikke_autentisert');
+    await srv.close();
+    srv = await startTestServer({ tokenIdleMs: tokenIdleMsFrom('0') });
+    h = await household();
+    srv.advance(5000 * D);
+    expect(await code(h.A.household())).toBe('ok'); // 0 = aldri utløp
   });
 });

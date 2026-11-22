@@ -18,7 +18,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 
 ## Hvem er ansvarlig?
 
-AVVR AS (org.nr. 935941644), [adresse: ikke oppgitt ennå], er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: **[e-postadresse: UAVKLART, ikke bestemt]**.
+AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: **[e-postadresse: UAVKLART, ikke bestemt]**. [Adressen er selskapets forretningsadresse i Enhetsregisteret, oppslag 2026-11-22.]
 
 ## Hva vi lagrer, og hvorfor
 
@@ -41,7 +41,7 @@ AVVR AS (org.nr. 935941644), [adresse: ikke oppgitt ennå], er ansvarlig for opp
 | Teknisk logg: i vårt oppsett lagres ikke IP-adresse eller innhold i tilgangslogg [må bekreftes for valgt leverandør]. IP-adressen din brukes kort i serverens minne for å stoppe misbruk og glemmes når serveren starter på nytt | Sikkerhet og feilretting | [14] dager hvis noe logges |
 | Henvendelser du sender oss | Svare deg | [12] måneder etter at saken er avsluttet |
 
-Hvis ingen enhet i en husstand har vært i kontakt med serveren på 730 dager (om lag to år), sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. Det som er lagret på enhetene dine, slettes ikke. [Bygget, `SYNC_RETENTION_DAYS=730`, eierens valg 2026-11-22. **Åpent (pilot-sjekkliste D15):** nøkkelen til husstanden slutter å virke etter 180 dager uten bruk. Med dagens innstilling kan dere da ikke åpne, laste ned eller slette husstanden i appen, men den ligger hos oss til dag 730; sletting før det må skje på e-post. Teksten må rettes når eieren har valgt løsning.]
+Hvis ingen enhet i en husstand har vært i kontakt med serveren på 730 dager (om lag to år), sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. Det som er lagret på enhetene dine, slettes ikke. Nøkkelen som viser at enheten din er med i husstanden, slutter å virke etter 730 dager uten bruk, altså samtidig med at husstanden slettes; frem til da kan du åpne, laste ned og slette husstanden i appen. Mister du en enhet, kan eieren fjerne den; ellers har nøkkelen på den gyldighet i opptil to år. [Bygget: `SYNC_RETENTION_DAYS=730` og `SYNC_TOKEN_IDLE_DAYS=730` (standard i koden), eierens valg 2026-11-22, pilot-sjekkliste D15 (avgjort).]
 
 Merk: selv om vi ikke lagrer allergier og kostkrav som egne opplysninger, kan planen og handlelisten din si noe om hva dere spiser og kjøper. Skriv ikke helseopplysninger eller navn i etiketter og egne handlelinjer.
 
@@ -62,7 +62,7 @@ Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å la
 
 - **Du og de du inviterer til husstanden.** Alle voksne i husstanden kan se og endre alt husstanden har delt (plan, liste, innstillinger, hvem som har krysset av). Den som har en gyldig invitasjonskode innen 24 timer, kan bli med, så del koden bare med den du vil invitere.
 - **Vår leverandør av drift og lagring** ([navn, land for datasenter]). De behandler opplysningene på våre vegne og har ikke lov til å bruke dem til egne formål. Vi har [databehandleravtale]. [Underleverandører: liste eller lenke.]
-- **Vi** (driftsansvarlig, rollen «Admin» i AVVR AS [navn føres i den interne tilgangslisten]) har bare tilgang når det trengs for drift og feilretting.
+- **Vi** (driftsansvarlig, rollen «Admin» i AVVR AS; rollen navngis ikke her) har bare tilgang når det trengs for drift og feilretting.
 
 Tilbudsinformasjon hentes av vår server fra [Tjek]. Vi sender ikke opplysninger om deg eller husstanden din dit. Kilden ser bare serverens adresse.
 

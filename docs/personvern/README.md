@@ -33,10 +33,11 @@ Se også [`../pilot-sjekkliste.md`](../pilot-sjekkliste.md) (alt som må være p
 
 Ført inn i dokumentene 01, 02, 03 og 05:
 
-- **Behandlingsansvarlig:** AVVR AS, org.nr. 935941644. Adresse ikke oppgitt.
-- **Driftsansvarlig:** «Admin» (rolle). Personen er ikke navngitt.
+- **Behandlingsansvarlig:** AVVR AS, org.nr. 935941644, Smedalsvegen 14, 2067 Jessheim (kommune: Ullensaker). Kilde: Enhetsregisteret, forretningsadresse (data.brreg.no, `/enhetsregisteret/api/enheter/935941644`), oppslag 2026-11-22.
+- **Driftsansvarlig:** «Admin» (rolle). Rollen navngis ikke (eierens beslutning 2026-11-22). Responstid er ikke bestemt.
 - **Oppbevaringstid for inaktive husstander:** 730 dager (`SYNC_RETENTION_DAYS=730`). Logger og sikkerhetskopier er ikke avgjort ([14] og [30] dager står som forslag).
+- **Innloggingens levetid (enhetstoken):** 730 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`, standard 730), samme som oppbevaringstiden (pilot-sjekkliste D15, avgjort).
 - **Pilot:** lukket, hele Norge.
 - **Fagperson:** ikke nå. Dokumentene forblir utkast; det står fortsatt i sjekklisten som STOPP (B1).
 
-Fortsatt **UAVKLART**: kontakt-e-post for personvern, domene (der erklæringen skal publiseres), hostingleverandør (dermed databehandler, land og overføringsgrunnlag), og hvordan tokenutløpet (180 dager) skal stemme med oppbevaringstiden (730 dager), se `../pilot-sjekkliste.md`, D15. Hele listen: `docs/hosting.md` avsnitt 7.
+Fortsatt **UAVKLART**: kontakt-e-post for personvern, domene (der erklæringen skal publiseres), hostingleverandør (dermed databehandler, land og overføringsgrunnlag). Hele listen: `docs/hosting.md` avsnitt 7.

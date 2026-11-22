@@ -10,8 +10,8 @@ Dette dokumentet kan danne grunnlag for oversikten over behandlingsaktiviteter (
 
 | Rolle | Hvem |
 | --- | --- |
-| Behandlingsansvarlig | **AVVR AS, org.nr. 935941644** (eierens beslutning 2026-11-22). Adresse: [ikke oppgitt] |
-| Driftsansvarlig | **«Admin»** (rolle i AVVR AS, 2026-11-22). [Navnet på personen føres i tilgangslisten, avsnitt 5] |
+| Behandlingsansvarlig | **AVVR AS, org.nr. 935941644** (eierens beslutning 2026-11-22). Forretningsadresse: **Smedalsvegen 14, 2067 Jessheim (kommune: Ullensaker)**. Kilde: Enhetsregisteret, forretningsadresse (data.brreg.no, `/enhetsregisteret/api/enheter/935941644`), oppslag 2026-11-22. Bare selskapets registrerte adresse; ingen privatpersoners opplysninger |
+| Driftsansvarlig | **«Admin»** (rolle i AVVR AS, 2026-11-22). Rollen navngis ikke i dokumentene (eierens beslutning 2026-11-22). Responstid: **[UAVKLART: ikke bestemt]** |
 | Kontakt for personvern | **[UAVKLART: e-postadresse ikke bestemt, postkassen ikke opprettet]** |
 | Personvernombud | Trolig ikke påkrevd i piloten (må verifiseres, art. 37) |
 | Databehandlere | Hostingleverandør og tilleggstjenester, se `04-databehandleravtaler-sjekkliste.md` |
@@ -82,7 +82,7 @@ Artikkel 9 gjelder «særlige kategorier», blant annet helseopplysninger og opp
 
 | Data | Forslag til oppbevaring | Slik er det bygget i dag |
 | --- | --- | --- |
-| Husstandsdata (1–6) | Så lenge husstanden bruker appen. Slettes automatisk **730 dager** etter siste aktivitet (eierens valg 2026-11-22). Slettes straks ved sletting av husstand | **Sletting på forespørsel virker** («Slett husstanden», bare eier, bekreftes ved å skrive SLETT; siste medlem som forlater slettet også). **Automatisk sletting etter inaktivitet er bygget** (`server/retention.ts`): settes med `SYNC_RETENTION_DAYS=730` (standard i koden er 365). **Åpent:** enhetstokenet slutter å virke etter 180 dager uten bruk, så husstanden kan ikke åpnes, eksporteres eller slettes i appen de siste rundt 550 dagene (`../pilot-sjekkliste.md`, D15) |
+| Husstandsdata (1–6) | Så lenge husstanden bruker appen. Slettes automatisk **730 dager** etter siste aktivitet (eierens valg 2026-11-22). Slettes straks ved sletting av husstand | **Sletting på forespørsel virker** («Slett husstanden», bare eier, bekreftes ved å skrive SLETT; siste medlem som forlater slettet også). **Automatisk sletting etter inaktivitet er bygget** (`server/retention.ts`): settes med `SYNC_RETENTION_DAYS=730` (standard i koden er 365). Enhetstokenet («innloggingen») slutter å virke etter 730 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`, standard 730; eierens valg 2026-11-22, `../pilot-sjekkliste.md`, D15), så husstanden kan åpnes, eksporteres og slettes i appen så lenge den ligger på serveren |
 | Hendelser (`events`) | Samme som husstandsdata. Kan kortes ned (f.eks. gamle uker) | Vokser uten tak og komprimeres ikke. Oppbevaringstid for gamle uker er ikke bestemt |
 | Kostkrav (3) | – | Lagres ikke på serveren (valg A). På enheten til brukeren trekkes de ved «Slett lokale data» |
 | Fjernede medlemmer | Slettes ved fjerning, eller senest sammen med husstanden | **Beholdes som rad** (offentlig id, etikett, uten token) til husstanden slettes. Se «Svakheter» |
@@ -103,7 +103,7 @@ Beholdningsloggen er en hendelseslogg (`src/engine/inventory.ts`). Sletting av h
 | Hvem | Til hva | Hvordan |
 | --- | --- | --- |
 | Husstandens medlemmer | Husstandens egne data (alle voksne kan se og endre alt, også andres avkrysninger og planen) | Gjennom appen, med enhetstoken (ingen konto) |
-| Driftsansvarlig (navngitt person) | Servere og databasefil, ved feilretting | Personlig tilgang, nøkkel eller to-faktor, ingen delte passord. Tilgang logges der det er mulig |
+| Driftsansvarlig (rollen «Admin») | Servere og databasefil, ved feilretting | Personlig tilgang, nøkkel eller to-faktor, ingen delte passord. Tilgang logges der det er mulig |
 | Utvikler | Kode og testdata, **ikke** produksjonsdata som hovedregel | Feilsøking i produksjon bare når nødvendig og dokumentert |
 | Redaktør (oppskrifter, varekoblinger) | Katalog, ikke husstandsdata | Egen rolle uten tilgang til husstander |
 | Hostingleverandør (databehandler) | Teknisk tilgang til infrastruktur | Underlagt databehandleravtale |
@@ -113,7 +113,7 @@ Prinsipp: minst mulig tilgang, navngitte personer, og en liste over hvem som har
 
 ## 6. Lokal lagring i nettleseren
 
-Appen lagrer hele sin tilstand (plan, innstillinger, **kostkrav og postnummer**, beholdning, handleliste, utboks) under nøkkelen `middag-state-v1` i `localStorage`, og en tilfeldig enhets-id under `middag-enhet`, for at den skal virke uten nett. **Når enheten er med i en husstand, ligger også enhetstokenet i klartekst i `middag-state-v1`.** Det betyr at skadelig kode i appen (XSS) som kan lese `localStorage` får full tilgang til husstanden, og at den som har tilgang til en ulåst telefon eller nettleserprofil har det samme. Tokenet har glidende utløp (slutter å virke etter 180 dager uten bruk, `SYNC_TOKEN_IDLE_DAYS`), men roteres ikke; en tapt enhet må fjernes av eieren. Sikkerhetsgjennomgangen (`docs/sikkerhet.md`, hvis den foreligger) og et CSP-hode foran appen er tiltak som ikke er på plass i dette dokumentets versjon.
+Appen lagrer hele sin tilstand (plan, innstillinger, **kostkrav og postnummer**, beholdning, handleliste, utboks) under nøkkelen `middag-state-v1` i `localStorage`, og en tilfeldig enhets-id under `middag-enhet`, for at den skal virke uten nett. **Når enheten er med i en husstand, ligger også enhetstokenet i klartekst i `middag-state-v1`.** Det betyr at skadelig kode i appen (XSS) som kan lese `localStorage` får full tilgang til husstanden, og at den som har tilgang til en ulåst telefon eller nettleserprofil har det samme. Tokenet har glidende utløp (slutter å virke etter 730 dager uten bruk, `SYNC_TOKEN_IDLE_DAYS`; en mistet telefon har altså gyldig nøkkel i opptil to år til eieren fjerner den), men roteres ikke; en tapt enhet må fjernes av eieren. Sikkerhetsgjennomgangen (`docs/sikkerhet.md`, hvis den foreligger) og et CSP-hode foran appen er tiltak som ikke er på plass i dette dokumentets versjon.
 
 Lagring av opplysninger i brukerens utstyr er regulert av ekomloven (samtykke kreves som hovedregel, med unntak for lagring som er strengt nødvendig for en tjeneste brukeren ber om). Hvilken paragraf og om vår bruk faller under unntaket, må verifiseres. Vi bruker ingen sporings- eller annonseinformasjonskapsler, ingen informasjonskapsler i det hele tatt (tokenet sendes i `Authorization`-hodet), og bør ikke innføre det uten ny vurdering. Appen viser i dag ingen lenke til personvernerklæringen (ingen treff på «personvern» i `src/`): den må på plass før piloten.
 
@@ -135,7 +135,7 @@ Lagring av opplysninger i brukerens utstyr er regulert av ekomloven (samtykke kr
 **Kjente svakheter i dagens løsning (fra `docs/synk.md` og koden), relevante for personvern:**
 
 1. **Fjernede medlemmer beholdes som rad** (offentlig id, etikett, uten token) til husstanden slettes, og hendelsene deres blir i loggen. Etiketten kan være et navn. Fjerning bør derfor også tømme etiketten, og en rutine for å slette gamle fjernede rader trengs. *Sikkerhetsøkten kan rette dette.*
-2. **Token i `localStorage`**, ingen utløp (se avsnitt 6).
+2. **Token i `localStorage`**, glidende utløp etter 730 dager uten bruk, ingen rotasjon (se avsnitt 6).
 3. **Etiketter og manuelle linjer er fritekst** og kan inneholde navn eller opplysninger om helse. Validerer lengde og kontrolltegn, ikke innhold.
 4. **Ingen automatisk sletting etter inaktivitet, ingen kvoter, ingen komprimering av loggen.**
 5. **Alle voksne kan alt** og det finnes ingen historikk over hvem som endret plan og innstillinger (serveren lagrer bare siste endrer).
@@ -146,7 +146,7 @@ Lagring av opplysninger i brukerens utstyr er regulert av ekomloven (samtykke kr
 
 **Åpne punkter som krever eier eller fagperson:**
 
-1. Behandlingsansvarlig og kontaktadresse.
+1. Kontaktadresse (e-post) for personvern. Behandlingsansvarlig og forretningsadresse er avklart (avsnitt 1).
 2. Juridisk avklaring av art. 9: gjelder det kostkrav lagret bare på brukerens enhet, og er indirekte avledning fra plan/handleliste/fritekst nok til å regne husstandsdata som særlige kategorier?
 3. Oppbevaringstider og om automatisk sletting etter inaktivitet skal bygges før piloten.
 4. Valg av hosting (påvirker underleverandører og overføringer), og om leverandøren logger IP.

@@ -8,7 +8,7 @@
 - **Gratis** for vanlige henvendelser.
 - **Ikke samle mer data for å oppfylle en rettighet.** Vi har få data om hvem personen er. Identitet bekreftes med det vi allerede har (se avsnitt 3).
 - Hver henvendelse føres i et enkelt register (dato mottatt, type, hvem som behandlet, dato besvart, utfall). Ikke lagre selve dataene i registeret.
-- **Ansvarlig for rutinen:** AVVR AS (behandlingsansvarlig); den som svarer: [navn, ikke bestemt]. **Postkasse:** **[UAVKLART: e-postadresse ikke bestemt]**.
+- **Ansvarlig for rutinen:** AVVR AS (behandlingsansvarlig); den som svarer og responstid: **UAVKLART** (ikke bestemt). **Postkasse:** **[UAVKLART: e-postadresse ikke bestemt]**.
 
 ## 2. Typer henvendelser
 
@@ -78,7 +78,7 @@ Kontrollert mot koden (`server/sync/api.ts`, `server/storage/sqlite.ts`, `src/vi
 
 Et personvernbrudd er brudd på sikkerheten som fører til utilsiktet tap, endring eller utlevering av personopplysninger. Slik går vi frem (må verifiseres):
 
-1. Den som oppdager det, varsler **driftsansvarlig («Admin»; [navn])** med en gang. Skriv ned tidspunkt, hva som skjedde og hva som er berørt.
+1. Den som oppdager det, varsler **driftsansvarlig («Admin», rolle)** med en gang. Skriv ned tidspunkt, hva som skjedde og hva som er berørt.
 2. Stans lekkasjen (rotér nøkler og tokens, ta ned tjenesten om nødvendig). Behold bevis.
 3. Vurder risiko for de registrerte. Hvis bruddet sannsynligvis innebærer en risiko, meld til **Datatilsynet uten ugrunnet opphold og om mulig innen 72 timer** (art. 33, må verifiseres).
 4. Er risikoen **høy** (f.eks. kostkrav eller helseopplysninger er lekket), varsle også de registrerte (art. 34, må verifiseres).
