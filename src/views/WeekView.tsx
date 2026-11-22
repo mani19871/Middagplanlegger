@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Alternatives, Basket } from '../engine/types';
 import {
-  budgetAnswer, budgetSuggestions, dealsFor, lockedViolations, recipeTags, requirementViolation, slotViolations, swapOptions,
+  budgetAnswer, budgetSuggestions, dealsFor, lockedViolations, portionsOnDay, recipeTags, requirementViolation, slotViolations, swapOptions,
   type Ctx, type LockedViolation,
 } from '../engine/planner';
 import { ALLERGEN_LABEL } from '../engine/allergens';
@@ -50,12 +50,25 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const { settings, slots } = state;
   const [sheet, setSheet] = useState<number | null>(null);
   const [pick, setPick] = useState<string | null>(null);
-  /** Låste retter som ble sluppet ut ved siste «Lag ukeplan»/«Lag ny uke» fordi de bryter et absolutt krav. */
-  const [dropped, setDropped] = useState<{ v: LockedViolation; name: string; why: string }[]>([]);
-  const regen = () => {
-    setDropped(lockedViolations(slots, ctx).map((v) => ({ v, name: recipe(v.recipeId).name, why: requirementText(v, ctx) })));
-    regenerate();
+  /**
+   * Låste retter som `generatePlan` slipper ut: brudd på absolutte krav, eller dagen er slått av / ingen spiser hjemme.
+   * `future`: varsel før «Lag ukeplan»; ellers etter. Beregnes fra planen og innstillingene FØR ny plan lages.
+   */
+  const lockNotes = (future: boolean): string[] => {
+    const broken = lockedViolations(slots, ctx);
+    const off = slots.filter((x) => x.locked && !broken.some((v) => v.day === x.day)
+      && (!settings.days[x.day]?.enabled || portionsOnDay(settings, x.day) <= 0));
+    const head = (id: string, day: number) => `Låst rett ${recipe(id).name} (${DAYS[day].toLowerCase()})`;
+    return [
+      ...broken.map((v) => `${head(v.recipeId, v.day)} ${future ? `bryter ${requirementText(v, ctx)} og blir fjernet når du lager ukeplan` : `ble fjernet fordi den bryter ${requirementText(v, ctx)}`}.`),
+      ...off.map((x) => {
+        const why = settings.days[x.day]?.enabled ? 'ingen spiser hjemme den dagen' : 'dagen er slått av';
+        return `${head(x.recipeId, x.day)} ${future ? `blir fjernet når du lager ukeplan fordi ${why}` : `ble fjernet fordi ${why}`}.`;
+      }),
+    ];
   };
+  const [dropped, setDropped] = useState<string[]>([]);
+  const regen = () => { setDropped(lockNotes(false)); regenerate(); };
   /** En rett låses aldri automatisk hvis den bryter et absolutt krav (allergi, kost, råvare). */
   const lockable = (id: string) => requirementViolation(recipe(id), ctx) === null;
   const broken = slotViolations(slots, ctx);
@@ -76,7 +89,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
 
   if (slots.length === 0 || mode === 'edit') {
     return <PlanForm state={state} update={update} hasPlan={slots.length > 0} chains={chainOptions(ctx)}
-      lockWarnings={lockedViolations(slots, ctx).map((v) => `Låst rett ${recipe(v.recipeId).name} (${DAYS[v.day].toLowerCase()}) bryter ${requirementText(v, ctx)} og blir fjernet når du lager ukeplan.`)}
+      lockWarnings={lockNotes(true)}
       onDone={() => { regen(); setMode('plan'); }} />;
   }
   const answer = budgetAnswer(basket, settings.budgetOre);
@@ -91,7 +104,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
     <>
       {dropped.length > 0 && (
         <div className="banner warn" role="alert">
-          {dropped.map((d) => <p key={d.v.day}>⚠ Låst rett {d.name} ({DAYS[d.v.day].toLowerCase()}) ble fjernet fordi den bryter {d.why}.</p>)}
+          {dropped.map((d) => <p key={d}>⚠ {d}</p>)}
           <button className="ghost sm" onClick={() => setDropped([])}>OK</button>
         </div>
       )}
