@@ -13,3 +13,6 @@ Ikke med ennå: konto/deling mellom to voksne, ekte prisimport, KI (fase 3), egn
 ## Live tilbud (Tjek)
 `npm run build && npm run server` (bak proxy: `NODE_USE_ENV_PROXY=1`) starter appen og tilbudsserveren på http://localhost:8787.
 Under `npm run dev` proxyes `/api` til serveren (start den i en egen terminal). Tilbud holdes bare i minnet i seks timer.
+
+## Drift
+Beslutningsguide for hosting: `docs/hosting.md` (utkast). Docker: `docker build -t middagsplanlegger .` og `docker run -p 127.0.0.1:8787:8787 -v middag-data:/data middagsplanlegger` (miljøvariabler i `docs/hosting.md`). CI (`.github/workflows/ci.yml`) typesjekker, tester og bygger; den deployer ikke. Personverndokumenter (utkast, ikke juridisk rådgivning): `docs/personvern/`.
