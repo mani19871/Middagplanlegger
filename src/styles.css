@@ -72,7 +72,7 @@ header { display:flex; justify-content:space-between; align-items:center; }
 .cvr { display:flex; flex-direction:column; justify-content:flex-end; gap:4px; min-height:150px; padding:12px; color:#fff; } .cvr b { font-size:1.3rem; line-height:1.1; } .cvr small { opacity:.9; }
 .cap { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; font-size:.9rem; } .cap small { color:var(--mut); }
 .coverbig { border-radius:18px; min-height:200px; display:flex; flex-direction:column; justify-content:flex-end; padding:18px; color:#fff; margin:8px 0; } .coverbig b { font-size:2rem; }
-.tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; } .tile { position:relative; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; text-align:left; display:flex; flex-direction:column; gap:2px; }
+.tiles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } .tile { min-width:0; overflow-wrap:anywhere; } .offergroup h3 { margin:14px 0 6px; } .tile { position:relative; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; text-align:left; display:flex; flex-direction:column; gap:2px; }
 .price { color:#b4532a; font-weight:800; font-size:1.3rem; } .plus { position:absolute; right:10px; bottom:10px; background:#b4532a; color:#fff; border-radius:50%; width:30px; height:30px; display:grid; place-items:center; }
 .big { font-size:1.4rem; } .center { text-align:center; } .wide { width:100%; }
 .chips.tabs { margin:10px 0; }

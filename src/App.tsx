@@ -47,6 +47,7 @@ export default function App() {
   const statusText = status === 'venter' && pending > 0 ? `${STATUS_TEXT.venter} (${pending} endring${pending === 1 ? '' : 'er'} lagret her)` : STATUS_TEXT[status];
   const docConflicts = state.sync ? Object.keys(state.sync.conflicts).length : 0;
   const [mode, setMode] = useState<Mode>('home');
+  const [papersReset, setPapersReset] = useState(0); // trykk på aktiv fane nullstiller åpen utgave/detalj
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
   const kids = state.settings.eaters.length - adults;
   const [hints, setHints] = useState<OfferHint[]>([]);
@@ -105,7 +106,7 @@ export default function App() {
         {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
-        {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} />}
+        {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} />}
         {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} />}
         {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
           purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
@@ -119,7 +120,7 @@ export default function App() {
         e.preventDefault(); setTab(TABS[next]); document.getElementById(`tab-${TABS[next]}`)?.focus();
       }}>
         {TABS.map((t) => (
-          <button key={t} id={`tab-${t}`} role="tab" aria-selected={tab === t} aria-controls="panel" tabIndex={tab === t ? 0 : -1} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
+          <button key={t} id={`tab-${t}`} role="tab" aria-selected={tab === t} aria-controls="panel" tabIndex={tab === t ? 0 : -1} className={tab === t ? 'on' : ''} onClick={() => { if (t === tab) setPapersReset((n) => n + 1); setTab(t); }}>
             <span aria-hidden>{icons[t]}</span><span>{t}</span></button>
         ))}
       </nav>

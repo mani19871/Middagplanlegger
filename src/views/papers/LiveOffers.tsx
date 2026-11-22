@@ -1,0 +1,57 @@
+import { useEffect, useMemo, useState } from 'react';
+import type { LiveResponse } from '../../offers/client';
+import type { LiveOffer } from '../../offers/service';
+import { amount, kr } from '../../engine/format';
+import { ING_EMOJI } from '../art';
+import { filterOffers, groupOffers, pageGroups, PAGE_SIZE, type GroupBy } from './offerList';
+
+interface Props {
+  live: LiveResponse | null; err: boolean; ingName: (id: string) => string; onPick: (l: LiveOffer) => void;
+}
+const dm = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
+
+/** «Tilbud nå»: live tilbud (lagres aldri), gruppert per kjede eller vare, med søk og «Vis flere». */
+export default function LiveOffers({ live, err, ingName, onPick }: Props) {
+  const [q, setQ] = useState('');
+  const [by, setBy] = useState<GroupBy>('kjede');
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  useEffect(() => setVisible(PAGE_SIZE), [q, by]);
+  const filtered = useMemo(() => filterOffers(live?.offers ?? [], q, ingName), [live, q, ingName]);
+  const page = useMemo(() => pageGroups(groupOffers(filtered, by, ingName), visible), [filtered, by, ingName, visible]);
+  return (
+    <>
+      <div className="row-field"><input style={{ flex: 1, width: 'auto' }} aria-label="Søk i tilbud" placeholder="🔍 Søk i tilbud" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="chips tabs" role="group" aria-label="Grupper tilbud">
+        <button className={by === 'kjede' ? 'chip on' : 'chip'} aria-pressed={by === 'kjede'} onClick={() => setBy('kjede')}>Per kjede</button>
+        <button className={by === 'vare' ? 'chip on' : 'chip'} aria-pressed={by === 'vare'} onClick={() => setBy('vare')}>Per vare</button>
+      </div>
+      {err && <div className="banner warn">Fikk ikke kontakt med tilbudsserveren. Start den med <code>npm run server</code>, eller se «Aviser (demo)».</div>}
+      {!err && (!live || live.status === 'loading') && <p className="card">Henter tilbud … det kan ta et halvt minutt første gang.</p>}
+      {live?.status === 'error' && <div className="banner warn">Tilbudskilden svarte ikke ({live.error}). Prøver igjen ved neste besøk.</div>}
+      {live?.status === 'ok' && (
+        <p className="fine" role="status">Kilde: Tjek (ekte tilbud, ikke demodata). Lest {new Date(live.observed!).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}.
+          {' '}Viser {page.shown} av {page.total} tilbud koblet til varer i oppskriftene{q.trim() ? ` (søk: «${q.trim()}»)` : ''}. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</p>
+      )}
+      {live?.status === 'ok' && page.total === 0 && <p className="card">Ingen tilbud passer søket.</p>}
+      {page.groups.map((g) => (
+        <section key={g.key} className="offergroup" aria-label={g.label}>
+          <h3>{g.label} <small className="fine">({g.items.length})</small></h3>
+          <div className="tiles">
+            {g.items.map((l) => (
+              <button key={l.offer.id} className="tile" onClick={() => onPick(l)}>
+                <span className="bigemoji" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>
+                <b>{l.offer.heading}</b><small>{by === 'kjede' ? ingName(l.ingredient) : l.offer.dealerName}</small>
+                <span className="price">{l.offer.priceOre !== null ? kr(l.offer.priceOre) : 'Pris ukjent'}</span>
+                <small>{l.offer.amount ? amount(l.offer.amount, l.offer.unit ?? 'g') : 'mengde ukjent'}{l.unitPriceOre !== null && l.offer.unit ? ` · ${kr(l.unitPriceOre)}/${l.offer.unit === 'g' ? 'kg' : 'l'}` : ''}</small>
+                <small>{l.phase === 'nå' ? `til ${dm(l.offer.validUntil)}` : `fra ${dm(l.offer.validFrom)}`}{l.needsReview ? ' · må kontrolleres' : ''}</small>
+                <span className="plus" aria-hidden>＋</span></button>
+            ))}
+          </div>
+        </section>
+      ))}
+      {page.shown < page.total && (
+        <button className="ghost wide" onClick={() => setVisible((v) => v + PAGE_SIZE)}>Vis flere ({page.total - page.shown} igjen)</button>
+      )}
+    </>
+  );
+}

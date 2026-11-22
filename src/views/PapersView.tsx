@@ -9,15 +9,20 @@ import { DAYS, kr } from '../engine/format';
 import { ING_EMOJI } from './art';
 import { dayDate, editionInPeriod, isoDate, weekStart } from './dates';
 import ReviewView from './ReviewView';
+import LiveOffers from './papers/LiveOffers';
+import { hasManualLine, manualLineId, offerKey } from './papers/offerList';
+import { manualLines } from '../sync/list';
 
-interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void }
+interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void;
+  /** Økes av App når brukeren trykker på den aktive fanen: lukker åpen utgave eller tilbudsdetalj. */
+  resetKey?: number }
 type View = 'Hele Norge' | 'Nær meg' | 'Mine butikker';
 const COVERS = ['#1f5a46', '#b4532a', '#2b5d6b', '#6b4a2b', '#4b3a63'];
 const cover = (id: string) => COVERS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COVERS.length];
 const period = (e: Edition) => `${e.validFrom.slice(8)}.–${e.validTo.slice(8)}.${e.validTo.slice(5, 7)}.`;
 const place = (e: Edition) => (e.scope === 'nasjonal' ? 'Hele landet' : e.scope === 'regional' ? 'Regional utgave' : 'Lokal utgave');
 
-export default function PapersView({ state, update, ctx, goWeek }: Props) {
+export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }: Props) {
   const [view, setView] = useState<View>('Hele Norge');
   const [q, setQ] = useState('');
   const [when, setWhen] = useState<'denne' | 'kommende'>('denne');
@@ -28,7 +33,9 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
   const [mode, setMode] = useState<'live' | 'aviser' | 'kontroll'>('live');
   const [live, setLive] = useState<LiveResponse | null>(null);
   const [liveErr, setLiveErr] = useState(false);
-  const [lq, setLq] = useState('');
+  const [liveId, setLiveId] = useState<string | undefined>();
+  const [justAdded, setJustAdded] = useState(false);
+  useEffect(() => { if (resetKey > 0) { setEdition(null); setOffer(null); setRecipeId(''); setDay(-1); setLiveId(undefined); setJustAdded(false); } }, [resetKey]);
 
   useEffect(() => {
     if (mode !== 'live') return;
@@ -47,6 +54,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
   }, [mode]);
   const pickLive = (l: LiveOffer) => {
     const o = l.offer;
+    setLiveId(o.id); setJustAdded(false);
     const pack = o.amount ? amount(o.amount, o.unit ?? 'g') : o.pieces ? `${o.pieces} stk` : 'mengde ukjent';
     const terms = `Gyldig ${o.validFrom.slice(8, 10)}.${o.validFrom.slice(5, 7)}.–${o.validUntil.slice(8, 10)}.${o.validUntil.slice(5, 7)}.${o.prePriceOre ? ` Før ${kr(o.prePriceOre)}.` : ''}`;
     setEdition({ id: o.dealerId, sender: o.dealerName, title: 'Tilbud', scope: 'nasjonal', validFrom: o.validFrom.slice(0, 10), validUntil: o.validUntil.slice(0, 10), validTo: o.validUntil.slice(0, 10), branch: 'dagligvare', rights: 'lenke' } as unknown as Edition);
@@ -60,8 +68,17 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
     const days = state.slots.map((s) => s.day);
     const d = day >= 0 && days.includes(day) ? day : days[0];
     const start = weekStart();
-    const back = () => { setOffer(null); setRecipeId(''); setDay(-1); };
-    const addManual = () => { const st = stamp(); update((s) => recordList(s, { type: 'manuell', ...st, line: { id: st.id, text: offer.text.slice(0, 200), note: `${edition.sender}, ${kr(offer.priceOre)}`.slice(0, 200) } })); };
+    const back = () => { setOffer(null); setRecipeId(''); setDay(-1); setLiveId(undefined); setJustAdded(false); };
+    const key = offerKey(offer, liveId);
+    const already = hasManualLine(manualLines(state.list), key);
+    // Idempotent per tilbud: er tilbudet allerede lagt i handlelista (og ikke fjernet), legges det ikke til på nytt.
+    const addManual = () => {
+      if (already) return;
+      const st = stamp();
+      update((s) => hasManualLine(manualLines(s.list), key) ? s
+        : recordList(s, { type: 'manuell', ...st, line: { id: manualLineId(key, st.id), text: offer.text.slice(0, 200), note: `${edition.sender}, ${kr(offer.priceOre)}`.slice(0, 200) } }));
+      setJustAdded(true);
+    };
     return (
       <>
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={back}>←</button><h2>Bruk tilbudet</h2><span /></div>
@@ -82,7 +99,8 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
           update((s) => ({ ...s, approved: false, slots: s.slots.map((x) => (x.day === d ? { ...x, recipeId: rid!, locked: true } : x)) }));
           back(); setEdition(null); goWeek();
         }}>Legg i ukeplan</button>
-        <button className="ghost wide" onClick={() => { addManual(); back(); }}>Bare legg i handlelista</button>
+        <button className="ghost wide" disabled={already} onClick={addManual}>{already ? '✓ Allerede i handlelista' : 'Bare legg i handlelista'}</button>
+        <p className="fine" role="status">{already ? (justAdded ? 'Lagt i handlelista under «Fra kundeaviser (ikke kontrollert)».' : 'Dette tilbudet ligger allerede i handlelista. Fjern det der for å legge det til på nytt.') : ''}</p>
         <p className="fine">Tilbudsprisen regnes ikke inn i summen før vare, pris, omfang og vilkår er kontrollert. Linjen i handlelista er merket «ikke kontrollert».</p>
       </>
     );
@@ -101,7 +119,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
         {eOffers.length === 0 && <p className="fine">Ingen tilbud er koblet til varer i denne utgaven ennå. Du kan fortsatt lese den hos kjeden.</p>}
         <div className="tiles">
           {eOffers.map((o) => (
-            <button key={o.text} className="tile" onClick={() => { setOffer(o); setRecipeId(''); }}>
+            <button key={o.text} className="tile" onClick={() => { setOffer(o); setRecipeId(''); setLiveId(undefined); setJustAdded(false); }}>
               <span className="bigemoji" aria-hidden>{ING_EMOJI[o.ingredient] ?? '🛒'}</span>
               <b>{o.text}</b><span className="price">{kr(o.priceOre)}</span><small>{o.terms}</small><span className="plus" aria-hidden>＋</span></button>
           ))}
@@ -110,6 +128,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
     );
   }
 
+  const ingName = (id: string) => ctx.catalog.ingredients.find((i) => i.id === id)?.name ?? id;
   const today = isoDate(new Date());
   const inPeriod = (e: Edition) => editionInPeriod(e, when, today);
   const local = (e: Edition) => e.scope === 'nasjonal' || (e.postalPrefixes ?? []).some((p) => state.postal.startsWith(p));
@@ -127,30 +146,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
         <button className={mode === 'kontroll' ? 'chip on' : 'chip'} onClick={() => setMode('kontroll')}>Kontroll</button>
       </div>
       {mode === 'kontroll' && <ReviewView ingredients={ctx.catalog.ingredients} />}
-      {mode === 'live' && (() => {
-        const ingName = (id: string) => ctx.catalog.ingredients.find((i) => i.id === id)?.name ?? id;
-        const list = (live?.offers ?? []).filter((l) => `${l.offer.heading} ${l.offer.dealerName} ${ingName(l.ingredient)}`.toLowerCase().includes(lq.toLowerCase()));
-        return (
-          <>
-            <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk i tilbud" value={lq} onChange={(e) => setLq(e.target.value)} /></div>
-            {liveErr && <div className="banner warn">Fikk ikke kontakt med tilbudsserveren. Start den med <code>npm run server</code>, eller se «Aviser (demo)».</div>}
-            {!liveErr && (!live || live.status === 'loading') && <p className="card">Henter tilbud … det kan ta et halvt minutt første gang.</p>}
-            {live?.status === 'error' && <div className="banner warn">Tilbudskilden svarte ikke ({live.error}). Prøver igjen ved neste besøk.</div>}
-            {live?.status === 'ok' && <p className="fine">Kilde: Tjek. Lest {new Date(live.observed!).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}. {list.length} tilbud koblet til varer i oppskriftene. Tilbud regnes ikke inn i summen før vilkår er kontrollert.</p>}
-            <div className="tiles">
-              {list.map((l) => (
-                <button key={l.offer.id} className="tile" onClick={() => pickLive(l)}>
-                  <span className="bigemoji" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>
-                  <b>{l.offer.heading}</b><small>{l.offer.dealerName}</small>
-                  <span className="price">{l.offer.priceOre !== null ? kr(l.offer.priceOre) : 'Pris ukjent'}</span>
-                  <small>{l.offer.amount ? amount(l.offer.amount, l.offer.unit ?? 'g') : 'mengde ukjent'}{l.unitPriceOre !== null && l.offer.unit ? ` · ${kr(l.unitPriceOre)}/${l.offer.unit === 'g' ? 'kg' : 'l'}` : ''}</small>
-                  <small>{l.phase === 'nå' ? `til ${l.offer.validUntil.slice(8, 10)}.${l.offer.validUntil.slice(5, 7)}.` : `fra ${l.offer.validFrom.slice(8, 10)}.${l.offer.validFrom.slice(5, 7)}.`}{l.needsReview ? ' · må kontrolleres' : ''}</small>
-                  <span className="plus" aria-hidden>＋</span></button>
-              ))}
-            </div>
-          </>
-        );
-      })()}
+      {mode === 'live' && <LiveOffers live={live} err={liveErr} ingName={ingName} onPick={pickLive} />}
       {mode === 'aviser' && (<>
       <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk etter kjede eller sted" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="chips tabs">
