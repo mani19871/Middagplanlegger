@@ -1,7 +1,8 @@
 node_modules
 dist
 phase0/*/out/
-data/
+# Databasekatalogen (DATA_DIR) i rota, ikke src/data/ (kildekode).
+/data/
 dist-server
 .env.drift
 docs/drift/backup/

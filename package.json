@@ -17,6 +17,7 @@
     "check:pwa": "npm run build && node scripts/checks/pwa.cjs",
     "check:csp": "npm run build && node scripts/checks/csp.cjs",
     "e2e:sync": "vite build && node scripts/e2e-sync.mjs",
+    "check:git": "node scripts/checks/git-clean.mjs",
     "check:backup": "node scripts/checks/backup-restore.mjs",
     "check:prod": "npm run build && npm run build:server && npm run smoke:server && BUILT_SERVER=1 node scripts/checks/csp.cjs && BUILT_SERVER=1 node scripts/checks/pwa.cjs && BUILT_SERVER=1 node scripts/e2e-sync.mjs"
   },

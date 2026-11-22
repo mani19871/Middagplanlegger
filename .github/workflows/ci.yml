@@ -45,6 +45,8 @@ jobs:
         run: npm run check:contrast
       - name: Bygg
         run: npx vite build
+      - name: Ingen usporede eller ignorerte kildefiler etter bygg
+        run: npm run check:git
       - name: Bygg serveren (esbuild, ren JavaScript)
         run: npm run build:server
       - name: Røyktest av produksjonsbygget (node, uten tsx)

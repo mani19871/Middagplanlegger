@@ -20,7 +20,7 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Nye regler i motoren krever test i `src/engine/planner.test.ts` (se regresjonslisten i planen).
 - Ikke bygg funksjoner fra senere faser uten å bli bedt om det (KI = fase 3, egne apper = fase 3).
 - Fase 0 er en port: uten dokumentert dekning bygger vi ikke videre som planlagt. Rapporter funn ærlig, også når dekningen er dårlig.
-- Commit på brukerens utviklingsbranch. Ikke lag PR uten å bli bedt om det.
+- Commit på brukerens utviklingsbranch. Ikke lag PR uten å bli bedt om det. Kjør `npm run check:git` før push: den feiler på usporede eller ignorerte filer under `src/`, `server/`, `scripts/`, `public/` (`.gitignore` ignorerer bare `/data/` i rota).
 
 ## Tilbudskilder (`src/offers/`)
 - Eksterne tilbud går gjennom `OfferSource` og normaliseres til øre og standardenheter. Planmotoren kjenner ikke kildene.
