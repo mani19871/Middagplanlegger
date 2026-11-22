@@ -13,3 +13,6 @@ Referanse: repoet olgasafonova/tilbudstrolden-mcp (MIT), `src/api.ts` og `src/of
 
 ## Kjøring
 `NODE_USE_ENV_PROXY=1 node phase0/tjek-probe/probe.mjs` (proxy-flagget trengs bare bak proxy). Ett kall per sekund, generisk User-Agent, ingen personopplysninger. Stopper ved 401/403 i stedet for å prøve å komme rundt. Utdata: `out/coverage.json` og `out/coverage.md` (bare aggregater; `out/` er ikke i git).
+
+## Formprøve (2026-11-22)
+`form-probe.ts` og `form-probe-oppfolging.ts` prøver formen på søk, kataloger, sider, bildeverter, paginering og svarhoder (25 kall, ≥1 s mellom, stopp ved 401/403/429). Kjøring: `NODE_USE_ENV_PROXY=1 npx tsx phase0/tjek-probe/form-probe.ts`, deretter `… form-probe-oppfolging.ts 14` (antall kall brukt før; samlet tak 40). Bare felt, typer, antall og vertsnavn skrives til skjermen; ingenting lagres. Resultat: `../tjek-formprøve.md`.

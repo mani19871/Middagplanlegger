@@ -4,6 +4,12 @@
 import type { Unit } from '../engine/types';
 import type { Catalog, CatalogPage, Dealer, NormalizedOffer, OfferQuery, OfferSource } from './types';
 
+/**
+ * Formen er prøvd mot ekte svar 2026-11-22 (phase0/tjek-formprøve.md): alle feltene under fantes i alle 413 treff.
+ * `description` er en streng (ofte tom), `quantity.size`/`pieces`/`unit` er alltid med, tidspunkter har sone «+0000».
+ * Svarene har også felt vi ikke leser (bl.a. `catalog_id`, `catalog_page`, `category_ids` som var tom i alle treff,
+ * `links.webshop` og kjedelogoer i `branding`/`dealer`; logoer brukes ikke før Tjek bekrefter at de er med).
+ */
 export interface RawTjekOffer {
   id: string;
   heading: string;
@@ -66,7 +72,11 @@ function readAmount(q: RawTjekOffer['quantity']): { amount: number | null; unit:
 export function parseTjekOffer(raw: RawTjekOffer, observed: string): NormalizedOffer {
   const { amount, unit } = readAmount(raw.quantity);
   const sym = raw.quantity?.unit?.symbol?.toLowerCase();
-  const pieces = sym === 'pcs' || sym === 'stk' ? exact(raw.quantity?.size) : exact(raw.quantity?.pieces);
+  // «pcs»: antallet står i `size`. Med `pieces` over 1 er det flere pakker à `size` stykk (formprøven: f.eks. 2 × 8); hva
+  // prisen da gjelder, vet vi ikke, så antallet er ukjent og tilbudet går til kontroll. Vektvarer med pieces > 1 merkes som
+  // flerpakning i match.ts.
+  const packs = exact(raw.quantity?.pieces);
+  const pieces = sym === 'pcs' || sym === 'stk' ? (packs !== null && packs > 1 ? null : exact(raw.quantity?.size)) : packs;
   // Pris i annen valuta enn NOK kan ikke regnes om til øre her: ukjent pris (tilbudet går til kontroll).
   const nok = !raw.pricing?.currency || raw.pricing.currency.toUpperCase() === 'NOK';
   return {
@@ -79,9 +89,11 @@ export function parseTjekOffer(raw: RawTjekOffer, observed: string): NormalizedO
   };
 }
 
-// Kundeaviser (kataloger) og sider. MERK: formen under (`/v2/catalogs`, `/v2/catalogs/:id/pages`, feltene) er ikke prøvd mot
-// ekte svar fra Tjek i dette prosjektet (docs/synk.md, «Kundeaviser fra Tjek»). Tolkningen er derfor forsiktig: ukjent form
-// gir ingen katalog eller tomme bildeadresser, aldri en feil i appen.
+// Kundeaviser (kataloger) og sider. Formen (`/v2/catalogs`, `/v2/catalogs/:id/pages`, feltene under) er prøvd mot ekte svar
+// 2026-11-22 (phase0/tjek-formprøve.md): lista har `id`, `label` (kan være tom), `branding.name`, `dealer.name`,
+// `dealer.country.id`, `run_from`/`run_till` med sone og `page_count`; `pages` i lista har tomme arrayer, så sidene hentes
+// for seg som en liste med `thumb`/`view`/`zoom`. `country_id` filtrerer ikke (lista har andre land), så vi filtrerer selv.
+// Tolkningen er fortsatt forsiktig: ukjent form gir ingen katalog eller tomme bildeadresser, aldri en feil i appen.
 const CATALOG_ID = /^[A-Za-z0-9_-]{1,64}$/;
 type Rec = Record<string, unknown>;
 const rec = (v: unknown): Rec | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null);
@@ -112,6 +124,9 @@ export function parseTjekPages(raw: unknown): CatalogPage[] {
   }
   return out;
 }
+
+/** Høyeste `limit` Tjek godtar (formprøven: 100 ga 100 treff, 250 ga HTTP 400). */
+export const TJEK_MAX_LIMIT = 100;
 
 type Fetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
@@ -144,7 +159,9 @@ export class TjekSource implements OfferSource {
 
   async searchOffers(q: OfferQuery): Promise<NormalizedOffer[]> {
     const limit = q.limit ?? 20;
-    const params: Record<string, string> = { query: q.query, country_id: q.country, limit: String(limit * 3) };
+    // `country_id` filtrerer ikke søket (formprøven: 98 av 413 treff var norske, mange søk hadde 100 treff med 12–18 norske),
+    // så vi ber om Tjeks maks i ett kall og filtrerer selv. Samme antall kall som før.
+    const params: Record<string, string> = { query: q.query, country_id: q.country, limit: String(TJEK_MAX_LIMIT) };
     if (q.dealerIds?.length) params.dealer_ids = q.dealerIds.join(',');
     const raw = await this.get<RawTjekOffer[]>('/offers/search', params);
     const observed = this.now();

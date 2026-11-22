@@ -1,5 +1,5 @@
-// Tjek: produktbilder og kundeaviser (kataloger og sider). Formen på katalog- og sidesvarene er IKKE prøvd mot ekte
-// Tjek-svar (se docs/synk.md, «Kundeaviser fra Tjek»); tolkningen er derfor forsiktig: alt ukjent gir null eller ingen rad.
+// Tjek: produktbilder og kundeaviser (kataloger og sider). Formen er prøvd mot ekte svar 2026-11-22 (phase0/tjek-formprøve.md;
+// syntetisk fixture i tjek-form.test.ts); tolkningen er fortsatt forsiktig: alt ukjent gir null eller ingen rad.
 import { describe, expect, it } from 'vitest';
 import { parseTjekCatalog, parseTjekOffer, parseTjekPages, TjekSource, type RawTjekOffer } from './tjek';
 

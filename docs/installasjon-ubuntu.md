@@ -275,7 +275,7 @@ grep -c '^SYNC_SECRET=BYTT' .env.drift      # skal svare 0
 | `SYNC_SECRET=…` | 64 tegn (laget over) | Invitasjonskoder. Ikke del den, ikke lim den inn i chat |
 | `SYNC_RETENTION_DAYS=730` | 730 | Eierens valg: inaktive husstander slettes etter 730 dager |
 | `SYNC_TOKEN_IDLE_DAYS=730` | 730 | Eierens valg: innloggingen utløper etter 730 dager uten bruk |
-| `# TJEK_IMAGE_HOSTS=` | **La stå med `#` foran** (tom) | Hvilke bildeverter Tjek bruker er ikke kjent. Tom = ingen bilder. Fylles først når serverloggen viser vertene (`env.eksempel`) |
+| `# TJEK_IMAGE_HOSTS=image-transformer-api.tjek.com` | Fjern `#` når bilder og avissider fra Tjek skal vises; ellers la stå (tom = ingen bilder) | Formprøven 2026-11-22 fant bare denne verten (`phase0/tjek-formprøve.md`). Brukernes nettleser henter da bildene fra Tjek (Tjek ser IP-adressen) |
 | `TRUST_PROXY` | **Skal ikke stå i filen** | Er satt til `1` i `docker-compose.yml` for begge veier (riktig: nøyaktig én proxy foran appen). En verdi i `.env.drift` overstyrer den ikke |
 
 **Bare i vei B** legger du til to linjer nederst (fjern `#` foran dem; de står som kommentar nederst i `env.eksempel`):

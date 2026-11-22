@@ -65,7 +65,8 @@ const collectNow = () => collectOffers(source, ingredients, { country: 'NO', tod
 // Husholdningstilbud (utvidelse C): ett søk per vare i src/data/household-rules.json, i samme runde og samme kallbudsjett.
 const collectHouseNow = () => collectHousehold(source, { country: 'NO', today: oslo() });
 // Produktbilder og avissider lastes av nettleseren direkte fra Tjek, bare fra verter i TJEK_IMAGE_HOSTS (CSP img-src).
-// Tom liste: ingen bilder. Vertene er ikke bekreftet mot ekte svar her; serveren logger vertsnavn den ser som ikke er tillatt.
+// Tom liste: ingen bilder. Formprøven 2026-11-22 fant én vert, image-transformer-api.tjek.com (phase0/tjek-formprøve.md);
+// serveren logger fortsatt vertsnavn den ser som ikke er tillatt.
 const imageHosts = imageHostsFrom(process.env.TJEK_IMAGE_HOSTS);
 const withImages = (list: LiveOffer[]) => list.map((l) => ({ ...l, offer: { ...l.offer, image: allowedImage(l.offer.image, imageHosts) } }));
 const loggedHosts = new Set<string>();
