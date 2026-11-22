@@ -156,15 +156,17 @@ export const versionKey = (ingredient: string) => ingredient;
  */
 export function applyChanges(base: Basket, changes: ChangeMap, week: string, ctx: Ctx, pin: PlanVersion | null = null): AdjustedBasket {
   const products = new Map(ctx.catalog.products.map((p) => [p.id, p]));
-  const pinned = new Map((pin?.lines ?? []).map((v) => [v.key, v]));
+  // Fastholdt produkt er motorens produkt i versjonen, før brukerens valg (de legges på igjen som hendelser under).
+  const pinned = new Map([...(pin?.lines ?? []), ...(pin?.skipped ?? [])].map((v) => [v.key, v]));
   const lines: AdjustedLine[] = [];
   const skipped: AdjustedLine[] = [];
   for (const b of base.lines) {
     let l: AdjustedLine = { ...b, lineKey: '', pinned: false, change: null };
     // En godkjent liste beholder produktet sitt når motoren nå ville valgt et annet (f.eks. etter ny prisimport).
     const v = pinned.get(versionKey(b.ingredient));
-    if (v?.productId && b.storeId && v.storeId === b.storeId && v.productId !== b.productId) {
-      const u = usable(products.get(v.productId), b, b.storeId, ctx);
+    const pid = v ? (v.original ? v.original.productId : v.productId) : null;
+    if (pid && b.storeId && v!.storeId === b.storeId && pid !== b.productId) {
+      const u = usable(products.get(pid), b, b.storeId, ctx);
       if (u) l = { ...priceLine(l, u.p, u.obs, b.storeId), pinned: true };
     }
     l.lineKey = changeLineId(week, l.storeId, l.ingredient, l.productId);

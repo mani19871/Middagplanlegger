@@ -332,5 +332,12 @@ describe('historikk og planversjoner', () => {
     expect(line).toMatchObject({ productId: 'pastaFull', change: 'erstatt', original: { productId: 'pasta500', costOre: 2290 } });
     expect(h2[0].lines.find((l) => l.ingredient === 'pasta')!.productId).toBe('pasta500');
     expect(v2.reason).toBe('erstatning');
+    // Når erstatningsversjonen er den godkjente listen, holdes motorens produkt fast og valget ligger oppå: linja er
+    // fortsatt merket som erstattet, med samme linjenøkkel, og angre gir det opprinnelige produktet tilbake.
+    const pin2 = activePin(h2, W, fishWeek, true)!;
+    const shown = applyChanges(buildBasket(fishWeek, ['demoA'], c), activeChanges([e], W), W, c, pin2).lines.find((l) => l.ingredient === 'pasta')!;
+    expect(shown).toMatchObject({ productId: 'pastaFull', lineKey: changeLineId(W, 'demoA', 'pasta', 'pasta500'), change: { type: 'erstatt' } });
+    const undone = applyChanges(buildBasket(fishWeek, ['demoA'], c), activeChanges([e, undoChangeEvent(shown, W, m(4))], W), W, c, pin2);
+    expect(undone.lines.find((l) => l.ingredient === 'pasta')!.productId).toBe('pasta500');
   });
 });
