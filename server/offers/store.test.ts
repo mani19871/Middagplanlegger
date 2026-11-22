@@ -116,6 +116,22 @@ describe('SqliteOfferStore', () => {
     expect(readFileSync(path).includes(Buffer.from('households'))).toBe(false);
   });
 
+  it('lagrer bildeadressen (tekst, ikke bildet) og legger kolonnen til i en eldre database', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'tilbud-'));
+    const path = join(dir, 'tilbud.sqlite');
+    const old = new DatabaseSync(path);
+    old.exec(`CREATE TABLE offer_observations (source TEXT NOT NULL, id TEXT NOT NULL, chain TEXT NOT NULL, country TEXT NOT NULL,
+      dealer_id TEXT NOT NULL, dealer_name TEXT NOT NULL, heading TEXT NOT NULL, description TEXT, price_ore INTEGER, pre_price_ore INTEGER,
+      amount REAL, unit TEXT, pieces INTEGER, valid_from TEXT NOT NULL, valid_until TEXT NOT NULL, status TEXT NOT NULL, content TEXT NOT NULL,
+      first_observed TEXT NOT NULL, last_observed TEXT NOT NULL, PRIMARY KEY (source, id))`);
+    old.close();
+    const s = new SqliteOfferStore(path);
+    await s.record([offer('a', { image: 'https://bilder.example.test/a.jpg' }), offer('b', { image: 'javascript:x' }), offer('c', { image: `https://x.test/${'a'.repeat(600)}` })], 'NO', '2026-11-23T08:00:05.000Z');
+    const rows = await s.current({ today: '2026-11-24', observedSince: '2026-11-10', limit: 10 });
+    expect(rows.map((r) => r.image)).toEqual(['https://bilder.example.test/a.jpg', null, null]);
+    await s.close();
+  });
+
   it('tabellen har ingen husstands- eller persondata (ingen husstand, enhet, token, etikett, IP eller postnummer)', () => {
     const s = new SqliteOfferStore(':memory:');
     const db = (s as unknown as { db: DatabaseSync }).db;
