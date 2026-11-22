@@ -289,7 +289,7 @@ Betalingsvilje prøves først etter at familiene har gjennomført flere handler.
 
 - [ ] Hvilke 3–5 pilotområder (by og distrikt, flere landsdeler)?
 - [ ] Hvem tar kontakt med Tjek og med kjedene?
-- [ ] Egne oppskrifter, eller lisens fra en oppskriftsleverandør?
+- [ ] Egne oppskrifter, eller lisens fra en oppskriftsleverandør? (Eieren 2026-11-22: egne oppskrifter i omganger; research og åpne spørsmål i `docs/oppskrifter-research.md`.)
 - [ ] Skal vær i oversikten og fransk som språk kuttes? Begge er arvet fra CartBrain.
 - [ ] Skal milepæler og bidragsytere bli liggende i fase 4 eller kuttes?
 
