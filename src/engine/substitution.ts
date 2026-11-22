@@ -277,16 +277,15 @@ const withChange = (changes: ChangeMap, line: string, c: ActiveChange | null): C
  * linja trengte som tatt fra matskapet (`hjemme`); fra «bruk hjemme» til noe annet angres den. Tid, id og enhet fra kalleren.
  */
 export function homeUseEvents(before: ChangeEntry | undefined, after: ChangeEntry | undefined, basket: AdjustedBasket, week: string, meta: Base): InventoryEvent[] {
-  const isHome = (c: ChangeEntry | undefined) => c?.type === 'fant-ikke' && c.choice === 'bruk-hjemme';
-  if (isHome(after) && !isHome(before)) {
-    const l = basket.skipped.find((x) => x.lineKey === after!.line);
-    const ingredient = (after as ActiveChange).ingredient;
+  const home = (c: ListChange | ChangeEntry | undefined): c is Extract<ListChange, { type: 'fant-ikke' }> => c?.type === 'fant-ikke' && c.choice === 'bruk-hjemme';
+  // En konflikt der en av sidene var «bruk hjemme» har en registrering i matskapet som må angres hvis den ikke velges.
+  const homeBefore = home(before) ? before : before?.type === 'konflikt' ? before.heads.find(home) : undefined;
+  if (home(after) && !home(before)) {
+    const l = basket.skipped.find((x) => x.lineKey === after.line);
     if (!l || !(l.need > 0)) return [];
-    return [{ type: 'hjemme', id: meta.id, at: meta.at, by: meta.by, week, line: homeLineId(week, ingredient), ingredient, amount: l.need }];
+    return [{ type: 'hjemme', id: meta.id, at: meta.at, by: meta.by, week, line: homeLineId(week, after.ingredient), ingredient: after.ingredient, amount: l.need }];
   }
-  if (isHome(before) && !isHome(after)) {
-    return [{ type: 'angre', id: meta.id, at: meta.at, by: meta.by, line: homeLineId(week, (before as ActiveChange).ingredient) }];
-  }
+  if (homeBefore && !home(after)) return [{ type: 'angre', id: meta.id, at: meta.at, by: meta.by, line: homeLineId(week, homeBefore.ingredient) }];
   return [];
 }
 

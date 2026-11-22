@@ -1,15 +1,14 @@
 // «Utsolgt / fant ikke» i handlelista: erstatning, «fant ikke»-alternativer, prisavvik mot godkjent liste og historikk.
 // All beregning skjer i src/engine/substitution.ts; her er bare tilstand (hendelser og versjoner) og visning.
 import { useMemo } from 'react';
-import { recordEvent, recordVersion, stamp, type AppState } from '../store';
-import { enqueue } from '../sync/queue';
+import { stamp, type AppState } from '../store';
 import { whoLabel } from '../sync/labels';
-import { buildBasket, type BasketAdjust, type Ctx } from '../engine/planner';
+import * as act from '../listActions';
+import type { BasketAdjust, Ctx } from '../engine/planner';
 import type { Alternatives, Basket, BasketLine, Slot } from '../engine/types';
 import {
-  activeChanges, adjustedWeek, applyChange, applyChanges, approvalVersion, canMarkBought, changeSummary, chooseVersion, diffLines,
-  findSubstitutes, homeUseEvents, keepVersion, notFoundEvent, notFoundOptions, pinState, priceDrift, sameSlotList, snapshot,
-  substituteEvent, undoChangeEvent, versionHeads, versionsFor, withPrev,
+  applyChanges, canMarkBought, changeSummary, diffLines, findSubstitutes, notFoundEvent, notFoundOptions, sameSlotList,
+  substituteEvent, undoChangeEvent, versionsFor,
   type AdjustedBasket, type AdjustedLine, type ChangeMap, type DriftItem, type DriftReason, type LineSide, type ListChange,
   type NotFoundChoice, type PlanVersion, type VersionReason,
 } from '../engine/substitution';
@@ -31,60 +30,29 @@ export interface ChangeKit {
 }
 
 /**
- * Kurven med brukerens valg og den godkjente listens produkter, pluss handlingene som endrer dem. Alternativene
- * (én butikk / kombinasjon) regnes med de samme valgene, så alle visninger viser samme sum.
+ * Kurven med brukerens valg og den godkjente listens produkter, pluss handlingene som endrer dem (src/listActions.ts).
+ * Alternativene (én butikk / kombinasjon) regnes med de samme valgene, så alle visninger viser samme sum.
  * Hver endring lagres som en idempotent hendelse og en ny planversjon med årsak; begge deles i husstanden.
  */
 export function useChangeKit(
   state: AppState, update: (f: (s: AppState) => AppState) => void, ctx: Ctx, week: string,
 ): { alts: Alternatives; basket: AdjustedBasket; activeStores: string[]; kit: ChangeKit } {
-  const log = useMemo(() => state.listChanges ?? [], [state.listChanges]);
-  const history = useMemo(() => state.planHistory ?? [], [state.planHistory]);
-  const changes = useMemo(() => activeChanges(log, week), [log, week]);
-  const ps = useMemo(() => pinState(history, week, state.slots, state.approved), [history, week, state.slots, state.approved]);
+  const env: act.ActionEnv = { ctx, week, stamp };
+  const w = useMemo(() => act.weekState(state, { ctx, week, stamp }),
+    [state.listChanges, state.planHistory, state.slots, state.approved, state.option, ctx, week]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { ps, base, basket, storeIds, changes, unpinned, drift } = w;
   const pin = ps.pin;
-  const wk = useMemo(() => adjustedWeek(state.slots, ctx, state.option, changes, week, pin), [state.slots, ctx, state.option, changes, week, pin]);
-  const { base, basket, storeIds } = wk;
-  const unpinned = useMemo(() => applyChanges(base, changes, week, ctx, null), [base, changes, week, ctx]);
-  const drift = useMemo(() => (pin ? priceDrift(pin, unpinned, ctx) : []), [pin, unpinned, ctx]);
   const swapAdjust: BasketAdjust = (b, ss) => applyChanges(b, changes, week, ctx, sameSlotList(ss, state.slots) ? pin : null);
-  const headIds = (s: AppState) => versionHeads(s.planHistory ?? [], week).map((v) => v.id);
-
-  const record: ChangeKit['record'] = (e, reason, note, slots) => update((s) => {
-    const prevLog = s.listChanges ?? [];
-    const ev = withPrev(prevLog, e); // valget erstatter valgene enheten ser på linja nå
-    const nextLog = applyChange(prevLog, ev);
-    if (nextLog === prevLog) return s; // samme hendelse to ganger: ingen endring
-    const ss = slots ?? s.slots;
-    // Et rettebytte opphever godkjenningen; listen må godkjennes på nytt (og får da en ny versjon).
-    const swapped = !sameSlotList(ss, s.slots);
-    const cur = pinState(s.planHistory ?? [], week, s.slots, s.approved);
-    const before = activeChanges(prevLog, week);
-    const after = activeChanges(nextLog, week);
-    const b = applyChanges(buildBasket(ss, storeIds, ctx), after, week, ctx, swapped ? null : cur.pin);
-    let next: AppState = { ...s, slots: ss, approved: swapped ? false : s.approved, listChanges: nextLog, changeOutbox: enqueue(s.changeOutbox ?? [], ev) };
-    // «Bruk noe vi har hjemme»: mengden registreres som tatt fra matskapet (og angres når valget endres).
-    for (const ie of homeUseEvents(before.get(ev.line), after.get(ev.line), b, week, stamp())) next = recordEvent(next, ie);
-    const meta = { ...stamp(), week, reason, note, parents: cur.pin ? cur.group.map((v) => v.id) : [], declined: cur.pin?.declined };
-    return recordVersion(next, snapshot(b, ss, meta, ctx));
-  });
-  /** Godkjenn listen slik den vises nå. Ny versjon bare når grunnlaget er endret (priser, valg, beholdning, middager). */
-  const approve = (option: 'regular' | 'combo') => update((s) => {
-    const shown = pinState(s.planHistory ?? [], week, s.slots, s.approved).pin;
-    const w = adjustedWeek(s.slots, ctx, option, activeChanges(s.listChanges ?? [], week), week, shown);
-    const v = approvalVersion(s.planHistory ?? [], week, snapshot(w.basket, s.slots, { ...stamp(), week, reason: 'godkjent' }, ctx));
-    const next: AppState = { ...s, approved: true, option };
-    return v ? recordVersion(next, v) : next;
-  });
-  const acceptPrices = () => update((s) => recordVersion(s,
-    snapshot(unpinned, s.slots, { ...stamp(), week, reason: 'nye-priser', note: driftNote(drift), parents: headIds(s) }, ctx)));
-  const keepPrices = () => { if (pin) update((s) => recordVersion(s, keepVersion(pin, drift, { ...stamp(), note: driftNote(drift), parents: headIds(s) }))); };
-  const choose = (v: PlanVersion) => update((s) => recordVersion(s, chooseVersion(s.planHistory ?? [], v, { ...stamp(), note: `Valgt liste fra ${whoLabel(s, v.by)}` })));
-  const who = (by: string) => whoLabel(state, by);
-  return {
-    alts: wk.alts, basket, activeStores: storeIds,
-    kit: { week, ctx, storeIds, slots: state.slots, base, changes, pin, unpinned, drift, history, conflict: ps.conflict, swapAdjust, who, record, approve, acceptPrices, keepPrices, choose },
+  const kit: ChangeKit = {
+    week, ctx, storeIds, slots: state.slots, base, changes, pin, unpinned, drift, history: state.planHistory ?? [], conflict: ps.conflict, swapAdjust,
+    who: (by) => whoLabel(state, by),
+    record: (e, reason, note, slots) => update((s) => act.recordChange(s, e, reason, note, slots, env)),
+    approve: (option) => update((s) => act.approve(s, option, env)),
+    acceptPrices: () => update((s) => act.acceptPrices(s, env)),
+    keepPrices: () => update((s) => act.keepPrices(s, env)),
+    choose: (v) => update((s) => act.chooseList(s, v, env)),
   };
+  return { alts: w.alts, basket, activeStores: storeIds, kit };
 }
 
 // ---------- Tekster ----------
@@ -94,10 +62,7 @@ const REASON: Record<VersionReason, string> = {
   'bytt-rett': 'Rett byttet (vare manglet)', 'nye-priser': 'Nye priser tatt inn', beholdt: 'Godkjent liste beholdt',
   valgt: 'Valgt mellom to godkjente lister',
 };
-const DRIFT: Record<DriftReason, string> = {
-  prisendring: 'ny pris', 'utløpt-tilbud': 'tilbudet er utløpt', 'annet-produkt': 'annet produkt', mengde: 'annen mengde',
-  'ny-vare': 'ny vare', fjernet: 'ikke med lenger',
-};
+const DRIFT: Record<DriftReason, string> = act.DRIFT_TEXT;
 const CHOICE: Record<NotFoundChoice, string> = { uavklart: 'fant ikke', 'hopp-over': 'hoppet over', 'bruk-hjemme': 'bruker noe vi har hjemme' };
 const ddmm = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}.`;
 const when = (iso: string) => {
@@ -110,7 +75,6 @@ const sideText = (s: LineSide | null) => {
   const price = s.costOre === null ? 'ukjent pris' : `${kr(s.costOre)}${s.status === 'tilbud' ? ` (tilbud${s.validUntil ? ` til ${ddmm(s.validUntil)}` : ''})` : ''}`;
   return `${what}, ${price}`;
 };
-const driftNote = (d: DriftItem[]) => d.map((x) => `${x.name}: ${DRIFT[x.reason]}`).join('; ');
 const sumText = (ore: number, complete: boolean) => (complete ? kr(ore) : `${kr(ore)} (delsum, ukjent pris)`);
 
 /** Liten etikett på en linje som er endret i butikken. */

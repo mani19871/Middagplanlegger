@@ -6,7 +6,11 @@ import { checks, manualLines, toggleEvent } from './list';
 import { SyncApi } from './api';
 import { connect, isDirty, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { merge3 } from './docs';
-import { activeChanges, applyChange, changeLineId, type ListChange } from '../engine/substitution';
+import { activeChanges, applyChange, changeLineId, notFoundEvent, substituteEvent, versionsFor, type AdjustedLine, type ListChange } from '../engine/substitution';
+import * as act from '../listActions';
+import { catalog } from '../data/catalog';
+import { defaultSettings } from '../data/defaults';
+import type { Catalog } from '../engine/types';
 import { startTestServer } from '../../server/sync/testkit';
 import { createHash } from 'node:crypto';
 
@@ -297,5 +301,131 @@ describe('plan og innstillinger', () => {
     const before = b.state;
     expect(receiveDoc(b.state, { name: 'plan', version: 99, body: { slots: 'x' } as never, updatedBy: 'x', updatedAt: 'x' })).toBe(before);
     expect(receiveDoc(b.state, { name: 'plan', version: 1, body: { slots: [], approved: false, option: 'regular' }, updatedBy: 'x', updatedAt: 'x' })).toBe(before);
+  });
+});
+
+describe('godkjent liste og «utsolgt / fant ikke» i husstanden', () => {
+  const slots = [{ day: 0, recipeId: 'lakseris', locked: false }, { day: 1, recipeId: 'bolognese', locked: false }];
+  // Ny prisimport: 800 g kjøttdeig blir billigere enn 400 g (motoren ville byttet produkt).
+  const cheaper: Catalog = { ...catalog, prices: catalog.prices.map((o) => (o.productId === 'kd800' && o.storeId === 'demoA' ? { ...o, ore: 4990, observed: '2026-11-22' } : o)) };
+  const env = (d: Device, cat: Catalog = catalog): act.ActionEnv =>
+    ({ ctx: { catalog: cat, settings: defaultSettings, shopDate: WEEK }, week: WEEK, stamp: () => d.stamp() });
+  const view = (d: Device, cat: Catalog = catalog) => act.weekState(d.state, env(d, cat));
+  const lineOf = (d: Device, ing: string) => view(d).basket.lines.find((l) => l.ingredient === ing) as AdjustedLine;
+  const product = (d: Device, ing: string, cat: Catalog = catalog) => view(d, cat).basket.lines.find((l) => l.ingredient === ing)?.productId;
+  const versionIds = (d: Device) => versionsFor(d.state.planHistory ?? [], WEEK).map((v) => v.id);
+  async function approvedPair() {
+    const { a, b } = await pair();
+    a.state = act.approve({ ...a.state, slots }, 'regular', env(a));
+    await a.sync(); await b.sync();
+    return { a, b };
+  }
+
+  it('en godkjent liste deles: samme fastholdte produkter, samme sum og samme historikk hos begge', async () => {
+    const { a, b } = await approvedPair();
+    expect(b.state.approved).toBe(true);
+    expect(versionIds(b)).toEqual(versionIds(a));
+    expect(versionIds(a)).toHaveLength(1);
+    expect(a.state.versionOutbox).toEqual([]);
+    // Etter ny prisimport holder begge enhetene den godkjente pakken, og viser samme avvik.
+    expect(product(a, 'kjottdeig', cheaper)).toBe('kd400');
+    expect(product(b, 'kjottdeig', cheaper)).toBe('kd400');
+    expect(view(b, cheaper).basket.totalOre).toBe(view(a, cheaper).basket.totalOre);
+    expect(view(b, cheaper).drift).toEqual(view(a, cheaper).drift);
+    expect(view(a, cheaper).drift.map((d) => d.ingredient)).toEqual(['kjottdeig']);
+    // Godkjent på nytt på B uten endret grunnlag: ingen ny versjon (ingen duplikat).
+    b.state = act.approve(b.state, 'regular', env(b));
+    expect(versionIds(b)).toHaveLength(1);
+  });
+
+  it('to voksne som fastholder ulikt samtidig (uten nett) får samme konflikt, og et valg løser den hos begge', async () => {
+    const { a, b } = await approvedPair();
+    a.online = false; b.online = false;
+    a.state = act.acceptPrices(a.state, env(a, cheaper)); // «Bruk nye priser»
+    b.state = act.keepPrices(b.state, env(b, cheaper)); // «Behold godkjent liste»
+    a.online = true; b.online = true;
+    await a.sync(); await b.sync(); await a.sync();
+    const ca = view(a, cheaper).ps;
+    const cb = view(b, cheaper).ps;
+    expect(ca.pin).toBeNull();
+    expect(ca.conflict.map((v) => v.reason).sort()).toEqual(['beholdt', 'nye-priser']);
+    expect(cb.conflict.map((v) => v.id)).toEqual(ca.conflict.map((v) => v.id));
+    // Ingen side vinner stille: begge viser motorens produkt nå, med samme sum.
+    expect(product(a, 'kjottdeig', cheaper)).toBe('kd800');
+    expect(view(b, cheaper).basket.totalOre).toBe(view(a, cheaper).basket.totalOre);
+    // B velger listen A tok inn. Etter synk er det én liste hos begge.
+    b.state = act.chooseList(b.state, cb.conflict.find((v) => v.reason === 'nye-priser')!, env(b, cheaper));
+    await b.sync(); await a.sync();
+    for (const d of [a, b]) {
+      const ps = view(d, cheaper).ps;
+      expect(ps.conflict).toEqual([]);
+      expect(ps.pin?.reason).toBe('valgt');
+      expect(product(d, 'kjottdeig', cheaper)).toBe('kd800');
+    }
+    expect(versionIds(a)).toEqual(versionIds(b));
+  });
+
+  it('ulike valg på samme linje fra to enheter blir konflikt hos begge; et valg løser den og rydder matskapet', async () => {
+    const { a, b } = await approvedPair();
+    const pasta = lineOf(a, 'pasta');
+    a.online = false; b.online = false;
+    a.state = act.recordChange(a.state, notFoundEvent(pasta, WEEK, 'hopp-over', a.stamp()), 'fant-ikke', 'hopp over', undefined, env(a));
+    b.state = act.recordChange(b.state, notFoundEvent(lineOf(b, 'pasta'), WEEK, 'bruk-hjemme', b.stamp()), 'fant-ikke', 'bruk hjemme', undefined, env(b));
+    expect(deriveStock(b.state.inventory).total.pasta).toBe(pasta.need); // «bruk hjemme» registrert i matskapet
+    a.online = true; b.online = true;
+    await a.sync(); await b.sync(); await a.sync();
+    for (const d of [a, b]) {
+      const l = lineOf(d, 'pasta');
+      expect(l.change?.type).toBe('konflikt');
+      expect(l.costOre).toBeNull();
+      expect(view(d).basket.complete).toBe(false);
+    }
+    expect(view(a).basket.totalOre).toBe(view(b).basket.totalOre);
+    // A velger «hopp over»: valget bygger på begge, og B sin registrering i matskapet angres.
+    a.state = act.recordChange(a.state, notFoundEvent(lineOf(a, 'pasta'), WEEK, 'hopp-over', a.stamp()), 'fant-ikke', 'valgt', undefined, env(a));
+    await a.sync(); await b.sync();
+    for (const d of [a, b]) {
+      expect(view(d).basket.skipped.map((l) => l.ingredient)).toEqual(['pasta']);
+      expect([...view(d).changes.values()].some((c) => c.type === 'konflikt')).toBe(false);
+      expect(deriveStock(d.state.inventory).total.pasta).toBeUndefined();
+    }
+  });
+
+  it('en erstatning gjort uten nett flettes med den andres valg; dobbel levering gir ingen doble rader', async () => {
+    const { a, b } = await approvedPair();
+    b.online = false;
+    const kd = lineOf(b, 'kjottdeig');
+    b.state = act.recordChange(b.state, substituteEvent(kd, WEEK, 'kd800', b.stamp()), 'erstatning', 'kd400 utsolgt', undefined, env(b));
+    a.state = act.recordChange(a.state, notFoundEvent(lineOf(a, 'pasta'), WEEK, 'uavklart', a.stamp()), 'fant-ikke', 'fant ikke', undefined, env(a));
+    await a.sync();
+    b.online = true;
+    b.dropNextResponse = true; // serveren lagrer, men svaret kommer aldri fram
+    expect((await b.sync()).ok).toBe(false);
+    expect(b.state.versionOutbox).toHaveLength(1);
+    await b.sync(); await a.sync();
+    expect(b.state.changeOutbox).toEqual([]);
+    expect(b.state.versionOutbox).toEqual([]);
+    const pulled = (await a.api.withToken(a.state.sync!.token).pull(0)).events;
+    expect(pulled.filter((x) => x.stream === 'endring')).toHaveLength(2);
+    expect(pulled.filter((x) => x.stream === 'planversjon')).toHaveLength(3); // godkjent + én endring fra hver
+    for (const d of [a, b]) {
+      const w = view(d);
+      expect(w.ps.conflict).toEqual([]);
+      expect(w.basket.lines.find((l) => l.ingredient === 'kjottdeig')).toMatchObject({ productId: 'kd800', change: { type: 'erstatt' } });
+      expect(w.basket.lines.find((l) => l.ingredient === 'pasta')?.change?.type).toBe('fant-ikke');
+    }
+    expect(JSON.stringify(view(a).basket)).toBe(JSON.stringify(view(b).basket));
+    expect(versionIds(a)).toEqual(versionIds(b));
+  });
+
+  it('et rettebytte ved «fant ikke» opphever godkjenningen hos begge', async () => {
+    const { a, b } = await approvedPair();
+    const next = slots.map((s) => (s.day === 0 ? { ...s, recipeId: 'taco' } : s));
+    a.state = act.recordChange(a.state, notFoundEvent(lineOf(a, 'laks'), WEEK, 'uavklart', a.stamp()), 'bytt-rett', 'laks manglet', next, env(a));
+    expect(a.state.approved).toBe(false);
+    await a.sync(); await b.sync();
+    expect(b.state.approved).toBe(false);
+    expect(b.state.slots.map((s) => s.recipeId)).toEqual(['taco', 'bolognese']);
+    expect(view(b).ps.pin).toBeNull();
   });
 });

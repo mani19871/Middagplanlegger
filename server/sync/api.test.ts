@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SyncApi, SyncError } from '../../src/sync/api';
 import type { Envelope } from '../../src/sync/protocol';
 import type { InventoryEvent } from '../../src/engine/inventory';
-import { purchaseLineId } from '../../src/engine/inventory';
+import { homeLineId, purchaseLineId } from '../../src/engine/inventory';
+import { applyChanges, changeLineId, snapshot } from '../../src/engine/substitution';
+import { buildBasket } from '../../src/engine/planner';
+import { catalog } from '../../src/data/catalog';
+import { defaultSettings } from '../../src/data/defaults';
 import { startTestServer } from './testkit';
 
 type Srv = Awaited<ReturnType<typeof startTestServer>>;
@@ -273,5 +277,62 @@ describe('ugyldige inndata og grenser', () => {
     expect(tries).toEqual(['403 ugyldig_kode', '403 ugyldig_kode', '403 ugyldig_kode', '429 for_mange_forespørsler']);
     srv.advance(600_001);
     expect(await code(anon().join('AAAAA-AAAAA', 'enhet-bbbb2222'))).toBe('403 ugyldig_kode');
+  });
+});
+
+describe('planversjoner (strøm planversjon)', () => {
+  const ctx = { catalog, settings: defaultSettings, shopDate: '2026-11-23' };
+  const week = [{ day: 0, recipeId: 'lakseris', locked: false }, { day: 1, recipeId: 'bolognese', locked: false }, { day: 2, recipeId: 'karri', locked: false }];
+  const version = (id: string, by: string, extra: Record<string, unknown> = {}) => ({
+    stream: 'planversjon', event: {
+      ...snapshot(applyChanges(buildBasket(week, ['demoA'], ctx), new Map(), '2026-11-23', ctx), week,
+        { id, at: '2026-11-23T10:00:00.000Z', by, week: '2026-11-23', reason: 'godkjent', parents: [] }, ctx),
+      ...extra,
+    },
+  }) as Envelope;
+
+  it('lagres én gang, deles med de andre i husstanden og tåler dobbel levering', async () => {
+    const { A, B } = await household();
+    expect((await A.push([version('v1', 'enhet-aaaa1111')])).accepted).toEqual(['v1']);
+    expect((await A.push([version('v1', 'enhet-aaaa1111')])).accepted).toEqual(['v1']); // samme id igjen: ingen ny rad
+    const r = await B.pull(0);
+    const got = r.events.filter((e) => e.stream === 'planversjon');
+    expect(got).toHaveLength(1);
+    expect(got[0].event).toEqual(version('v1', 'enhet-aaaa1111').event);
+    expect(srv.storage.counts().events).toBe(1);
+  });
+
+  it('avviser ukjente felt, helseopplysninger, feil identitet og for store versjoner', async () => {
+    const { A } = await household();
+    const big = version('stor', 'enhet-aaaa1111', { note: 'x'.repeat(1000), priceBasis: 'y'.repeat(2000) });
+    const lines = (big.event as { lines: unknown[] }).lines;
+    const r = await A.push([
+      version('ok', 'enhet-aaaa1111'),
+      version('allergi', 'enhet-aaaa1111', { avoid: ['gluten'] }),
+      version('ekstra', 'enhet-aaaa1111', { navn: 'Kari' }),
+      version('forfalsket', 'enhet-bbbb2222'),
+      version('egen-forelder', 'enhet-aaaa1111', { parents: ['egen-forelder'] }),
+      version('årsak', 'enhet-aaaa1111', { reason: 'hva som helst' }),
+      { ...big, event: { ...big.event, lines: Array.from({ length: 120 }, () => lines[0]), skipped: Array.from({ length: 120 }, () => lines[0]) } } as Envelope,
+    ]);
+    expect(r.accepted).toEqual(['ok']);
+    expect(r.rejected.map((x) => [x.id, x.code])).toEqual([
+      ['allergi', 'ugyldig_hendelse'], ['ekstra', 'ugyldig_hendelse'], ['forfalsket', 'feil_identitet'],
+      ['egen-forelder', 'ugyldig_hendelse'], ['årsak', 'ugyldig_hendelse'], ['stor', 'for_stor'],
+    ]);
+  });
+
+  it('«bruk noe hjemme» (hjemme) og valg med prev godtas; ugyldig prev avvises', async () => {
+    const { A } = await household();
+    const line = changeLineId('2026-11-23', 'demoA', 'pasta', 'pasta500');
+    const change = (id: string, prev: unknown) => ({ stream: 'endring', event: {
+      type: 'fant-ikke', id, at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line, storeId: 'demoA', ingredient: 'pasta',
+      fromProductId: 'pasta500', soldOut: ['pasta500'], choice: 'bruk-hjemme', prev } }) as Envelope;
+    const r = await A.push([
+      { stream: 'beholdning', event: { type: 'hjemme', id: 'h1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: homeLineId('2026-11-23', 'pasta'), ingredient: 'pasta', amount: 300 } },
+      change('c1', []), change('c2', ['c1']), change('c3', ['c3']), change('c4', 'c1'),
+    ]);
+    expect(r.accepted).toEqual(['h1', 'c1', 'c2']);
+    expect(r.rejected.map((x) => x.id)).toEqual(['c3', 'c4']);
   });
 });
