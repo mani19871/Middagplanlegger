@@ -15,6 +15,19 @@ interface Props {
 /** Standard tokenutløp på serveren (`DEFAULT_TOKEN_IDLE_DAYS` i server/retention.ts; testet mot den). Serveren oppgir ikke tallet til appen. */
 export const TOKEN_IDLE_DEFAULT_DAYS = 730;
 
+/** Kontakt-e-post for personvern, oppgitt av eieren 2026-11-22 (felles adresse til nettopp dette bruket). Ikke bekreftet i drift: se draftNoticeText. */
+export const PRIVACY_CONTACT_EMAIL = 'kontakt@husvett.no';
+
+/** Utkast-merket øverst i arket. Fjern «ikke bekreftet»-leddet først når postkassen er satt opp og prøvd (docs/pilot-sjekkliste.md, A5). */
+export function draftNoticeText(): string {
+  return 'Teksten er ikke ferdig vurdert av fagperson, og behandlingsansvarlig er ikke ført inn her ennå. Kontaktadressen er oppgitt av eieren, men det er ikke bekreftet at postkassen er i drift. Den beskriver hva appen gjør i dag. Appen er en pilot.';
+}
+
+/** Hvordan du kontakter oss om personvern. Lover ingen svartid; det er ikke bestemt. */
+export function contactText(): string {
+  return `Spørsmål om personvern, innsyn eller sletting du ikke får gjort i appen: skriv til ${PRIVACY_CONTACT_EMAIL} og oppgi enhets-id-en over. Send aldri nøkkelen eller invitasjonskoder.`;
+}
+
 /** Hva som skjer med en enhet som ikke har vært i kontakt med serveren på lenge. Sier bare standarden; serveren kan være satt opp annerledes. */
 export function tokenIdleText(): string {
   return `En enhet som ikke har vært i kontakt med serveren på lenge, mister nøkkelen og forlater husstanden (standard ${TOKEN_IDLE_DEFAULT_DAYS} dager, om lag to år; serveren kan være satt opp annerledes).`;
@@ -47,8 +60,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
     <Sheet label="Personvern" onClose={onClose}>
       <div className="pagehead"><h2>Personvern</h2><button className="x" aria-label="Lukk" onClick={onClose}>✕</button></div>
       <div className="banner warn" role="note">
-        <b>UTKAST.</b> Teksten er ikke ferdig vurdert av fagperson, og hvem som er behandlingsansvarlig og kontaktadresse for
-        personvern er ikke fastsatt ennå. Den beskriver hva appen gjør i dag. Appen er en pilot.
+        <b>UTKAST.</b> {draftNoticeText()}
       </div>
 
       <h3>Kort fortalt</h3>
@@ -65,7 +77,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
       <ul className="plain">
         <li>Postnummer (for «Nær meg» i kundeavisene), allergier og kostkrav (vegetar, allergener, matvarer som skal unngås).</li>
         <li>En kopi av planen, innstillingene, handlelista, matskapet, valg i butikken og tidligere lister, så appen virker uten nett.</li>
-        <li>En tilfeldig enhets-id: <code>{deviceId()}</code>. Oppgi den hvis du kontakter oss om personvern.</li>
+        <li>En tilfeldig enhets-id: <code>{deviceId()}</code>. Oppgi den hvis du kontakter oss om personvern (se «Det du kan gjøre»).</li>
         <li>Hvis enheten er med i en husstand: nøkkelen som viser at den er med. Den som får bruke en ulåst telefon eller
           nettleserprofil, kan bruke nøkkelen. Lås telefonen, og be eieren fjerne enheten hvis du mister den.</li>
       </ul>
@@ -113,6 +125,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
         <li><b>Rette:</b> endre plan, innstillinger og etiketten din i appen.</li>
         <li><b>Slette:</b> eieren sletter husstanden og alle data på serveren (Husstand → Slett). Andre kan forlate husstanden.
           «Slett alt på denne enheten» på Husstand-skjermen fjerner det som er lagret her.</li>
+        <li><b>Kontakt:</b> {contactText()}</li>
         <li><b>Klage:</b> du kan klage til Datatilsynet (datatilsynet.no).</li>
       </ul>
       <button className="ghost" onClick={onClose}>Lukk</button>

@@ -66,7 +66,7 @@ Valgene tilsvarer alternativene i `docs/hosting.md`.
 
 ### D. Selvdrift
 - Ingen hostingleverandør, men: **fysisk sikring** (hvem har tilgang til rommet), kryptert disk, strøm og nett, sikkerhetskopi på annet sted.
-- Databehandlere for øvrige tjenester (domene, e-post, kopilagring) må fortsatt dekkes av avtaler.
+- Databehandlere for øvrige tjenester (domene, e-post, kopilagring) må fortsatt dekkes av avtaler. Kontakt-e-posten `kontakt@husvett.no` (eierens valg 2026-11-22) forutsetter en e-posttjeneste på `husvett.no`; hvem som leverer den, og om det er en databehandler, er ikke avklart.
 - Vi bærer alt ansvar for sikkerheten selv. Dokumenter tiltakene.
 
 ## 3. Øvrige mulige databehandlere

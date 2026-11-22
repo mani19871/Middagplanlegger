@@ -40,5 +40,6 @@ Ført inn i dokumentene 01, 02, 03 og 05:
 - **Innloggingens levetid (enhetstoken):** 730 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`, standard 730), samme som oppbevaringstiden (pilot-sjekkliste D15, avgjort).
 - **Pilot:** lukket, hele Norge.
 - **Fagperson:** ikke nå. Dokumentene forblir utkast; det står fortsatt i sjekklisten som STOPP (B1).
+- **Domene og kontakt-e-post (eierens beslutning 2026-11-22):** domenet er **husvett.no** (hovedadresse; `www.husvett.no` omdirigeres), kontakt-e-post for personvern og innsyn er **kontakt@husvett.no** (felles adresse oppgitt av eieren; brukes bare i disse dokumentene og i personvern-arket). **Ikke bekreftet:** at domenet er kjøpt, at postkassen finnes og virker, og at appens navn endres eller beholdes (navnet er ikke avklart).
 
-Fortsatt **UAVKLART**: kontakt-e-post for personvern, domene (der erklæringen skal publiseres), hostingleverandør (dermed databehandler, land og overføringsgrunnlag). Hele listen: `docs/hosting.md` avsnitt 7.
+Fortsatt **UAVKLART**: hostingleverandør (dermed databehandler, land og overføringsgrunnlag). Hele listen: `docs/hosting.md` avsnitt 7.

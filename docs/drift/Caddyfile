@@ -1,5 +1,10 @@
 # Caddy foran appen: HTTPS med automatisk sertifikat (Let's Encrypt) og videresending til app-containeren.
 # {$DOMENE} leses fra .env.drift. Se docs/hosting.md.
+#
+# Domene (eierens beslutning 2026-11-22): husvett.no. Hovedadresse er {$DOMENE} (husvett.no); www.husvett.no sendes
+# permanent videre dit (blokken under). Ikke bekreftet at domenet er kjøpt eller at DNS peker på serveren.
+# DNS må ha A/AAAA for BÅDE husvett.no og www.husvett.no til serveren før første oppstart. Mangler www i DNS, feiler bare
+# sertifikatet for www (hovedadressen virker likevel), men Caddy prøver på nytt og logger feil til DNS er på plass.
 {$DOMENE} {
 	encode zstd gzip
 
@@ -17,4 +22,9 @@
 
 	# Ingen tilgangslogg er slått på med vilje (IP-adresser er personopplysninger). Ta en «log»-blokk inn først etter
 	# at loggtid og innhold er avgjort (docs/personvern/01-oversikt-behandling.md, avsnitt 4).
+}
+
+# Omdirigering fra www til hovedadressen (samme sti og søk beholdes). Ingen app og ingen sikkerhetshoder her: bare videresending.
+www.{$DOMENE} {
+	redir https://{$DOMENE}{uri} permanent
 }

@@ -18,7 +18,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 
 ## Hvem er ansvarlig?
 
-AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: **[e-postadresse: UAVKLART, ikke bestemt]**. [Adressen er selskapets forretningsadresse i Enhetsregisteret, oppslag 2026-11-22.]
+AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: **kontakt@husvett.no** [oppgitt av eieren 2026-11-22; **ikke bekreftet at postkassen er opprettet eller virker**, og den må ikke publiseres som kontaktadresse før den er prøvd]. [Adressen er selskapets forretningsadresse i Enhetsregisteret, oppslag 2026-11-22.]
 
 ## Hva vi lagrer, og hvorfor
 

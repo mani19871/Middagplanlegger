@@ -12,7 +12,7 @@ Dette dokumentet kan danne grunnlag for oversikten over behandlingsaktiviteter (
 | --- | --- |
 | Behandlingsansvarlig | **AVVR AS, org.nr. 935941644** (eierens beslutning 2026-11-22). Forretningsadresse: **Smedalsvegen 14, 2067 Jessheim (kommune: Ullensaker)**. Kilde: Enhetsregisteret, forretningsadresse (data.brreg.no, `/enhetsregisteret/api/enheter/935941644`), oppslag 2026-11-22. Bare selskapets registrerte adresse; ingen privatpersoners opplysninger |
 | Driftsansvarlig | **«Admin»** (rolle i AVVR AS, 2026-11-22). Rollen navngis ikke i dokumentene (eierens beslutning 2026-11-22). Responstid: **[UAVKLART: ikke bestemt]** |
-| Kontakt for personvern | **[UAVKLART: e-postadresse ikke bestemt, postkassen ikke opprettet]** |
+| Kontakt for personvern | **kontakt@husvett.no** (felles adresse oppgitt av eieren 2026-11-22 til personvern og innsyn; **ikke bekreftet at postkassen er opprettet eller virker**). Domenet er `husvett.no` (eierens valg, ikke bekreftet kjøpt) |
 | Personvernombud | Trolig ikke påkrevd i piloten (må verifiseres, art. 37) |
 | Databehandlere | Hostingleverandør og tilleggstjenester, se `04-databehandleravtaler-sjekkliste.md` |
 
@@ -148,7 +148,7 @@ Lagring av opplysninger i brukerens utstyr er regulert av ekomloven (samtykke kr
 
 **Åpne punkter som krever eier eller fagperson:**
 
-1. Kontaktadresse (e-post) for personvern. Behandlingsansvarlig og forretningsadresse er avklart (avsnitt 1).
+1. Bekreft at kontaktadressen `kontakt@husvett.no` er opprettet og virker (domenet må være kjøpt først), og hvem som svarer. Adressen, behandlingsansvarlig og forretningsadresse er avgjort (avsnitt 1).
 2. Juridisk avklaring av art. 9: gjelder det kostkrav lagret bare på brukerens enhet, og er indirekte avledning fra plan/handleliste/fritekst nok til å regne husstandsdata som særlige kategorier?
 3. Oppbevaringstider og om automatisk sletting etter inaktivitet skal bygges før piloten.
 4. Valg av hosting (påvirker underleverandører og overføringer), og om leverandøren logger IP.

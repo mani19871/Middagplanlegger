@@ -15,7 +15,7 @@
 
 Noen webhotell tilbyr «Node.js-støtte». Det er som regel ikke nok: uten Docker, uten valg av Node-versjon (vi trenger Node 22.23.5, avsnitt 8) og ofte med prosesser som stoppes. Det er ikke prøvd, og vi anbefaler det ikke.
 
-**Et webhotel kan likevel være nyttig til to ting:** kjøp av domene og en e-postadresse (for eksempel til personvernhenvendelser, som ikke er bestemt ennå). Domenet kan da pekes til serveren der appen kjører.
+**Et webhotel kan likevel være nyttig til to ting:** kjøp av domene og en e-postadresse (til personvernhenvendelser: eieren har valgt `kontakt@husvett.no`, men det er ikke bekreftet at postkassen finnes). Domenet kan da pekes til serveren der appen kjører.
 
 **Anbefalt: en liten VPS (leid virtuell maskin) i EU, for eksempel hos Hetzner, med Caddy foran appen.** Det er alternativ A under.
 
@@ -31,28 +31,29 @@ Prisene er fra generell kunnskap, ikke kontrollert mot leverandørenes prissider
 **Hva vi trenger fra deg, steg for steg** (alternativ 1; for 2 og 3 er steg 1–3 og 6 like):
 
 1. **Bestem hvem som har rollen «Admin»:** «Admin» er en rolle i AVVR AS og navngis ikke i dokumentene (eierens beslutning 2026-11-22); den som har rollen får varsler, tar oppdateringer omtrent én gang i måneden og kan gjøre en gjenoppretting. Hvis ingen kan det, velg alternativ 2 eller 3.
-2. **Domene og e-post:** kjøp et **nytt** domene i **AVVR AS** sitt navn (se «Slik velger og kjøper du et .no-domene» under; gjerne hos en norsk registrar; et webhotel holder til dette) og opprett en e-postadresse for personvern, f.eks. `personvern@<domenet>`. Det avgjør de to uavklarte punktene (domene og kontakt-e-post). Slå på to-faktor.
+2. **Domene og e-post:** eieren har valgt domenet **`husvett.no`** og kontakt-e-posten **`kontakt@husvett.no`** (2026-11-22). **Ikke bekreftet:** at domenet er kjøpt, at det står i **AVVR AS** sitt navn, og at postkassen er opprettet og virker. Kjøp domenet i AVVR AS sitt navn (se «Slik velger og kjøper du et .no-domene» under; gjerne hos en norsk registrar; et webhotel holder til dette), opprett postkassen `kontakt@husvett.no`, og prøv den med en melding utenfra. Slå på to-faktor.
 3. **Konto hos VPS-leverandøren** i AVVR AS sitt navn, med to-faktor. Godta leverandørens databehandleravtale i kundeportalen og lagre en kopi med dato (`personvern/04-databehandleravtaler-sjekkliste.md`). Sett et budsjettvarsel.
 4. **Bestill den minste serveren** med Ubuntu (LTS) i en region i EU (f.eks. Tyskland eller Finland). Legg inn Admins SSH-nøkkel (offentlig del) ved bestilling. Del aldri passord eller private nøkler i chat eller e-post.
-5. **Pek domenet til serveren:** en A-post (og AAAA for IPv6) i domenets DNS-innstillinger, til serverens IP-adresse.
+5. **Pek domenet til serveren:** en A-post (og AAAA for IPv6) i domenets DNS-innstillinger, til serverens IP-adresse, for **både `husvett.no` og `www.husvett.no`** (se DNS-avsnittet under).
 6. **Nøkkel til sikkerhetskopiene** (du ba om hjelp): på din egen PC, ikke på serveren, lag et nøkkelpar med verktøyet `age` (`age-keygen -o middag-backup.key`). Filen inneholder en privat nøkkel og skriver ut en offentlig nøkkel som begynner med `age1…`. Den **offentlige** nøkkelen gis til Admin og settes som `BACKUP_AGE_RECIPIENT` på serveren (avsnitt 8). Den **private** nøkkelfilen lagres hos **to navngitte personer** (f.eks. i hver sin passordhåndterer, eller en kryptert minnepinne i safe), aldri på serveren. Mistes den, kan ingen kopi leses. Vi kan gå gjennom dette sammen; skriv ned hvem de to er (sjekklisten A9).
 7. **Lagring til sikkerhetskopiene** et annet sted enn serveren, i EØS (f.eks. leverandørens lagringstjeneste), med sletting etter 30 dager (forslag, ikke avgjort).
-8. **Admin setter opp appen** etter avsnitt 8 («Pilotoppsett med Docker Compose og Caddy»): fyller `.env.drift` med `DOMENE`, `SYNC_SECRET`, `SYNC_RETENTION_DAYS=730` og `SYNC_TOKEN_IDLE_DAYS=730` (innloggingens levetid, avgjort i sjekklisten D15; 730 er også standarden i koden).
+8. **Admin setter opp appen** etter avsnitt 8 («Pilotoppsett med Docker Compose og Caddy»): fyller `.env.drift` med `DOMENE=husvett.no`, `SYNC_SECRET`, `SYNC_RETENTION_DAYS=730` og `SYNC_TOKEN_IDLE_DAYS=730` (innloggingens levetid, avgjort i sjekklisten D15; 730 er også standarden i koden).
 9. **Gjenopprettingsøvelse og testuke** (sjekklisten C7 og F) før første familie inviteres.
 
 ### Slik velger og kjøper du et .no-domene (for lekmann)
 
 Dette er en veiledning; ingenting er kjøpt eller bestilt, og tallene under er **omtrentlige og må sjekkes** hos registraren før du betaler (jeg har ikke slått opp noen priser).
 
-1. **Hva et domene er:** navnet folk skriver i nettleseren, f.eks. `middagsplanlegger.no`. Du leier det (vanligvis ett år om gangen) og betaler fornyelse hvert år. Appen virker ikke på et domene før domenet peker på serveren (punkt 5 under).
+1. **Hva et domene er:** navnet folk skriver i nettleseren. Eierens valg 2026-11-22 er `husvett.no` (ikke bekreftet kjøpt; appens navn er heller ikke avklart, og domenet er ikke det samme som navnet i appen). Du leier det (vanligvis ett år om gangen) og betaler fornyelse hvert år. Appen virker ikke på et domene før domenet peker på serveren (punkt 5 under).
 2. **Hvem selger det:** `.no` forvaltes av Norid, men du kjøper ikke direkte av Norid. Du kjøper hos en **registrar** (et selskap som er godkjent av Norid til å selge .no-domener). Norid har en oppdatert liste over registrarer på norid.no (søk «finn registrar»); velg en fra den listen. Mange webhoteller er registrarer. Sammenlign pris (førsteår og fornyelse), om to-faktor finnes, om du får styre DNS-innstillingene selv, og om e-post eller videresending av e-post følger med.
 3. **Omtrentlig pris (omtrentlig, må sjekkes):** et .no-domene koster gjerne et sted mellom 100 og 300 kr i året, men prisene varierer mellom registrarer og kan ha tilbudspris første år. Eventuell e-posttjeneste (en egen postkasse for personvern) kommer i tillegg hvis den ikke følger med; sjekk dette.
 4. **Hva som trengs:** domenet skal stå i **AVVR AS** sitt navn (org.nr. 935941644), ikke i en privatpersons navn, så selskapet kan styre det og så personvernerklæringen peker på riktig part. Registraren ber om organisasjonsnummer, selskapets adresse og en kontaktperson med e-postadresse (reglene for .no krever tilknytning til Norge, og en organisasjon må være registrert i Enhetsregisteret; sjekk gjeldende regler hos Norid). Kontoen hos registraren bør eies av selskapet, med to-faktor, og innloggingen bør ikke bare ligge hos én person. Domenenavn kan bestå av bokstaver (også æ, ø og å), tall og bindestrek; velg et kort navn uten bindestreker hvis mulig, og sjekk at navnet er ledig.
 5. **Pek domenet mot serveren (DNS):** når du har en VPS (f.eks. hos Hetzner, hvis det blir valgt; hosting er ikke valgt ennå) får serveren en offentlig IP-adresse. I registrarens DNS-innstillinger (eller i leverandørens egen DNS-tjeneste, hvis du flytter DNS dit) legger du inn:
-   - en **A-post** for domenet (eller underdomenet appen skal ligge på, f.eks. `app`) med IPv4-adressen til serveren, og
-   - en **AAAA-post** med IPv6-adressen, hvis serveren har en.
-   Les verdiene av i kundeportalen til VPS-leverandøren. Endringen kan ta fra noen minutter til noen timer før den virker overalt. Sjekk med `nslookup <domene>` (Windows, Mac eller Linux) at svaret er serverens IP-adresse. Sett så samme domenenavn som `DOMENE` i `.env.drift`; Caddy henter da sertifikat (HTTPS) av seg selv, forutsatt at port 80 og 443 er åpne i brannmuren og at DNS peker riktig **før** første oppstart.
-6. **Etterpå:** slå på automatisk fornyelse (eller sett en påminnelse), ellers mister du domenet og appen slutter å virke. Domenenavnet må også inn i personvernerklæringen og i kontakt-e-postadressen (`personvern@<domenet>`); det avgjør de to uavklarte punktene domene og kontakt-e-post (`pilot-sjekkliste.md`, A4 og A5).
+   - en **A-post** for `husvett.no` (selve domenet, «@» hos mange registrarer) med IPv4-adressen til serveren, og en **A-post for `www`** (`www.husvett.no`) med samme adresse (eller en CNAME fra `www` til `husvett.no`, hvis registraren tillater det),
+   - en **AAAA-post** med IPv6-adressen, på de samme to navnene, hvis serveren har en.
+   **Hovedadresse:** `husvett.no`. `www.husvett.no` er ikke en egen side: Caddy sender den permanent videre til `https://husvett.no/` (se `docs/drift/Caddyfile`). Begge navnene må peke på serveren, ellers får Caddy ikke sertifikat for `www` (hovedadressen virker likevel). Å bytte hovedadresse til `www` senere er mulig, men husstander og lagrede lenker som viser til den gamle adressen må da flyttes, så velg nå og hold på valget. Merk også: **domenet er ikke bekreftet kjøpt**, så ingen av disse oppføringene er satt.
+   Les verdiene av i kundeportalen til VPS-leverandøren. Endringen kan ta fra noen minutter til noen timer før den virker overalt. Sjekk med `nslookup <domene>` (Windows, Mac eller Linux) at svaret er serverens IP-adresse. Sett så `DOMENE=husvett.no` i `.env.drift` (uten `www.` og uten `https://`; Caddy lager `www`-omdirigeringen selv); Caddy henter da sertifikat (HTTPS) av seg selv, forutsatt at port 80 og 443 er åpne i brannmuren og at DNS peker riktig **før** første oppstart.
+6. **Etterpå:** slå på automatisk fornyelse (eller sett en påminnelse), ellers mister du domenet og appen slutter å virke. Domenenavnet må også inn i personvernerklæringen (der erklæringen publiseres), og kontakt-e-posten `kontakt@husvett.no` forutsetter at domenet er kjøpt og at e-post er satt opp på det (`pilot-sjekkliste.md`, A4 og A5; begge er avgjort av eier, men ikke bekreftet utført).
 
 ## 1. Kort versjon
 
@@ -202,8 +203,8 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 | 2 | Driftsansvarlig: **«Admin» (rolle; navngis ikke)** | Responstid er ikke bestemt |
 | 3 | – | Månedlig tak ikke oppgitt |
 | 4 | – | Ikke besvart. Anbefaling: europeisk leverandør (avsnitt 0) |
-| 5 | Konto og domene: AVVR AS (følger av svar 1). Eier vil kjøpe et **nytt** domene (ikke kjøpt) | **UAVKLART: domenenavnet.** Se «Slik velger og kjøper du et .no-domene» |
-| 6 | – | **UAVKLART: kontakt-e-post for personvern er ikke bestemt** |
+| 5 | Konto og domene: AVVR AS (følger av svar 1). Domene: **`husvett.no`** (hovedadresse; `www.husvett.no` omdirigeres), eierens beslutning 2026-11-22 | **Ikke bekreftet:** at domenet er kjøpt og står i AVVR AS sitt navn, og DNS. Appens navn er ikke avklart. Se «Slik velger og kjøper du et .no-domene» |
+| 6 | Kontakt-e-post for personvern: **`kontakt@husvett.no`** (felles adresse oppgitt av eieren 2026-11-22) | **Ikke bekreftet:** at postkassen er opprettet og virker, hvem som svarer innen 30 dager og e-postleverandør |
 | 7 | **Lukket pilot, hele Norge** | Antall husstander, startdato, betaling |
 | 8 | **730 dager** for inaktive husstander (`SYNC_RETENTION_DAYS=730`) | Logger og sikkerhetskopier. Innloggingens levetid (`SYNC_TOKEN_IDLE_DAYS`) er satt til samme 730 dager (`pilot-sjekkliste.md`, D15, avgjort) |
 | 9 | **Ingen fagperson nå,** bare lukket pilot | Når en fagperson skal se på dokumentene |
@@ -307,13 +308,13 @@ Synk-serveren bruker `node:sqlite` (innebygd i Node, ingen ekstern avhengighet e
 
 ### Pilotoppsett med Docker Compose og Caddy
 
-Filene i [`docs/drift/`](drift/): `docker-compose.yml` (app + Caddy, volum for databasen, `read_only`, ingen ekstra rettigheter, loggstørrelse begrenset), `Caddyfile` (HTTPS med automatisk sertifikat, videresending til `app:8787`, noen sikkerhetshoder, ingen tilgangslogg), `env.eksempel` og `backup.sh`. **Dette er et eksempel, ikke utrullet hos noen leverandør.**
+Filene i [`docs/drift/`](drift/): `docker-compose.yml` (app + Caddy, volum for databasen, `read_only`, ingen ekstra rettigheter, loggstørrelse begrenset), `Caddyfile` (HTTPS med automatisk sertifikat for `{$DOMENE}` = `husvett.no` som hovedadresse, permanent omdirigering fra `www.{$DOMENE}`, videresending til `app:8787`, noen sikkerhetshoder, ingen tilgangslogg; omdirigeringen er ikke kjørt mot ekte DNS og Caddyfilen er ikke validert med `caddy validate` i denne sandkassen, fordi Docker-daemonen manglet), `env.eksempel` og `backup.sh`. **Dette er et eksempel, ikke utrullet hos noen leverandør.**
 
 1. Server (VPS) i EØS med Docker og Compose; brannmur åpen bare for 22 (fra kjente adresser), 80 og 443. Domenet peker (A/AAAA) på serveren **før** første oppstart, ellers får ikke Caddy sertifikat.
 2. `git clone` repoet til f.eks. `/srv/middagsplanlegger`, `cd docs/drift`.
-3. `cp env.eksempel .env.drift && chmod 600 .env.drift`, og fyll ut `DOMENE` og `SYNC_SECRET` (`openssl rand -hex 32`).
+3. `cp env.eksempel .env.drift && chmod 600 .env.drift`, og fyll ut `DOMENE` (`husvett.no`, eierens valg; ikke bekreftet kjøpt) og `SYNC_SECRET` (`openssl rand -hex 32`).
 4. `docker compose --env-file .env.drift up -d --build`, så `docker compose --env-file .env.drift ps` (app skal være `healthy`).
-5. Åpne `https://<domene>/`, opprett en husstand fra to enheter og sjekk at de ser hverandre.
+5. Åpne `https://husvett.no/` (og sjekk at `https://www.husvett.no/` sendes videre dit), opprett en husstand fra to enheter og sjekk at de ser hverandre.
 6. Sett opp daglig sikkerhetskopi (under) og **gjør gjenopprettingsøvelsen før ekte familier inviteres.**
 7. Oppdatering: `git pull && docker compose --env-file .env.drift up -d --build`. Husk Node-regelen over. Tilbakerulling: sett `image:` til en tidligere merket versjon (`docker tag` før hver oppdatering).
 
