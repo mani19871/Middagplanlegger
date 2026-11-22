@@ -138,7 +138,7 @@ Serveren avviser `by` lik et annet (også fjernet) medlems id, men godtar andre 
 ### S17 Info: produksjonsoppsett, avhengigheter og Docker
 
 - **`npm audit`** 2026-11-22: 0 sårbarheter (161 pakker, alle avhengigheter; også `--omit=dev`). Kjøretidsavhengigheter er bare `react` og `react-dom`.
-- **Docker** kjører som `node` (ikke root), og databasen ligger i `/data` med eier `node`. Imaget inneholder hele `node_modules` med devDependencies (Vite, Vitest, TypeScript, tsx) fordi serveren kjøres med `tsx`. Det øker angrepsflaten (mer kode som kan ha sårbarheter), men ingenting av det nås over HTTP. **Anbefaling:** bygg serveren til JavaScript (esbuild/tsc) og kjør `npm ci --omit=dev` i kjøretrinnet; kjør containeren med `--read-only` (med `/data` som volum og `/tmp` som tmpfs), `--cap-drop=ALL` og `--security-opt=no-new-privileges`.
+- **Docker** kjører som `node` (ikke root), og databasen ligger i `/data` med eier `node`. Imaget inneholder hele `node_modules` med devDependencies (Vite, Vitest, TypeScript, tsx) fordi serveren kjøres med `tsx`. Det øker angrepsflaten (mer kode som kan ha sårbarheter), men ingenting av det nås over HTTP. **Anbefaling:** bygg serveren til JavaScript (esbuild/tsc) og kjør `npm ci --omit=dev` i kjøretrinnet; kjør containeren skrivebeskyttet med `/data` som volum, `/tmp` som tmpfs, `cap_drop: [ALL]` og `no-new-privileges` (gjort i `docs/drift/docker-compose.yml`).
 - **`node:sqlite`** er eksperimentell i Node 22 (skriver `ExperimentalWarning`). Databasen er vanlig SQLite, men API-et kan endre seg mellom Node-versjoner. **Anbefaling:** lås Node-versjonen i imaget (f.eks. `node:22.x.y-alpine` med digest), oppdater bevisst og kjør testene før oppgradering; vurder `better-sqlite3` eller PostgreSQL før bred lansering.
 
 ### S18 Rettet: trege klienter
@@ -168,7 +168,7 @@ Kvoter og ratebegrensninger per husstand ligger i `DEFAULT_QUOTAS` og `DEFAULT_R
 
 ## Må på plass før ekte familier
 
-1. **TLS** foran serveren (Caddy), `HSTS=1`, `TRUST_PROXY=1`, og bare porten til proxyen åpen i brannmuren.
+1. **TLS** foran serveren (Caddy, `docs/drift/`), `TRUST_PROXY=1`, og bare proxyen når appen (Compose publiserer bare Caddy). Caddyfilen setter HSTS selv; `HSTS=1` trengs bare uten den. Øk HSTS-levetiden når domenet er prøvd.
 2. **Sikkerhetskopi**, kryptert og utenfor maskinen, med slettefrist og en prøvd gjenoppretting (`docs/synk.md`, Drift).
 3. **Overvåking** av databasestørrelse (varsel lenge før `SYNC_MAX_TOTAL_MB`), disk, feilrate (`500`, `429`, `kvote_full`) og oppetid, uten innhold i loggene.
 4. **Proxy-logger:** kort oppbevaring av IP-adresser (forslag 14 dager, `docs/hosting.md`), og ratebegrensning i proxyen i tillegg.
