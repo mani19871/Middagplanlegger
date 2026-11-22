@@ -1,0 +1,253 @@
+// Klienttester av synk-logikken mot en ekte synk-server (minnedatabase). Hver «enhet» har egen tilstand og eget nett.
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { initialState, migrateState, recordEvent, recordList, type AppState } from '../store';
+import { conflicts, deriveStock, lineStates, purchaseLineId, type InventoryEvent } from '../engine/inventory';
+import { checks, manualLines, toggleEvent } from './list';
+import { SyncApi } from './api';
+import { connect, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
+import { merge3 } from './docs';
+import { startTestServer } from '../../server/sync/testkit';
+
+type Srv = Awaited<ReturnType<typeof startTestServer>>;
+let srv: Srv;
+beforeEach(async () => { srv = await startTestServer(); });
+afterEach(async () => { await srv.close(); });
+
+const WEEK = '2026-11-23';
+const LINE = purchaseLineId(WEEK, 'demoA', 'pasta', 'pasta500');
+
+class Device {
+  state: AppState;
+  online = true;
+  /** Mister svaret etter at forespørselen er levert (simulerer brudd midt i en levering). */
+  dropNextResponse = false;
+  private n = 0;
+  private clock = Date.parse('2026-11-23T10:00:00.000Z');
+  readonly api: SyncApi;
+  constructor(public id: string, state: AppState = initialState) {
+    this.state = state;
+    this.api = new SyncApi(srv.base, async (url, init) => {
+      if (!this.online) throw new TypeError('Failed to fetch');
+      const res = await fetch(url, init);
+      if (this.dropNextResponse) { this.dropNextResponse = false; throw new TypeError('connection reset'); }
+      return res;
+    });
+  }
+  io = { get: () => this.state, set: (f: (s: AppState) => AppState) => { this.state = f(this.state); } };
+  stamp(atMs?: number) {
+    this.n += 1;
+    return { id: `${this.id}-${this.n}`, at: new Date(atMs ?? (this.clock += 1000)).toISOString(), by: this.id };
+  }
+  sync() { return syncOnce(this.io, this.api, () => '2026-11-23T12:00:00.000Z'); }
+  record(e: InventoryEvent) { this.state = recordEvent(this.state, e); }
+  toggle(key: string) { this.state = recordList(this.state, toggleEvent(this.state.list, WEEK, key, this.stamp())); }
+  async create(label?: string) { const r = await this.api.createHousehold(this.id, label); this.state = connect(this.state, r.token, r.member); }
+  async join(code: string) { const r = await this.api.join(code, this.id); this.state = connect(this.state, r.token, r.member); }
+  async invite() { return (await this.api.withToken(this.state.sync!.token).invite()).code; }
+}
+const buy = (d: Device, packs: number, at?: number): InventoryEvent => ({
+  type: 'kjøp', ...d.stamp(at), week: WEEK, line: LINE, ingredient: 'pasta', productId: 'pasta500', storeId: 'demoA', unit: 'g', packs, packSize: 500,
+});
+const tell = (d: Device, amount: number, at?: number): InventoryEvent => ({ type: 'telling', ...d.stamp(at), ingredient: 'ris', amount });
+
+async function pair() {
+  const a = new Device('enhet-aaaa1111');
+  const b = new Device('enhet-bbbb2222');
+  await a.create('Voksen 1');
+  await b.join(await a.invite());
+  await a.sync(); await b.sync();
+  return { a, b };
+}
+const ids = (s: AppState) => s.inventory.map((e) => e.id).sort();
+
+describe('synk mellom to enheter', () => {
+  it('en avkrysning vises hos den andre med hvem som krysset av', async () => {
+    const { a, b } = await pair();
+    a.toggle('demoA:pasta');
+    await a.sync(); await b.sync();
+    expect(checks(b.state.list, WEEK).get('demoA:pasta')?.map((m) => m.by)).toEqual(['enhet-aaaa1111']);
+    expect(b.state.sync!.members.find((m) => m.id === 'enhet-aaaa1111')?.label).toBe('Voksen 1');
+    expect(syncStatus(b.state, { offline: false, busy: false }, 0)).toBe('synket');
+  });
+
+  it('to voksne krysser av samme linje samtidig: begge avkrysningene står, og «fjern» fjerner bare det som var sett', async () => {
+    const { a, b } = await pair();
+    a.toggle('demoA:pasta');
+    b.toggle('demoA:pasta');
+    await a.sync(); await b.sync(); await a.sync();
+    for (const d of [a, b]) expect(checks(d.state.list, WEEK).get('demoA:pasta')!.map((m) => m.by).sort()).toEqual(['enhet-aaaa1111', 'enhet-bbbb2222']);
+    // A fjerner krysset (ser begge). Samtidig, uten å ha sett det, krysser B av igjen.
+    a.toggle('demoA:pasta');
+    b.online = false;
+    b.state = recordList(b.state, { type: 'kryss', ...b.stamp(), week: WEEK, key: 'demoA:pasta' });
+    await a.sync();
+    b.online = true;
+    await b.sync(); await a.sync();
+    for (const d of [a, b]) expect(checks(d.state.list, WEEK).get('demoA:pasta')!.map((m) => m.by)).toEqual(['enhet-bbbb2222']);
+  });
+
+  it('samme kjøp fra to voksne gir ett kjøp; ulikt antall blir en konflikt som må bekreftes, likt hos begge', async () => {
+    const { a, b } = await pair();
+    a.record(buy(a, 2));
+    b.record(buy(b, 2));
+    await a.sync(); await b.sync(); await a.sync();
+    expect(deriveStock(a.state.inventory).total.pasta).toBe(1000);
+    expect(deriveStock(b.state.inventory).total.pasta).toBe(1000);
+    // Ny linje: uenighet om antall.
+    const line2 = purchaseLineId(WEEK, 'demoA', 'tomat', 'tomat400');
+    const t = (d: Device, packs: number): InventoryEvent => ({ type: 'kjøp', ...d.stamp(), week: WEEK, line: line2, ingredient: 'tomat', productId: 'tomat400', storeId: 'demoA', unit: 'g', packs, packSize: 400 });
+    a.record(t(a, 2)); b.record(t(b, 3));
+    await a.sync(); await b.sync(); await a.sync();
+    for (const d of [a, b]) {
+      expect(conflicts(d.state.inventory).map((p) => p.candidates)).toEqual([[2, 3]]);
+      expect(deriveStock(d.state.inventory).total.tomat).toBeUndefined();
+      expect(syncStatus(d.state, { offline: false, busy: false }, conflicts(d.state.inventory).length)).toBe('konflikt');
+    }
+    b.record({ type: 'løs', ...b.stamp(), line: line2, packs: 3 });
+    await b.sync(); await a.sync();
+    for (const d of [a, b]) expect(lineStates(d.state.inventory).purchases.get(line2)).toMatchObject({ status: 'kjøpt', packs: 3 });
+  });
+
+  it('endring mens en enhet er frakoblet flettes riktig ved gjenoppkobling, uavhengig av rekkefølge', async () => {
+    const { a, b } = await pair();
+    b.online = false;
+    // B handler uten nett kl. 10:30; A teller ris kl. 11:00 og handler samme linje kl. 11:30 med annet antall.
+    b.record(buy(b, 1, Date.parse('2026-11-23T10:30:00.000Z')));
+    b.toggle('demoA:pasta');
+    expect((await b.sync()).offline).toBe(true);
+    expect(syncStatus(b.state, { offline: true, busy: false }, 0)).toBe('venter');
+    expect(b.state.outbox).toHaveLength(1);
+    a.record(tell(a, 300, Date.parse('2026-11-23T11:00:00.000Z')));
+    await a.sync();
+    b.online = true;
+    await b.sync(); await a.sync();
+    expect(ids(a.state)).toEqual(ids(b.state));
+    expect(deriveStock(a.state.inventory)).toEqual(deriveStock(b.state.inventory));
+    expect(deriveStock(a.state.inventory).total).toEqual({ pasta: 500, ris: 300 });
+    expect(checks(a.state.list, WEEK).get('demoA:pasta')?.[0].by).toBe('enhet-bbbb2222');
+    expect(b.state.outbox).toEqual([]);
+    expect(b.state.listOutbox).toEqual([]);
+  });
+
+  it('avbrutt levering (svaret kom aldri) sendes på nytt uten doble rader', async () => {
+    const { a, b } = await pair();
+    a.record(buy(a, 2));
+    a.dropNextResponse = true;
+    const r = await a.sync();
+    expect(r.ok).toBe(false);
+    expect(a.state.outbox).toHaveLength(1); // fortsatt i utboksen
+    await a.sync(); await a.sync();
+    expect(a.state.outbox).toEqual([]);
+    await b.sync();
+    expect(b.state.inventory).toHaveLength(1);
+    expect(srv.storage.counts().events).toBe(1);
+  });
+
+  it('flytter eksisterende lokal tilstand inn i husstanden ved første tilkobling, uten duplikater', async () => {
+    // A har brukt appen alene: gammel pantry, manuelle linjer og avkrysninger (gammelt format).
+    const old = migrateState({
+      ...initialState, settings: { ...initialState.settings, pantry: { pasta: 400 } },
+      manual: [{ id: 'm0', text: 'Torsk 400 g', note: 'Demo' }], checked: { 'demoA:pasta': true },
+    } as never, WEEK, 'enhet-aaaa1111');
+    const a = new Device('enhet-aaaa1111', { ...old, outbox: [] });
+    a.record(tell(a, 200));
+    await a.create();
+    expect(a.state.outbox).toHaveLength(2); // hele loggen, også det som var levert «før»
+    await a.sync(); await a.sync();
+    // B har også gammel pantry (samme faste migrerings-id) og egne data.
+    const b = new Device('enhet-bbbb2222', migrateState({ ...initialState, settings: { ...initialState.settings, pantry: { pasta: 999 } } } as never, WEEK, 'enhet-bbbb2222'));
+    b.record(tell(b, 50, Date.parse('2026-11-22T09:00:00.000Z')));
+    await b.join(await a.invite());
+    await b.sync(); await a.sync(); await b.sync();
+    expect(ids(a.state)).toEqual(ids(b.state));
+    expect(a.state.inventory).toHaveLength(3); // migrert:pasta én gang + to tellinger
+    expect(srv.storage.counts().events).toBe(3 + 2); // + manuell linje og avkrysning
+    expect(manualLines(b.state.list).map((m) => m.text)).toEqual(['Torsk 400 g']);
+    expect(checks(b.state.list, WEEK).has('demoA:pasta')).toBe(true);
+    // B overtar husstandens plan og innstillinger (budsjettet fra A).
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 123_400 } };
+    await a.sync(); await b.sync();
+    expect(b.state.settings.budgetOre).toBe(123_400);
+  });
+
+  it('en fjernet enhet kobles fra og beholder dataene sine', async () => {
+    const { a, b } = await pair();
+    b.record(tell(b, 10));
+    await a.api.withToken(a.state.sync!.token).removeMember('enhet-bbbb2222');
+    const r = await b.sync();
+    expect(r.ok).toBe(false);
+    expect(b.state.sync).toBeNull();
+    expect(b.state.syncNotice).toMatch(/ikke lenger med/);
+    expect(b.state.inventory).toHaveLength(1);
+    expect(syncStatus(b.state, { offline: false, busy: false }, 0)).toBe('lokal');
+  });
+});
+
+describe('plan og innstillinger', () => {
+  const slot = (day: number, recipeId: string) => ({ day, recipeId, locked: false });
+  async function withPlan() {
+    const { a, b } = await pair();
+    a.state = { ...a.state, slots: [slot(0, 'bolognese'), slot(1, 'taco'), slot(2, 'karri')] };
+    await a.sync(); await b.sync();
+    expect(b.state.slots.map((s) => s.recipeId)).toEqual(['bolognese', 'taco', 'karri']);
+    return { a, b };
+  }
+  it('endringer på ulike dager flettes uten konflikt', async () => {
+    const { a, b } = await withPlan();
+    a.state = { ...a.state, slots: a.state.slots.map((s) => (s.day === 0 ? slot(0, 'ovnstorsk') : s)) };
+    b.state = { ...b.state, slots: b.state.slots.map((s) => (s.day === 2 ? slot(2, 'taco') : s)) };
+    await a.sync(); await b.sync(); await a.sync();
+    for (const d of [a, b]) {
+      expect(d.state.slots.map((s) => s.recipeId)).toEqual(['ovnstorsk', 'taco', 'taco']);
+      expect(d.state.sync!.conflicts).toEqual({});
+    }
+  });
+  it('samme dag endret ulikt gir konflikt; ingenting overskrives før brukeren velger', async () => {
+    const { a, b } = await withPlan();
+    a.state = { ...a.state, slots: a.state.slots.map((s) => (s.day === 1 ? slot(1, 'ovnstorsk') : s)) };
+    b.state = { ...b.state, settings: { ...b.state.settings, budgetOre: 80_000 }, slots: b.state.slots.map((s) => (s.day === 1 ? slot(1, 'karri') : s.day === 2 ? slot(2, 'bolognese') : s)) };
+    await a.sync(); await b.sync();
+    const c = b.state.sync!.conflicts.plan!;
+    expect(c.fields).toEqual(['slot:1']);
+    expect(c.by).toBe('enhet-aaaa1111');
+    expect(b.state.slots.map((s) => s.recipeId)).toEqual(['bolognese', 'karri', 'bolognese']); // egen verdi står
+    expect(syncStatus(b.state, { offline: false, busy: false }, 0)).toBe('konflikt');
+    await b.sync(); await a.sync();
+    expect(a.state.slots[1].recipeId).toBe('ovnstorsk'); // B sendte ikke planen mens konflikten var åpen
+    expect(a.state.settings.budgetOre).toBe(80_000); // men innstillingene gikk gjennom
+    b.state = resolveConflict(b.state, 'plan', 'theirs');
+    await b.sync(); await a.sync();
+    for (const d of [a, b]) expect(d.state.slots.map((s) => s.recipeId)).toEqual(['bolognese', 'ovnstorsk', 'bolognese']);
+  });
+  it('«behold min» sender egen verdi til de andre', async () => {
+    const { a, b } = await withPlan();
+    a.state = { ...a.state, slots: a.state.slots.map((s) => (s.day === 1 ? slot(1, 'ovnstorsk') : s)) };
+    b.state = { ...b.state, slots: b.state.slots.map((s) => (s.day === 1 ? slot(1, 'karri') : s)) };
+    await a.sync(); await b.sync();
+    b.state = resolveConflict(b.state, 'plan', 'mine');
+    await b.sync(); await a.sync();
+    for (const d of [a, b]) expect(d.state.slots[1].recipeId).toBe('karri');
+  });
+  it('en åpen konflikt forsvinner ikke når den andre enheten endrer noe annet', async () => {
+    const { a, b } = await withPlan();
+    a.state = { ...a.state, slots: a.state.slots.map((s) => (s.day === 1 ? slot(1, 'ovnstorsk') : s)) };
+    b.state = { ...b.state, slots: b.state.slots.map((s) => (s.day === 1 ? slot(1, 'karri') : s)) };
+    await a.sync(); await b.sync();
+    a.state = { ...a.state, option: 'combo' };
+    await a.sync(); await b.sync();
+    expect(b.state.sync!.conflicts.plan!.fields).toEqual(['slot:1']);
+    expect(b.state.option).toBe('combo');
+  });
+  it('tre-veis fletting er ren: samme verdi på begge sider er ingen konflikt', () => {
+    const base = { slots: [slot(0, 'taco')], approved: true, option: 'regular' as const };
+    const mine = { ...base, approved: false };
+    const theirs = { ...base, approved: false, option: 'combo' as const };
+    expect(merge3('plan', base, mine, theirs)).toEqual({ merged: { ...base, approved: false, option: 'combo' }, conflicts: [] });
+  });
+  it('ignorerer ugyldige eller eldre dokumentversjoner', async () => {
+    const { b } = await withPlan();
+    const before = b.state;
+    expect(receiveDoc(b.state, { name: 'plan', version: 99, body: { slots: 'x' } as never, updatedBy: 'x', updatedAt: 'x' })).toBe(before);
+    expect(receiveDoc(b.state, { name: 'plan', version: 1, body: { slots: [], approved: false, option: 'regular' }, updatedBy: 'x', updatedAt: 'x' })).toBe(before);
+  });
+});
