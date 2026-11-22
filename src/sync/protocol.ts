@@ -30,7 +30,9 @@ export interface HouseholdResponse { members: MemberInfo[]; invites: { id: strin
 /** Feilkoder fra serveren. Klienten viser norsk tekst for dem. */
 export type ErrorCode =
   | 'ugyldig_forespørsel' | 'for_stor' | 'ikke_autentisert' | 'ingen_tilgang' | 'ikke_funnet' | 'for_mange_forespørsler'
-  | 'ugyldig_kode' | 'enhet_finnes' | 'konflikt' | 'ugyldig_dokument' | 'serverfeil';
+  | 'ugyldig_kode' | 'enhet_finnes' | 'konflikt' | 'ugyldig_dokument' | 'serverfeil'
+  /** Husstanden har nådd en kvote (medlemmer, invitasjoner eller lagrede hendelser). Se docs/sikkerhet.md. */
+  | 'kvote_full';
 
 export const LIMITS = {
   bodyBytes: 256 * 1024, batch: 500, eventBytes: 4096, docBytes: 64 * 1024, label: 24, pullPage: 1000,
@@ -134,10 +136,22 @@ export function checkEnvelope(x: unknown): string | null {
   return 'ukjent_strøm';
 }
 
-/** Ren etikett: uten kontrolltegn, trimmet, høyst 24 tegn. Tom gir null. */
+/**
+ * Ren etikett: NFC-normalisert, uten kontrolltegn, usynlige tegn og retningsstyring (kan snu teksten i UI), trimmet,
+ * høyst 24 tegn (kodepunkter, så et emoji ikke deles i to). Tom gir null.
+ */
 export function cleanLabel(v: unknown): string | null {
   if (typeof v !== 'string') return null;
-  // eslint-disable-next-line no-control-regex
-  const s = v.replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮]/g, '').trim().slice(0, LIMITS.label);
-  return s || null;
+  const s = v.normalize('NFC')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb]/g, '')
+    .replace(/[\ud800-\udfff]/g, (c, i: number, all: string) => {
+      // Behold gyldige surrogatpar, fjern enslige halvdeler.
+      const code = c.charCodeAt(0);
+      if (code < 0xdc00) { const next = all.charCodeAt(i + 1); return next >= 0xdc00 && next <= 0xdfff ? c : ''; }
+      const prev = all.charCodeAt(i - 1); return prev >= 0xd800 && prev < 0xdc00 ? c : '';
+    })
+    .replace(/\s+/g, ' ').trim();
+  const out = Array.from(s).slice(0, LIMITS.label).join('').trim();
+  return out || null;
 }

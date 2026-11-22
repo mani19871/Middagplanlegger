@@ -20,8 +20,8 @@ import { DOC_NAMES, isValidDoc, stable, type DocName } from '../../src/sync/docs
 import {
   checkEnvelope, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type StoredEnvelope, type Stream,
 } from '../../src/sync/protocol';
-import type { DeviceRow, DocOut, SyncStorage } from '../storage/types';
-import { RateLimiter } from './rateLimit';
+import { QuotaExceededError, type DeviceRow, type DocOut, type SyncStorage } from '../storage/types';
+import { ipKey, RateLimiter } from './rateLimit';
 
 export interface SyncApiOptions {
   storage: SyncStorage;
@@ -30,22 +30,43 @@ export interface SyncApiOptions {
   randomBytes?: (n: number) => Buffer;
   /** Hemmelighet for HMAC av invitasjonskoder. Fra miljøvariabelen SYNC_SECRET; mangler den, lages en per prosess. */
   secret?: string;
-  /** Les klientens IP fra X-Forwarded-For (bare bak en kjent proxy). */
+  /**
+   * Les klientens IP fra X-Forwarded-For (bare bak én kjent proxy). Siste adresse i hodet brukes: den har proxyen selv
+   * lagt til, mens adresser lenger til venstre kan være satt av klienten.
+   */
   trustProxy?: boolean;
   inviteTtlMs?: number;
   limits?: Partial<typeof DEFAULT_RATES>;
+  quotas?: Partial<typeof DEFAULT_QUOTAS>;
+  /** Et enhetstoken som ikke er brukt på så lenge, slutter å virke (enheten forlater husstanden). Standard: av. */
+  tokenIdleMs?: number;
+  /** Hvor langt fram i tid en hendelses `at` kan ligge før serveren setter den til mottakstidspunktet. */
+  maxFutureSkewMs?: number;
+  /** Feillogg. Får bare feilens navn, aldri token, kode, etikett, kropp eller URL. */
+  log?: (msg: string) => void;
 }
 const DEFAULT_RATES = {
   /** Per IP: alle kall. */ ipPerMin: 600,
   /** Per enhet: autentiserte kall. */ devicePerMin: 240,
   /** Per IP: nye husstander per time. */ createPerHour: 20,
   /** Per IP: forsøk på å bli med per 10 min (mot gjetting av koder). */ joinPer10Min: 20,
+  /** Alle IP-er samlet: feilede forsøk på å bli med per 10 min (mot gjetting fra mange adresser). */ joinFailGlobalPer10Min: 1000,
 };
+/** Kvoter per husstand. En familie bruker en brøkdel; de stopper et medlem eller et stjålet token fra å fylle disken. */
+export const DEFAULT_QUOTAS = {
+  /** Aktive medlemmer (voksne enheter). */ activeMembers: 12,
+  /** Alle medlemsrader, også fjernede (hver ny enhet som blir med, gir en rad). */ totalMembers: 50,
+  /** Aktive invitasjoner samtidig. */ activeInvites: 5,
+  /** Lagrede hendelser. */ events: 100_000,
+  /** Samlet størrelse på lagrede hendelser (byte). */ eventBytes: 64 * 1024 * 1024,
+};
+
 const MESSAGES: Record<ErrorCode, string> = {
   ugyldig_forespørsel: 'Ugyldig forespørsel.', for_stor: 'Forespørselen er for stor.',
   ikke_autentisert: 'Enheten er ikke (lenger) med i en husstand.', ingen_tilgang: 'Bare eieren av husstanden kan gjøre dette.',
   ikke_funnet: 'Fant ikke det du ba om.', for_mange_forespørsler: 'For mange forespørsler. Vent litt og prøv igjen.',
   ugyldig_kode: 'Koden er ugyldig, brukt eller utløpt.', enhet_finnes: 'Denne enheten er allerede med i husstanden.',
+  kvote_full: 'Husstanden har nådd en grense (antall medlemmer, invitasjoner eller lagrede endringer).',
   konflikt: 'Dokumentet er endret på en annen enhet.', ugyldig_dokument: 'Dokumentet har ugyldig innhold.', serverfeil: 'Noe gikk galt på serveren.',
 };
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -61,6 +82,9 @@ export function createSyncApi(opts: SyncApiOptions) {
   const rnd = opts.randomBytes ?? nodeRandomBytes;
   const secret = opts.secret ?? nodeRandomBytes(32).toString('hex');
   const rates = { ...DEFAULT_RATES, ...opts.limits };
+  const quotas = { ...DEFAULT_QUOTAS, ...opts.quotas };
+  const skew = opts.maxFutureSkewMs ?? 10 * 60_000;
+  const log = opts.log ?? ((m: string) => console.error(m));
   const ttl = opts.inviteTtlMs ?? 24 * 60 * 60 * 1000;
   const limiter = new RateLimiter();
   const codeHash = (code: string) => createHmac('sha256', secret).update(normalizeCode(code)).digest('hex');
@@ -72,8 +96,8 @@ export function createSyncApi(opts: SyncApiOptions) {
   };
 
   const clientIp = (req: IncomingMessage) => {
-    const fwd = opts.trustProxy ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '';
-    return fwd || req.socket.remoteAddress || 'ukjent';
+    const fwd = opts.trustProxy ? String(req.headers['x-forwarded-for'] ?? '').split(',').map((x) => x.trim()).filter(Boolean).pop() ?? '' : '';
+    return ipKey(fwd || req.socket.remoteAddress || 'ukjent');
   };
   const limit = (key: string, max: number, windowMs: number) => {
     if (!limiter.hit(key, max, windowMs, Date.parse(now()))) throw new HttpError(429, 'for_mange_forespørsler');
@@ -102,7 +126,8 @@ export function createSyncApi(opts: SyncApiOptions) {
     const h = String(req.headers.authorization ?? '');
     const m = /^Bearer ([A-Za-z0-9_-]{20,100})$/.exec(h);
     if (!m) throw new HttpError(401, 'ikke_autentisert');
-    const d = await storage.authenticate(sha256(m[1]), now());
+    const idleBefore = opts.tokenIdleMs ? new Date(Date.parse(now()) - opts.tokenIdleMs).toISOString() : undefined;
+    const d = await storage.authenticate(sha256(m[1]), now(), idleBefore);
     if (!d) throw new HttpError(401, 'ikke_autentisert');
     limit(`dev:${d.id}`, rates.devicePerMin, 60_000);
     return d;
@@ -137,13 +162,18 @@ export function createSyncApi(opts: SyncApiOptions) {
     }
     if (path === '/api/household/join' && method === 'POST') {
       limit(`join:${ip}`, rates.joinPer10Min, 600_000);
+      const t = Date.parse(now());
+      if (limiter.count('joinfail', 600_000, t) >= rates.joinFailGlobalPer10Min) throw new HttpError(429, 'for_mange_forespørsler');
       const body = await readJson(req);
       if (typeof body.code !== 'string' || body.code.length > 40 || normalizeCode(body.code).length !== 10) throw new HttpError(400, 'ugyldig_kode');
       const token = newToken();
       const r = await storage.join(codeHash(body.code), {
         id: randomUUID(), publicId: deviceIdOf(body), label: cleanLabel(body.label) ?? '', tokenHash: sha256(token),
-      }, now());
-      if (!r.ok) throw new HttpError(r.code === 'ugyldig_kode' ? 403 : 409, r.code);
+      }, now(), { active: quotas.activeMembers, total: quotas.totalMembers });
+      if (!r.ok) {
+        if (r.code === 'ugyldig_kode') limiter.hit('joinfail', Number.MAX_SAFE_INTEGER, 600_000, t);
+        throw new HttpError(r.code === 'enhet_finnes' ? 409 : 403, r.code);
+      }
       let device = r.device;
       if (!device.label) {
         const members = await storage.members(device.householdId);
@@ -170,6 +200,7 @@ export function createSyncApi(opts: SyncApiOptions) {
       return [200, { member: memberInfo({ ...me, label }, me) }];
     }
     if (path === '/api/household/invites' && method === 'POST') {
+      if ((await storage.activeInvites(hh, now())).length >= quotas.activeInvites) throw new HttpError(403, 'kvote_full');
       const code = newCode();
       const expiresAt = new Date(Date.parse(now()) + ttl).toISOString();
       await storage.createInvite(hh, { id: randomUUID(), codeHash: codeHash(code), createdBy: me.id, expiresAt }, now());
@@ -207,13 +238,30 @@ export function createSyncApi(opts: SyncApiOptions) {
       const others = new Set((await storage.members(hh)).filter((m) => m.id !== me.id).map((m) => m.publicId));
       const ok: { stream: Stream; id: string; by: string; body: string }[] = [];
       const rejected: { id: string; code: string }[] = [];
+      const received = Date.parse(now());
       for (const x of list) {
         const id = typeof x?.event?.id === 'string' ? (x.event.id as string).slice(0, 100) : '';
         const err = checkEnvelope(x) ?? (others.has(x.event.by) ? 'feil_identitet' : null);
         if (err) { rejected.push({ id, code: err }); continue; }
-        ok.push({ stream: x.stream, id: x.event.id, by: x.event.by, body: JSON.stringify(x.event) });
+        // Klientens klokke bestemmer rekkefølgen (inventory.ts sorterer på at, id). Et ugyldig tidspunkt avvises; et
+        // tidspunkt langt fram i tid (feil klokke eller med vilje) ville ligget sist i loggen for alltid og overstyrt
+        // senere tellinger og valg, så det settes til mottakstidspunktet. Tilbakedatering er lov (frakoblede enheter og
+        // migrerte data med tid 1970).
+        const at = Date.parse(x.event.at);
+        if (!Number.isFinite(at) || new Date(at).toISOString().slice(0, 19) !== x.event.at.slice(0, 19)) {
+          rejected.push({ id, code: 'ugyldig_hendelse' }); continue;
+        }
+        const event = at > received + skew ? { ...x.event, at: new Date(received).toISOString() } : x.event;
+        ok.push({ stream: x.stream, id: event.id, by: event.by, body: JSON.stringify(event) });
       }
-      const accepted = ok.length ? await storage.appendEvents(hh, me.id, ok, now()) : [];
+      let accepted: string[] = [];
+      try {
+        accepted = ok.length ? await storage.appendEvents(hh, me.id, ok, now(), { events: quotas.events, bytes: quotas.eventBytes }) : [];
+      } catch (e) {
+        // Hele kallet avvises, så hendelsene blir liggende i enhetens utboks til det er plass.
+        if (e instanceof QuotaExceededError) throw new HttpError(403, 'kvote_full');
+        throw e;
+      }
       return [200, { accepted, rejected }];
     }
     if (path === '/api/sync' && method === 'GET') {
@@ -244,7 +292,8 @@ export function createSyncApi(opts: SyncApiOptions) {
 
   /** Håndterer /api/household* og /api/sync*. Returnerer false for andre stier. */
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    let url: URL;
+    try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { return false; }
     if (!/^\/api\/(household|sync)(\/|$)/.test(url.pathname)) return false;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -255,7 +304,11 @@ export function createSyncApi(opts: SyncApiOptions) {
       [status, payload] = await route(req, res, url);
     } catch (e) {
       if (e instanceof HttpError) { status = e.status; payload = { error: e.code, message: MESSAGES[e.code] }; }
-      else { status = 500; payload = { error: 'serverfeil', message: MESSAGES.serverfeil }; console.error('synk-feil:', e instanceof Error ? e.message : e); }
+      else {
+        // Bare navnet på feilen: meldinger kan inneholde verdier fra forespørselen.
+        status = 500; payload = { error: 'serverfeil', message: MESSAGES.serverfeil };
+        log(`synk-feil: ${e instanceof Error ? e.name : typeof e}`);
+      }
     }
     res.statusCode = status;
     if (status === 204) { res.end(); return true; }

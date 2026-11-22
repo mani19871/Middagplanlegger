@@ -4,7 +4,11 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { DocName } from '../../src/sync/docs';
 import type { Role, Stream } from '../../src/sync/protocol';
-import type { DeviceRow, DocOut, EventIn, JoinResult, NewDevice, PutDocResult, ReadResult, SyncStorage } from './types';
+import {
+  QuotaExceededError, REMOVED_LABEL,
+  type DeviceRow, type DocOut, type EventIn, type EventQuota, type JoinResult, type MemberQuota, type NewDevice, type PutDocResult,
+  type ReadResult, type SyncStorage,
+} from './types';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS households (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, seq INTEGER NOT NULL DEFAULT 0);
@@ -41,6 +45,20 @@ export class SqliteStorage implements SyncStorage {
     this.db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA secure_delete = ON;');
     if (path !== ':memory:') this.db.exec('PRAGMA journal_mode = WAL;');
     this.db.exec(SCHEMA);
+    this.migrate();
+  }
+
+  /** Tellere for kvoter (antall og byte hendelser per husstand). Legges til og fylles én gang i eldre databaser. */
+  private migrate() {
+    const cols = (this.db.prepare('PRAGMA table_info(households)').all() as { name: string }[]).map((c) => c.name);
+    if (cols.includes('event_bytes')) return;
+    this.tx(() => {
+      this.db.exec('ALTER TABLE households ADD COLUMN event_count INTEGER NOT NULL DEFAULT 0');
+      this.db.exec('ALTER TABLE households ADD COLUMN event_bytes INTEGER NOT NULL DEFAULT 0');
+      this.db.exec(`UPDATE households SET
+        event_count = (SELECT COUNT(*) FROM events e WHERE e.household_id = households.id),
+        event_bytes = (SELECT COALESCE(SUM(LENGTH(CAST(body AS BLOB))), 0) FROM events e WHERE e.household_id = households.id)`);
+    });
   }
 
   private tx<T>(f: () => T): T {
@@ -64,9 +82,14 @@ export class SqliteStorage implements SyncStorage {
     });
   }
 
-  async authenticate(tokenHash: string, now: string): Promise<DeviceRow | null> {
+  async authenticate(tokenHash: string, now: string, idleBefore?: string): Promise<DeviceRow | null> {
     const r = this.db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE token_hash = ? AND revoked_at IS NULL`).get(tokenHash) as DeviceDb | undefined;
     if (!r) return null;
+    if (idleBefore && (r.last_seen ?? r.created_at) < idleBefore) {
+      // Utløpt etter lang inaktivitet: enheten forlater husstanden (eierskap går videre; siste som går sletter alt).
+      this.tx(() => this.leaveTx(r.household_id, r.id, now));
+      return null;
+    }
     // «Sist sett» lagres med minutt-oppløsning: nok til medlemslista, mindre bruksmønster lagret.
     const minute = `${now.slice(0, 16)}:00.000Z`;
     if (r.last_seen !== minute) this.db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(minute, r.id);
@@ -99,7 +122,7 @@ export class SqliteStorage implements SyncStorage {
     return Number(this.db.prepare('DELETE FROM invites WHERE household_id = ? AND id = ?').run(householdId, id).changes) > 0;
   }
 
-  async join(codeHash: string, d: NewDevice, now: string): Promise<JoinResult> {
+  async join(codeHash: string, d: NewDevice, now: string, quota?: MemberQuota): Promise<JoinResult> {
     return this.tx((): JoinResult => {
       const inv = this.db.prepare('SELECT id, household_id FROM invites WHERE code_hash = ? AND used_at IS NULL AND expires_at > ?')
         .get(codeHash, now) as { id: string; household_id: string } | undefined;
@@ -107,6 +130,12 @@ export class SqliteStorage implements SyncStorage {
       const existing = this.db.prepare('SELECT id, revoked_at FROM devices WHERE household_id = ? AND public_id = ?')
         .get(inv.household_id, d.publicId) as { id: string; revoked_at: string | null } | undefined;
       if (existing && existing.revoked_at === null) return { ok: false, code: 'enhet_finnes' };
+      if (quota) {
+        // Koden brukes ikke opp når husstanden er full.
+        const n = this.db.prepare('SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE revoked_at IS NULL) AS active FROM devices WHERE household_id = ?')
+          .get(inv.household_id) as { total: number; active: number };
+        if (n.active >= quota.active || (!existing && n.total >= quota.total)) return { ok: false, code: 'kvote_full' };
+      }
       let id = d.id;
       if (existing) {
         // En fjernet enhet som blir invitert på nytt får tilbake sin offentlige id med nytt token.
@@ -124,42 +153,64 @@ export class SqliteStorage implements SyncStorage {
 
   async revoke(householdId: string, deviceId: string, now: string): Promise<boolean> {
     return this.tx(() => {
-      const r = this.db.prepare("UPDATE devices SET token_hash = NULL, revoked_at = ?, role = 'voksen' WHERE id = ? AND household_id = ? AND revoked_at IS NULL")
-        .run(now, deviceId, householdId);
+      const r = this.db.prepare("UPDATE devices SET token_hash = NULL, revoked_at = ?, role = 'voksen', label = ?, last_seen = NULL WHERE id = ? AND household_id = ? AND revoked_at IS NULL")
+        .run(now, REMOVED_LABEL, deviceId, householdId);
       return Number(r.changes) > 0;
     });
   }
 
   async leave(householdId: string, deviceId: string, now: string): Promise<{ deletedHousehold: boolean }> {
-    return this.tx(() => {
-      const me = this.device(deviceId);
-      this.db.prepare("UPDATE devices SET token_hash = NULL, revoked_at = ?, role = 'voksen' WHERE id = ? AND household_id = ?").run(now, deviceId, householdId);
-      const rest = this.db.prepare('SELECT id, role FROM devices WHERE household_id = ? AND revoked_at IS NULL ORDER BY created_at, rowid')
-        .all(householdId) as { id: string; role: string }[];
-      if (rest.length === 0) {
-        this.db.prepare('DELETE FROM households WHERE id = ?').run(householdId);
-        return { deletedHousehold: true };
-      }
-      if (me.role === 'eier' && !rest.some((r) => r.role === 'eier')) this.db.prepare("UPDATE devices SET role = 'eier' WHERE id = ?").run(rest[0].id);
-      return { deletedHousehold: false };
-    });
+    return this.tx(() => this.leaveTx(householdId, deviceId, now));
+  }
+  private leaveTx(householdId: string, deviceId: string, now: string): { deletedHousehold: boolean } {
+    const me = this.device(deviceId);
+    this.db.prepare("UPDATE devices SET token_hash = NULL, revoked_at = ?, role = 'voksen', label = ?, last_seen = NULL WHERE id = ? AND household_id = ?")
+      .run(now, REMOVED_LABEL, deviceId, householdId);
+    const rest = this.db.prepare('SELECT id, role FROM devices WHERE household_id = ? AND revoked_at IS NULL ORDER BY created_at, rowid')
+      .all(householdId) as { id: string; role: string }[];
+    if (rest.length === 0) {
+      this.db.prepare('DELETE FROM households WHERE id = ?').run(householdId);
+      return { deletedHousehold: true };
+    }
+    if (me.role === 'eier' && !rest.some((r) => r.role === 'eier')) this.db.prepare("UPDATE devices SET role = 'eier' WHERE id = ?").run(rest[0].id);
+    return { deletedHousehold: false };
   }
 
   async deleteHousehold(householdId: string): Promise<void> {
     this.tx(() => { this.db.prepare('DELETE FROM households WHERE id = ?').run(householdId); });
   }
 
-  async appendEvents(householdId: string, deviceId: string, events: EventIn[], now: string): Promise<string[]> {
+  async appendEvents(householdId: string, deviceId: string, events: EventIn[], now: string, quota?: EventQuota): Promise<string[]> {
     return this.tx(() => {
       const has = this.db.prepare('SELECT 1 FROM events WHERE household_id = ? AND id = ?');
       const ins = this.db.prepare('INSERT INTO events (household_id, id, seq, stream, body, device_id, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
       const ids: string[] = [];
+      const seen = new Set<string>();
+      let count = 0, bytes = 0;
       for (const e of events) {
-        if (!has.get(householdId, e.id)) ins.run(householdId, e.id, this.nextSeq(householdId), e.stream, e.body, deviceId, now);
         ids.push(e.id);
+        if (seen.has(e.id) || has.get(householdId, e.id)) continue;
+        seen.add(e.id);
+        const size = Buffer.byteLength(e.body, 'utf8');
+        ins.run(householdId, e.id, this.nextSeq(householdId), e.stream, e.body, deviceId, now);
+        count += 1; bytes += size;
+      }
+      if (count > 0) {
+        this.db.prepare('UPDATE households SET event_count = event_count + ?, event_bytes = event_bytes + ? WHERE id = ?').run(count, bytes, householdId);
+        if (quota) {
+          const u = this.db.prepare('SELECT event_count, event_bytes FROM households WHERE id = ?').get(householdId) as { event_count: number; event_bytes: number };
+          // Kaster inne i transaksjonen: alt over rulles tilbake.
+          if (u.event_count > quota.events || u.event_bytes > quota.bytes) throw new QuotaExceededError();
+        }
       }
       return ids;
     });
+  }
+
+  /** Bruk per husstand (antall og byte hendelser). Til kvoter, drift og tester; inneholder ikke data. */
+  usage(householdId: string): { events: number; bytes: number } {
+    const u = this.db.prepare('SELECT event_count, event_bytes FROM households WHERE id = ?').get(householdId) as { event_count: number; event_bytes: number } | undefined;
+    return { events: u?.event_count ?? 0, bytes: u?.event_bytes ?? 0 };
   }
 
   async readSince(householdId: string, after: number, limit: number): Promise<ReadResult> {

@@ -1,12 +1,14 @@
 // Liten server: henter tilbud live fra Tjek, holder dem i minnet (ingen lagring) og serverer dem til appen.
-// Serverer også synk-API-et for delt husstand (server/sync/api.ts, docs/synk.md).
+// Serverer også synk-API-et for delt husstand (server/sync/api.ts, docs/synk.md) og appen (dist/).
+// Sikkerhetshoder, statiske filer og krasjvern ligger i server/app.ts (docs/sikkerhet.md).
 // Start: npm run server  (NODE_USE_ENV_PROXY=1 hvis du er bak proxy). Port: PORT (standard 8787).
-import { createReadStream, existsSync, mkdirSync, statSync } from 'node:fs';
-import { createServer } from 'node:http';
-import { dirname, extname, join, normalize } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { dirname, join } from 'node:path';
 import { ingredients } from '../src/data/catalog';
 import { collectOffers, type LiveOffer } from '../src/offers/service';
 import { TjekSource } from '../src/offers/tjek';
+import { createApp } from './app';
 import { SqliteStorage } from './storage/sqlite';
 import { createSyncApi } from './sync/api';
 
@@ -17,8 +19,14 @@ const PORT = Number(process.env.PORT ?? 8787);
 const DB = process.env.SYNC_DB ?? join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'middag.sqlite');
 if (DB !== ':memory:') mkdirSync(dirname(DB), { recursive: true });
 if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskoder blir ugyldige når serveren startes på nytt.');
-const syncApi = createSyncApi({ storage: new SqliteStorage(DB), secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1' });
+const idleDays = Number(process.env.SYNC_TOKEN_IDLE_DAYS ?? 180);
+const syncApi = createSyncApi({
+  storage: new SqliteStorage(DB), secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
+  tokenIdleMs: Number.isFinite(idleDays) && idleDays > 0 ? idleDays * 86_400_000 : undefined,
+});
 const TTL_MS = 6 * 60 * 60 * 1000;
+/** Etter en feil mot Tjek venter vi før neste forsøk, så anonyme kall til /api/offers ikke kan hamre på Tjek. */
+const RETRY_MS = 5 * 60 * 1000;
 const oslo = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' });
 
 const source = new TjekSource(
@@ -29,37 +37,45 @@ const source = new TjekSource(
 interface Cache { offers: LiveOffer[]; observed: string; day: string }
 let cache: Cache | null = null;
 let refreshing: Promise<void> | null = null;
-let lastError: string | null = null;
+let failedAt = 0;
 
 function refresh() {
-  if (refreshing) return;
+  if (refreshing || Date.now() - failedAt < RETRY_MS) return;
   const day = oslo();
   refreshing = collectOffers(source, ingredients, { country: 'NO', today: day })
-    .then((offers) => { cache = { offers, observed: new Date().toISOString(), day }; lastError = null; })
-    .catch((e: unknown) => { lastError = e instanceof Error ? e.message : String(e); })
+    .then((offers) => { cache = { offers, observed: new Date().toISOString(), day }; failedAt = 0; })
+    // Detaljen (statuskode og sti hos Tjek) logges her, men sendes ikke til appen.
+    .catch((e: unknown) => { failedAt = Date.now(); console.error('tilbud-feil:', e instanceof Error ? e.message : String(e)); })
     .finally(() => { refreshing = null; });
 }
 
-const MIME: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
-const DIST = join(process.cwd(), 'dist');
-
-createServer(async (req, res) => {
-  if (await syncApi(req, res)) return;
-  const url = new URL(req.url ?? '/', 'http://localhost');
-  if (url.pathname === '/api/offers') {
-    if (!cache || Date.now() - Date.parse(cache.observed) > TTL_MS || cache.day !== oslo()) refresh();
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
-      status: cache ? 'ok' : lastError ? 'error' : 'loading', error: cache ? null : lastError, source: 'tjek',
-      observed: cache?.observed ?? null, offers: cache?.offers ?? [],
-    }));
-    return;
+function offers(req: IncomingMessage, res: ServerResponse): boolean {
+  if ((req.url ?? '').split('?')[0] !== '/api/offers') return false;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.statusCode = 405; res.setHeader('Allow', 'GET, HEAD'); res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify({ error: 'ugyldig_forespørsel', message: 'Metoden er ikke tillatt.' }));
+    return true;
   }
-  // Statiske filer (produksjonsbygg)
-  const rel = normalize(url.pathname).replace(/^(\.\.[/\\])+/, '');
-  let file = join(DIST, rel);
-  if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
-  if (!existsSync(file)) { res.statusCode = 404; res.end('Ikke bygget. Kjør npm run build.'); return; }
-  res.setHeader('Content-Type', MIME[extname(file)] ?? 'application/octet-stream');
-  createReadStream(file).pipe(res);
-}).listen(PORT, () => console.log(`Middagsplanlegger-server på http://localhost:${PORT}`));
+  if (!cache || Date.now() - Date.parse(cache.observed) > TTL_MS || cache.day !== oslo()) refresh();
+  const failed = !cache && failedAt > 0;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.end(JSON.stringify({
+    status: cache ? 'ok' : failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek',
+    observed: cache?.observed ?? null, offers: cache?.offers ?? [],
+  }));
+  return true;
+}
+
+// Rekkefølge: synk-API, så tilbud (bare i minnet), så statiske filer. Tilbud når aldri synk-lagringen.
+const handlers = [
+  syncApi,
+  offers,
+];
+const app = createApp({ dist: join(process.cwd(), 'dist'), handlers, hsts: process.env.HSTS === '1' });
+const server = createServer(app);
+// Korte tidsavbrudd mot trege klienter (slowloris). Proxyen foran bør ha egne grenser i tillegg.
+server.headersTimeout = 15_000;
+server.requestTimeout = 30_000;
+server.keepAliveTimeout = 5_000;
+server.listen(PORT, () => console.log(`Middagsplanlegger-server på http://localhost:${PORT}`));

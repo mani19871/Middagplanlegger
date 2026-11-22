@@ -18,6 +18,7 @@ export const ERROR_TEXT: Record<string, string> = {
   nett: 'Fikk ikke kontakt med serveren.', ugyldig_kode: 'Koden er ugyldig, brukt eller utløpt.',
   enhet_finnes: 'Denne enheten er allerede med i husstanden.', ingen_tilgang: 'Bare eieren av husstanden kan gjøre dette.',
   for_mange_forespørsler: 'For mange forsøk. Vent litt og prøv igjen.', ikke_autentisert: 'Enheten er ikke lenger med i husstanden.',
+  kvote_full: 'Husstanden har nådd en grense (antall medlemmer, invitasjoner eller lagrede endringer). Endringene er lagret på denne enheten.',
 };
 
 export class SyncApi {
