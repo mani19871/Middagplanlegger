@@ -9,7 +9,7 @@ import { editions } from '../data/newspapers';
 import { initialState } from '../store';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
-const tracked = execSync('git ls-files', { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+const tracked = execSync('git ls-files -z', { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean); // -z: filnavn med æøå siteres ikke
 const text = (f: string) => readFileSync(ROOT + f, 'utf8');
 const isTest = (f: string) => /\.test\.tsx?$/.test(f);
 const code = (f: string) => /\.(ts|tsx|mjs|cjs)$/.test(f);
