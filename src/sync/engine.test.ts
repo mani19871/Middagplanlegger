@@ -510,6 +510,24 @@ describe('gjenoppretting av serveren fra en eldre kopi', () => {
     expect(await serverIds(b)).toContain(lost);
     expect(b.state.inventory.map((e) => e.id)).toContain(lost);
   });
+
+  it('oppdages også når bare dokumentet viser det (409 med eldre versjon): egne hendelser sendes på nytt', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    a.record(tell(a, 7));
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 222_200 } };
+    await a.sync(); await b.sync();
+    const lost = a.state.inventory[0].id;
+    await restore(backup);
+    // Eldre klienttilstand uten anker: pull oppdager ikke gjenopprettingen, bare dokument-PUT gjør det (409).
+    a.state = { ...a.state, sync: { ...a.state.sync!, anchor: undefined, cursor: 0 }, settings: { ...a.state.settings, budgetOre: 333_300 } };
+    await syncOk(a); await syncOk(a); await syncOk(b);
+    expect(await serverIds(b)).toContain(lost);
+    expect(b.state.inventory.map((e) => e.id)).toContain(lost);
+    // Hvilket budsjett som vinner etter gjenoppretting, er et åpent funn (docs/kodegjennomgang.md, S1).
+  });
 });
 
 describe('synkstatus ved feil', () => {
@@ -518,6 +536,8 @@ describe('synkstatus ved feil', () => {
     expect(syncStatus(a.state, { offline: false, busy: false, lastError: 'kvote_full' }, 0)).toBe('feil');
     expect(syncStatus(a.state, { offline: true, busy: false, lastError: 'nett' }, 0)).toBe('venter');
     expect(syncStatus(a.state, { offline: false, busy: true, lastError: 'serverfeil' }, 0)).toBe('synker');
+    // Nettet forsvinner etter en tidligere serverfeil: enheten venter på nett, den viser ikke den gamle feilen.
+    expect(syncStatus(a.state, { offline: true, busy: false, lastError: 'serverfeil' }, 0)).toBe('venter');
     expect(syncErrorText('kvote_full')).toMatch(/grense/);
     expect(syncErrorText('nett')).toBeNull();
     expect(syncErrorText('noe-nytt')).toMatch(/lagret på denne enheten/);

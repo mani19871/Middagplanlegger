@@ -372,6 +372,17 @@ describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () =>
     expect(await code(A.pull(0, 'feil-format'))).toBe('400 ugyldig_forespørsel');
   });
 
+  it('et hendelses-id med linjeskift låser ikke andre enheters synk (ankeret godtas)', async () => {
+    const { A, B } = await household();
+    const r = await A.push([telling('a\nb', 'enhet-aaaa1111'), telling('c\u2028d', 'enhet-aaaa1111')]);
+    expect(r.accepted).toHaveLength(2);
+    const p = await B.pull(0);
+    for (const e of p.events) {
+      const id = (e.event as { id: string }).id;
+      expect(await code(B.pull(p.cursor, `${e.seq}:${id}`))).toBe('ok');
+    }
+  });
+
   it('ukjente felt i beholdning, liste og endring fjernes før lagring og deling (ikke avvist)', async () => {
     const { A, B } = await household();
     const r = await A.push([

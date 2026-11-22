@@ -303,7 +303,7 @@ export function createSyncApi(opts: SyncApiOptions) {
       const anchor = url.searchParams.get('anchor');
       let anchorSeq = 0, anchorId = '';
       if (anchor !== null) {
-        const m = /^(\d{1,15}):(.{1,100})$/.exec(anchor);
+        const m = /^(\d{1,15}):([\s\S]{1,100})$/.exec(anchor); // id kan inneholde linjeskift
         if (!m) throw new HttpError(400, 'ugyldig_forespørsel');
         anchorSeq = Number(m[1]); anchorId = m[2];
       }

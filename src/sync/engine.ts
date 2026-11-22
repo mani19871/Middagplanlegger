@@ -51,10 +51,6 @@ export function resetForRestore(s: AppState): AppState {
     sync: { ...s.sync, cursor: 0, anchor: undefined, docs },
   };
 }
-const markRestored = (s: AppState, name: DocName): AppState => {
-  const m = s.sync?.docs[name];
-  return s.sync && m ? { ...s, sync: { ...s.sync, docs: { ...s.sync.docs, [name]: { ...m, version: 0, restored: true } } } } : s;
-};
 
 /**
  * Tar inn en dokumentversjon fra serveren. Ikke endret lokalt: overta. Endret lokalt: tre-veis fletting.
@@ -210,8 +206,13 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
           if (!(e instanceof SyncError) || e.status !== 409) throw e;
           const cur = e.current;
           // Serverens versjon er eldre enn den enheten bygde på: serveren er gjenopprettet fra en eldre kopi.
-          if (cur && cur.version < baseVersion) io.set((x) => same(x) ? receiveDoc(markRestored(x, name), cur) : x);
-          else if (cur) io.set((x) => same(x) ? receiveDoc(x, cur) : x);
+          if (cur && cur.version < baseVersion) {
+            // Som «reset» ved pull: begynn på nytt og send alt eget på nytt, ikke bare dokumentet. Etter nullstilling er
+            // dokumentversjonene 0, så denne grenen slår ikke til igjen i samme runde.
+            io.set((x) => (same(x) ? resetForRestore(x) : x));
+            return syncOnce(io, apiBase, now);
+          }
+          if (cur) io.set((x) => same(x) ? receiveDoc(x, cur) : x);
           else io.set((x) => {
             if (!same(x)) return x;
             const docs = { ...x.sync!.docs };
@@ -238,9 +239,10 @@ export function syncStatus(s: AppState, runtime: { offline: boolean; busy: boole
   if (!s.sync) return 'lokal';
   if (Object.keys(s.sync.conflicts).length > 0 || purchaseConflicts > 0) return 'konflikt';
   // Feil som ikke bare er manglende nett (kvote, serverfeil, avvist forespørsel): vises tydelig, ikke som «Synker …».
+  // Uten nett venter enheten, også om forrige runde endte med en annen feil (den gjelder ikke lenger).
+  if (runtime.offline) return 'venter';
   if (runtime.lastError && runtime.lastError !== 'nett' && !runtime.busy) return 'feil';
   const pending = pendingCount(s);
-  if (runtime.offline) return 'venter';
   if (pending > 0 || runtime.busy) return 'synker';
   return 'synket';
 }
