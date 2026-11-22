@@ -32,6 +32,10 @@ const STATUS_TEXT: Record<SyncStatus, string> = {
   venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt – må avklares',
 };
 
+const CHIP_TEXT: Record<SyncStatus, string> = {
+  lokal: 'Del med husstanden', synket: '✓ Synket', synker: '↻ Synker', venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt',
+};
+
 export default function App() {
   const [state, update] = usePersistentState(isoDate(weekStart()));
   const [inviteCode] = useState(inviteFromHash);
@@ -89,7 +93,7 @@ export default function App() {
           <button className="household" aria-label="Endre hvem som spiser" onClick={() => { setTab('Uka'); setMode('edit'); }}>
             👥 {adults} voksne, {kids} barn ⌄</button>
           <button className={`syncchip ${status}`} aria-label={`Husstand og deling. ${statusText}`} onClick={() => setTab('Husstand')}>
-            🏠 {status === 'lokal' ? 'Del med husstanden' : statusText}</button>
+            🏠 {CHIP_TEXT[status]}</button>
         </div>
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>

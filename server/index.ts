@@ -11,9 +11,10 @@ import { SqliteStorage } from './storage/sqlite';
 import { createSyncApi } from './sync/api';
 
 const PORT = Number(process.env.PORT ?? 8787);
-// Synk: husstand, hendelser og dokumenter i en lokal SQLite-fil (SYNC_DB, standard data/middag.sqlite).
+// Synk: husstand, hendelser og dokumenter i en lokal SQLite-fil (SYNC_DB, ellers $DATA_DIR/middag.sqlite,
+// ellers data/middag.sqlite).
 // Tilbud fra Tjek lagres aldri her; de holdes bare i minnet under.
-const DB = process.env.SYNC_DB ?? join(process.cwd(), 'data', 'middag.sqlite');
+const DB = process.env.SYNC_DB ?? join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'middag.sqlite');
 if (DB !== ':memory:') mkdirSync(dirname(DB), { recursive: true });
 if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskoder blir ugyldige når serveren startes på nytt.');
 const syncApi = createSyncApi({ storage: new SqliteStorage(DB), secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1' });

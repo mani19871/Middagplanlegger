@@ -30,7 +30,8 @@ COPY --from=build --chown=node:node /app/tsconfig.json ./tsconfig.json
 COPY --from=build --chown=node:node /app/src ./src
 COPY --from=build --chown=node:node /app/server ./server
 COPY --from=build --chown=node:node /app/dist ./dist
-# Datakatalog for varig lagring (tas i bruk når synk-serveren kommer; monter et volum her).
+# Datakatalog for synk-databasen (SQLite: /data/middag.sqlite). Monter et volum her, ellers forsvinner husstandene
+# når containeren byttes. Sett SYNC_SECRET (se docs/synk.md).
 RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8787

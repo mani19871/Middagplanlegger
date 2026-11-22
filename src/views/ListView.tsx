@@ -77,7 +77,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
   const toggle = (key: string) => update((s) => recordList(s, toggleEvent(s.list, week, key, stamp())));
   const who = (key: string) => {
     const m = marks.get(key);
-    return m && m.length > 0 ? <small className="who">✓ Krysset av av {whoList(state, m.map((x) => x.by))}</small> : null;
+    return m && m.length > 0 ? <small className="who">✓ Avkrysset av {whoList(state, m.map((x) => x.by))}</small> : null;
   };
   const resetChecks = () => update((s) => {
     const cur = checks(s.list, week);
