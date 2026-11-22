@@ -95,6 +95,8 @@ describe('husstand og invitasjon', () => {
     expect(await code(B.deleteHousehold())).toBe('403 ingen_tilgang');
     expect(await code(A.removeMember('enhet-aaaa1111'))).toBe('400 ugyldig_forespørsel');
     expect(await code(A.removeMember('enhet-finnesikke'))).toBe('404 ikke_funnet');
+    const token = (A as unknown as { token: string }).token;
+    expect((await raw('/api/household/members/%E0%A4%A', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })).status).toBe(400);
   });
 
   it('eier som forlater gir eierskapet videre; siste som forlater sletter alt', async () => {

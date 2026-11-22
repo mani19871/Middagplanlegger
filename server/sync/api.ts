@@ -181,7 +181,9 @@ export function createSyncApi(opts: SyncApiOptions) {
     }
     if (parts[2] === 'members' && parts.length === 4 && method === 'DELETE') {
       if (me.role !== 'eier') throw new HttpError(403, 'ingen_tilgang');
-      const target = (await storage.members(hh)).find((m) => m.publicId === decodeURIComponent(parts[3]) && !m.revokedAt);
+      let id: string;
+      try { id = decodeURIComponent(parts[3]); } catch { throw new HttpError(400, 'ugyldig_forespørsel'); }
+      const target = (await storage.members(hh)).find((m) => m.publicId === id && !m.revokedAt);
       if (!target) throw new HttpError(404, 'ikke_funnet');
       if (target.id === me.id) throw new HttpError(400, 'ugyldig_forespørsel'); // bruk «forlat»
       await storage.revoke(hh, target.id, now());
