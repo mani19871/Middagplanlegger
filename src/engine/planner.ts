@@ -54,15 +54,30 @@ export function blockedByAllergenStatus(r: Recipe, ctx: Ctx): boolean {
   });
 }
 
+/** Absolutte krav (vegetar, allergen, råvarer som skal unngås). Tidsgrensen hører ikke hit: en låst rett er et eksplisitt valg om tid. */
+export function meetsAbsoluteRequirements(r: Recipe, ctx: Ctx): boolean {
+  const { catalog, settings } = ctx;
+  return (!settings.vegetarian || r.vegetarian)
+    && !r.allergens.some((a) => settings.avoid.includes(a))
+    && !(settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t));
+}
+
+/** Låste slots som bryter et absolutt krav. generatePlan slipper dem ut; UI kan bruke listen til å varsle. */
+export function lockedViolations(slots: Slot[], ctx: Ctx): Slot[] {
+  return slots.filter((s) => {
+    if (!s.locked) return false;
+    const r = ctx.catalog.recipes.find((x) => x.id === s.recipeId);
+    return !!r && !meetsAbsoluteRequirements(r, ctx);
+  });
+}
+
 /** Kostkrav: absolutte krav filtrerer oppskriftene; preferanser påvirker bare rangering. */
 export function eligibleRecipes(ctx: Ctx, day: number): Recipe[] {
   const { catalog, settings } = ctx;
   const max = settings.days[day].maxMinutes;
   const ok = catalog.recipes
     .filter((r) => r.minutes <= max)
-    .filter((r) => !settings.vegetarian || r.vegetarian)
-    .filter((r) => !r.allergens.some((a) => settings.avoid.includes(a)))
-    .filter((r) => !(settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t)))
+    .filter((r) => meetsAbsoluteRequirements(r, ctx))
     .sort((a, b) => a.id.localeCompare(b.id));
   // Hopp over retter som bare ville gitt ukjent pris på grunn av allergifilteret, så lenge det finnes andre.
   // Kurvregnskapet er uendret: velges en slik rett likevel (låst eller eneste mulighet), er prisen fortsatt ukjent.
@@ -171,7 +186,9 @@ const score = (b: Basket) => b.totalOre + b.unknownCount * UNKNOWN_PENALTY_ORE;
 export function generatePlan(ctx: Ctx, previous: Slot[] = []): Slot[] {
   const { settings } = ctx;
   const slots: Slot[] = [];
-  const locked = new Map(previous.filter((s) => s.locked).map((s) => [s.day, s]));
+  // Absolutte krav (allergi, kost) vinner over låsing: en låst rett som bryter dem slippes ut (se lockedViolations).
+  const violating = new Set(lockedViolations(previous, ctx));
+  const locked = new Map(previous.filter((s) => s.locked && !violating.has(s)).map((s) => [s.day, s]));
   const enabled = settings.days.map((d, i) => (d.enabled && portionsOnDay(settings, i) > 0 ? i : -1)).filter((i) => i >= 0);
   for (const d of enabled) if (locked.has(d)) slots.push(locked.get(d)!);
   for (const day of enabled) {

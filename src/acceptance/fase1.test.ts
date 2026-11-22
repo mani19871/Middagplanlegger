@@ -5,7 +5,7 @@ import { catalog } from '../data/catalog';
 import { defaultSettings } from '../data/defaults';
 import { totalWithOffers } from '../engine/offerTotal';
 import {
-  alternatives, budgetAnswer, budgetSuggestions, buildBasket, generatePlan, slotUses, swapOptions,
+  alternatives, budgetAnswer, budgetSuggestions, buildBasket, generatePlan, lockedViolations, meetsAbsoluteRequirements, slotUses, swapOptions,
 } from '../engine/planner';
 import type { PriceStatus, Settings, Slot } from '../engine/types';
 import { applyEvent, deriveStock, type InventoryEvent, type InventoryLog } from '../engine/inventory';
@@ -205,22 +205,52 @@ describe('F1: rettbytte bevarer låste retter', () => {
   });
 });
 
-describe('F1: absolutte krav slår låste retter (regel 4) – kjent hull', () => {
-  // WeekView låser hver rett brukeren bytter til. Aktiveres et allergifilter etterpå, beholder generatePlan den låste retten.
-  // Kurven viser da «ukjent pris» for den bruddvarens linje, men retten står fortsatt i planen. `it.fails` slår ut når hullet er rettet.
-  it.fails('HULL: en låst rett med et allergen som nå er unngått blir ikke liggende i planen', () => {
-    const c = ctx({ avoid: ['gluten'] });
-    const plan = generatePlan(c, [slot(0, 'bolognese', true)]); // bolognese har gluten
-    const dishes = plan.map((s) => catalog.recipes.find((r) => r.id === s.recipeId)!);
-    expect(dishes.every((r) => !r.allergens.includes('gluten'))).toBe(true);
+describe('F1: absolutte krav slår låste retter (regel 4)', () => {
+  // WeekView låser hver rett brukeren bytter til. Aktiveres et krav etterpå, slipper generatePlan ut låste retter som
+  // bryter det (tidligere hull, rettet). Tidsgrensen er unntatt: en låst rett er et eksplisitt valg om tid.
+  const recipe = (id: string) => catalog.recipes.find((r) => r.id === id)!;
+  const cases: [string, Partial<Settings>, string][] = [
+    ['allergen (gluten)', { avoid: ['gluten'] }, 'bolognese'],
+    ['allergen (fisk)', { avoid: ['fisk'] }, 'lakseris'],
+    ['vegetar', { vegetarian: true }, 'taco'],
+    ['råvare (storfe)', { avoidFoods: ['storfe'] }, 'kjottkaker'],
+  ];
+  it.each(cases)('%s: den låste retten (%s) slippes ut, og planen får like mange dager uten brudd', (_n, over, id) => {
+    const c = ctx({ ...over, days: fullWeek() });
+    const prev = [slot(0, id, true), slot(2, 'pastaspinat', false)];
+    expect(lockedViolations(prev, c).map((s) => s.recipeId)).toEqual([id]);
+    const plan = generatePlan(c, prev);
+    expect(plan).toHaveLength(7);
+    expect(plan.every((s) => meetsAbsoluteRequirements(recipe(s.recipeId), c))).toBe(true);
+    expect(plan.some((s) => s.recipeId === id)).toBe(false);
+    expect(buildBasket(plan, ['demoA'], c).lines.filter((l) => l.status === 'ukjent').length).toBe(
+      buildBasket(generatePlan(c), ['demoA'], c).lines.filter((l) => l.status === 'ukjent').length); // ingen ukjent pris fra den utslupne retten
   });
-  it('avgrensing: kurven for den låste retten blir i alle fall aldri «komplett», så summen kåres aldri billigst', () => {
+  it('låste retter som oppfyller kravene beholdes, også ved siden av en som slippes ut', () => {
+    const c = ctx({ avoid: ['gluten'], days: fullWeek() });
+    const prev = [slot(0, 'bolognese', true), slot(1, 'lakseris', true), slot(3, 'karri', true)];
+    const plan = generatePlan(c, prev);
+    expect(plan.find((s) => s.day === 1)).toEqual(slot(1, 'lakseris', true));
+    expect(plan.find((s) => s.day === 3)).toEqual(slot(3, 'karri', true));
+    expect(lockedViolations(plan, c)).toEqual([]);
+  });
+  it('tidsgrensen slipper ikke ut en låst rett (eksplisitt valg om tid)', () => {
+    const days = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 15 }));
+    const c = ctx({ days });
+    expect(recipe('kjottkaker').minutes).toBeGreaterThan(15);
+    expect(lockedViolations([slot(0, 'kjottkaker', true)], c)).toEqual([]);
+    expect(generatePlan(c, [slot(0, 'kjottkaker', true)]).find((s) => s.day === 0)!.recipeId).toBe('kjottkaker');
+  });
+  it('lockedViolations rapporterer bare låste slots, og er tom uten krav', () => {
     const c = ctx({ avoid: ['gluten'] });
-    const plan = generatePlan(c, [slot(0, 'bolognese', true)]);
-    const b = buildBasket(plan, ['demoA', 'demoB'], c);
-    expect(b.complete).toBe(false);
-    expect(budgetAnswer(b, 100_000_000)).toBe('ufullstendig');
-    expect(alternatives(plan, c).combo).toBeNull();
+    expect(lockedViolations([slot(0, 'bolognese', false)], c)).toEqual([]); // ikke låst
+    expect(lockedViolations([slot(0, 'bolognese', true)], ctx())).toEqual([]);
+    expect(lockedViolations([slot(0, 'bolognese', true)], c)).toHaveLength(1);
+  });
+  it('resultatet er deterministisk', () => {
+    const c = ctx({ avoid: ['gluten'], days: fullWeek() });
+    const prev = [slot(0, 'bolognese', true)];
+    expect(JSON.stringify(generatePlan(c, prev))).toBe(JSON.stringify(generatePlan(c, prev)));
   });
 });
 
