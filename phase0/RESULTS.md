@@ -1,6 +1,6 @@
 # Fase 0 – resultater
 
-Status: **delvis**. Kassalapp-importtesten og Tjek-dekningsmålingen er kjørt (2026-11-21). Kjedeavtaler og kundeavis-rettigheter er ikke startet, og to av portkriteriene krever data vi ikke har (se «Port»).
+Status: **delvis**. Kassalapp-importtesten og Tjek-dekningsmålingen er kjørt (2026-11-21). Rettigheter og kjedeavtaler er kartlagt men ikke avklart (§ 3), og to av portkriteriene krever data vi ikke har (se «Port»).
 
 ## 1. Kassalapp-importtest
 
@@ -133,9 +133,17 @@ Tjek fyller **ikke** Kassalapps hull for ordinærpris: det er tilbud (tidsavgren
 5. Dealerlisten er en nedre grense (bare dealere med treff på våre 24 varer).
 6. Rettigheter (visning, viderebruk, avisbilder) er ikke avklart (se over).
 
+## 3. Rettigheter og avtaler (status 2026-11-22)
+
+Ingenting her er avklart; det er kartlagt hva som mangler og hvorfor.
+
+- **Tjek-vilkår:** `phase0/tjek-avtale.md` har tabellen over det som må dokumenteres (omfang, lagring, avissider, bilder, kreditering, rate limit, pris, land/kjeder, varighet, oppsigelse m.m.). **Alt står som «ikke dokumentert».** Brukeren har opplyst muntlig at Tjek har godkjent bruk; ingen skriftlig avtale ligger i repoet. Tjeks offentlige vilkår (`tjek.com/terms`) er **ikke lest**: verten er blokkert i miljøets nettverk, og tilgang er ikke godkjent.
+- **Kundeavis-rettigheter per kjede:** `phase0/kundeavis-rettigheter.md` lister de 14 dagligvare-/lavpriskjedene vi har sett i Tjek-treff, med sjekkliste for hva som må leses hos hver kjede. **Ingen kjedevilkår er kontrollert** (kjedenes nettsteder er blokkert). Anbefalt visningsmåte er derfor forsiktig standard for alle: ingen avisinnhold, ingen bilder, ingen lagring, bare Tjek-live der avtalen tillater det.
+- **Kjedeavtaler:** utkast til henvendelser (ikke sendt) i `phase0/utkast/`: Rema 1000, Kiwi/NorgesGruppen, Coop og oppfølging til Tjek. Spørsmål om omfang, per-utsalg-priser, oppdatering, lisens, vilkår og pris. Avsender er plassholder `[AVSENDER]`.
+
 ## Port – Fase 0
 
-- [ ] Kildedekning dokumentert per område og kjede, med mangelliste — **delvis**: Kassalapp og Tjek (tilbud) dokumentert (over); kjedeavtaler og Open Prices ikke vurdert.
+- [ ] Kildedekning dokumentert per område og kjede, med mangelliste — **delvis**: Kassalapp og Tjek (tilbud) dokumentert (over); kjedeavtaler: utkast til henvendelser finnes (ikke sendt); Open Prices ikke vurdert.
 - [ ] Ti prøvekurver sammenlignet med faktiske kjøp i ulike landsdeler — **ikke gjort**: kurvene er laget og kjørt mot Kassalapp, men det finnes ingen kvitteringer å sammenligne med.
 - [ ] Prisgrunnlag for en reell prøvehandel — **ikke gjort**: avhenger av kvitteringer og en kilde med fersk Rema/Kiwi/Coop-pris.
-- [ ] Tillatt visningsmåte avklart for hver kundeavis — **ikke startet**.
+- [ ] Tillatt visningsmåte avklart for hver kundeavis — **ikke avklart**: kartlagt (se § 3), men ingen vilkår er lest og ingen skriftlig avtale foreligger. Gjenstår: skriftlig avtale fra Tjek, lese kjedenes vilkår (krever tilgang til nettstedene eller at brukeren leverer dem), og sende henvendelsene i `phase0/utkast/`.
