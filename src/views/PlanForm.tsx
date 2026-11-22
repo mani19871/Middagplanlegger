@@ -79,12 +79,13 @@ export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
           <p>Hvem er hjemme hvilke dager:</p>
           {s.eaters.map((e) => (
             <div key={e.id} className="eater">
-              <input value={e.label} aria-label="Etikett" onChange={(ev) => setEater(e.id, { label: ev.target.value })} />
+              <input value={e.label} aria-label="Etikett" aria-describedby="etikett-hjelp" placeholder="Voksen 1 / Barn 1" autoComplete="off" onChange={(ev) => setEater(e.id, { label: ev.target.value })} />
               <div>{DAYS.map((d, i) => (
                 <label key={d} className="mini"><input type="checkbox" checked={e.daysHome[i]} onChange={() => setEater(e.id, { daysHome: e.daysHome.map((v, j) => (j === i ? !v : v)) })} />{d.slice(0, 2)}</label>
               ))}</div>
             </div>
           ))}
+          <p className="fine" id="etikett-hjelp">Bruk etiketter som «Voksen 1» eller «Barn 1», ikke navn. Appen trenger bare porsjonsstørrelse og hvilke dager de er hjemme.</p>
         </div>
       )}
       <button className="cta" onClick={onDone}>Lag ukeplan ›</button>

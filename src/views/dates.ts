@@ -20,3 +20,6 @@ export function shopDate(now = new Date()): string {
   const t = isoDate(now);
   return a > t ? a : t;
 }
+/** «Denne uka» = gyldig på dagen (inkl. grensene); «kommende» = starter etter dagen. Datoer som ÅÅÅÅ-MM-DD. */
+export const editionInPeriod = (e: { validFrom: string; validTo: string }, when: 'denne' | 'kommende', today: string) =>
+  when === 'denne' ? e.validFrom <= today && e.validTo >= today : e.validFrom > today;

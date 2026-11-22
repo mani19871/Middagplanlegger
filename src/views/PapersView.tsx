@@ -7,12 +7,11 @@ import type { Ctx } from '../engine/planner';
 import { editions, offers, type Edition, type Offer } from '../data/newspapers';
 import { DAYS, kr } from '../engine/format';
 import { ING_EMOJI } from './art';
-import { dayDate, weekStart } from './dates';
+import { dayDate, editionInPeriod, isoDate, weekStart } from './dates';
 import ReviewView from './ReviewView';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void }
 type View = 'Hele Norge' | 'Nær meg' | 'Mine butikker';
-const TODAY = '2026-11-21';
 const COVERS = ['#1f5a46', '#b4532a', '#2b5d6b', '#6b4a2b', '#4b3a63'];
 const cover = (id: string) => COVERS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COVERS.length];
 const period = (e: Edition) => `${e.validFrom.slice(8)}.–${e.validTo.slice(8)}.${e.validTo.slice(5, 7)}.`;
@@ -96,7 +95,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={() => setEdition(null)}>←</button>
           <div className="center"><h2>{edition.sender}</h2><small className="fine">{edition.title} · {period(edition)}</small></div><span /></div>
         <div className="coverbig" style={{ background: cover(edition.id) }}><b>{edition.sender}</b><span>{edition.title}</span></div>
-        <p className="fine">{place(edition)} · {edition.branch} · sist kontrollert {TODAY}. Visningsrett: {edition.rights === 'visning' ? 'bla i appen (avtale kreves)' : 'les hos kjeden'}. Selve avissidene vises først når vi har avtale.</p>
+        <p className="fine">{place(edition)} · {edition.branch} · demodata, ikke kontrollert mot en ekte avis. Visningsrett: {edition.rights === 'visning' ? 'bla i appen (avtale kreves)' : 'les hos kjeden'}. Selve avissidene vises først når vi har avtale.</p>
         <button className="ghost wide" disabled title="Lenke avklares i fase 0">Les hos kjeden ↗</button>
         <h3>Tilbud koblet til varer</h3>
         {eOffers.length === 0 && <p className="fine">Ingen tilbud er koblet til varer i denne utgaven ennå. Du kan fortsatt lese den hos kjeden.</p>}
@@ -111,7 +110,8 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
     );
   }
 
-  const inPeriod = (e: Edition) => (when === 'denne' ? e.validFrom <= TODAY && e.validTo >= TODAY : e.validFrom > TODAY);
+  const today = isoDate(new Date());
+  const inPeriod = (e: Edition) => editionInPeriod(e, when, today);
   const local = (e: Edition) => e.scope === 'nasjonal' || (e.postalPrefixes ?? []).some((p) => state.postal.startsWith(p));
   const shown = editions.filter(inPeriod).filter((e) => `${e.sender} ${e.title}`.toLowerCase().includes(q.toLowerCase())).filter((e) => {
     if (view === 'Nær meg') return state.postal.length >= 1 && local(e);
