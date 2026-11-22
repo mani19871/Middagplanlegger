@@ -17,7 +17,7 @@ button { font:inherit; color:inherit; cursor:pointer; }
 .fine { color:var(--mut); font-size:.85rem; } .lab { color:var(--mut); font-size:.85rem; } .bad { color:var(--bad); }
 input, select { font:inherit; color:inherit; padding:11px 12px; border:1px solid var(--line); border-radius:12px; background:var(--card); max-width:100%; }
 .field { display:flex; width:100%; gap:8px; align-items:center; flex-wrap:wrap; } select.field, label.field input { width:120px; }
-.row-field { display:flex; gap:8px; align-items:center; } .row-field input { width:110px; } .row-field select { flex:1; }
+.row-field { display:flex; gap:8px; align-items:center; min-width:0; } .row-field input { width:96px; flex:none; } .row-field select { flex:1; min-width:0; } .row-field small { flex:none; }
 .step { display:flex; align-items:center; gap:8px; flex:1; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:6px 10px; }
 .step span { flex:1; color:var(--mut); } .step button { width:34px; height:34px; border-radius:10px; border:0; background:var(--gl); font-size:1.2rem; } .step b { min-width:18px; text-align:center; }
 .chips { display:flex; gap:8px; flex-wrap:wrap; } .chip { padding:9px 14px; border-radius:12px; border:1px solid var(--line); background:var(--card); }
