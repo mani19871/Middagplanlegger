@@ -9,12 +9,16 @@ import { catalog } from '../data/catalog';
 import { DEPT_EMOJI, ING_EMOJI } from './art';
 import OfferTotalNote from './OfferTotalNote';
 import type { OfferTotal } from '../engine/offerTotal';
+import { ChangePill, ChangeSheet, DriftBanner, HistoryView, markable, SkippedLines, type ChangeKit } from './ListChanges';
+import { changeBlocked, versionsFor, type AdjustedBasket, type AdjustedLine } from '../engine/substitution';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; record: (...e: InventoryEvent[]) => void; week: string;
   basket: Basket; offerTotal: OfferTotal; approvedHints: number;
   /** Synkstatus som tekst («✓ Synket med husstanden», «Venter på nett»). */
   syncText: string;
+  /** «Utsolgt / fant ikke» og historikk. Uten den vises lista uten endringshandlinger. */
+  kit?: ChangeKit;
 }
 const statusText: Record<BasketLine['status'], string> = { ordinær: 'Ordinær pris', tilbud: 'Tilbud', estimat: 'Estimert pris', ukjent: 'Ukjent pris' };
 const storeName = (id: string | null) => catalog.stores.find((s) => s.id === id)?.name ?? 'Ukjent butikk';
@@ -37,17 +41,23 @@ const boughtPill = (p: PurchaseState | undefined, l: BasketLine) => {
 };
 const lineText = (l: BasketLine) => (l.productId ? (l.packs > 1 ? `${l.packs} × ${l.productName}` : l.productName!) : `${l.name}: ${amount(l.need, l.unit)}`);
 
-export default function ListView({ state, update, record, week, basket, offerTotal, approvedHints, syncText }: Props) {
+export default function ListView({ state, update, record, week, basket, offerTotal, approvedHints, syncText, kit }: Props) {
   const [detail, setDetail] = useState<BasketLine | null>(null);
   const [shop, setShop] = useState(false);
   const marks = useMemo(() => checks(state.list, week), [state.list, week]);
   const manual = useMemo(() => manualLines(state.list), [state.list]);
   const isChecked = (key: string) => (marks.get(key)?.length ?? 0) > 0;
   const recordL = (...e: ListEvent[]) => update((s) => recordList(s, ...e));
+  const [oos, setOos] = useState<AdjustedLine | null>(null);
+  const [history, setHistory] = useState(false);
   const purchases = useMemo(() => lineStates(state.inventory).purchases, [state.inventory]);
   const purchaseOf = (l: BasketLine) => purchases.get(purchaseLineId(week, l.storeId, l.ingredient, l.productId));
   const isBought = (l: BasketLine) => { const p = purchaseOf(l); return !!p && p.status !== 'angret'; };
   if (state.slots.length === 0) return <><h1 className="page">Handleliste</h1><section className="card"><p>Lag en ukeplan først.</p></section></>;
+  if (kit && history) return <HistoryView kit={kit} onBack={() => setHistory(false)} />;
+  const oosButton = (l: BasketLine) => kit && (
+    <button className="ghost sm oos" aria-label={`Utsolgt eller fant ikke: ${l.name}`} onClick={() => setOos(l as AdjustedLine)}>Utsolgt / fant ikke</button>);
+  const sheet = kit && oos && <ChangeSheet line={oos} kit={kit} blocked={changeBlocked(oos, week, purchases)} onClose={() => { setOos(null); setDetail(null); }} />;
 
   if (detail) {
     const l = detail;
@@ -68,7 +78,9 @@ export default function ListView({ state, update, record, week, basket, offerTot
             <p className="fine">Kilde: {l.source}, observert {l.observed}. Prisen er anslått og kan avvike i butikken.</p></div>
         ) : <div className="banner warn">Ingen pris funnet i valgte butikker for denne varen. Den teller ikke i summen, og kurven kan ikke bekreftes innenfor budsjett. Du kan kjøpe den hvor som helst.</div>}
         {l.costOre !== null && <div className="card total2"><span>Sum</span><strong>{kr(l.costOre)}</strong></div>}
-        <PurchaseCard l={l} p={purchaseOf(l)} week={week} record={record} who={(bys) => whoList(state, bys)} />
+        {markable(l) && <PurchaseCard l={l} p={purchaseOf(l)} week={week} record={record} who={(bys) => whoList(state, bys)} />}
+        {oosButton(l)}
+        {sheet}
       </>
     );
   }
@@ -96,9 +108,10 @@ export default function ListView({ state, update, record, week, basket, offerTot
         🛒 {shop ? 'Avslutt handlemodus' : 'Handlemodus: stor tekst og store felt'}</button>
       {!state.approved && <p className="fine">Planen er ikke godkjent ennå, listen kan endre seg.</p>}
       <OfferTotalNote total={offerTotal} approvedHints={approvedHints} className="card offertotal-card" />
+      {kit && <DriftBanner kit={kit} />}
       {basket.unknownCount > 0 && <div className="banner warn">{basket.unknownCount} vare{basket.unknownCount === 1 ? '' : 'r'} mangler pris. Summen er en delsum.</div>}
       {[...groups].map(([storeId, lines]) => {
-        const open = lines.filter((l) => !isBought(l));
+        const open = lines.filter((l) => !isBought(l) && markable(l));
         const picked = open.filter((l) => isChecked(`${storeId}:${l.ingredient}`));
         const toMark = picked.length > 0 ? picked : open;
         return (
@@ -118,8 +131,9 @@ export default function ListView({ state, update, record, week, basket, offerTot
                         <small>{l.productId ? `${amount(l.packs * l.packSize, l.unit)} · ${kr(l.costOre ?? 0)} · ${statusText[l.status].toLowerCase()}` : 'ukjent pris'}</small>
                         {who(key)}
                         {boughtPill(purchaseOf(l), l)}
+                        {'change' in l && <ChangePill line={l as AdjustedLine} />}
                       </button>
-                      <span className="ie" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>
+                      {oosButton(l) ?? <span className="ie" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>}
                     </li>
                   );
                 })}
@@ -134,6 +148,9 @@ export default function ListView({ state, update, record, week, basket, offerTot
         </section>
         );
       })}
+      {kit && <SkippedLines basket={basket as AdjustedBasket} kit={kit} />}
+      {kit && <button className="ghost" onClick={() => setHistory(true)}>🕘 Endringer i listen ({versionsFor(kit.history, week).length})</button>}
+      {sheet}
       {manual.length > 0 && (
         <section>
           <div className="deptbar">🏷 <strong>Fra kundeaviser (ikke kontrollert)</strong></div>

@@ -35,3 +35,10 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Kjøp har linje-id (uke, butikk, vare, produkt): to voksne på samme linje gir ett kjøp. Ulikt antall fra ulike enheter er `konflikt`, teller ikke og må bekreftes med `løs`. En bekreftet rest er total mengde igjen etter ukas middager og erstatter ukas kjøp og forbruk av varen.
 - En kjøpt pakke betyr ikke at retten er laget; forbruk registreres bare med `laget` (mengder fra `slotUses`).
 - Utboksen (`src/sync/queue.ts`) lagres lokalt; det finnes ingen server for hendelser ennå. En mottaker må være idempotent på id.
+
+## Utsolgt / fant ikke og planversjoner (`src/engine/substitution.ts`)
+- Brukerens valg i butikken er en egen idempotent hendelseslogg (`erstatt`, `fant-ikke`, `angre-endring`), nøkkel (uke, butikk, vare, utsolgt produkt); siste valg etter (at, id) gjelder. Basiskurven endres aldri; `applyChanges` legger valgene oppå.
+- Erstatning: samme vare, gyldig pris i samme butikk, ikke utsolgt; ved aktivt allergifilter avvises allergentreff og uavklart status (sammensatte varer). Pakker regnes mot nettobehovet. «Fant ikke» uten videre valg gir ukjent pris (ufullstendig kurv); «hopp over»/«bruk hjemme» tar linja ut. Ingen av dem lager kjøp; linjer i «fant ikke» kan ikke markeres handlet, og en handlet linje må angres før den kan endres.
+- Hver endring og godkjenning lagres som ny `PlanVersion` med årsak; eldre versjoner endres aldri (opprinnelig anslag, også utløpt tilbud, står igjen). En godkjent liste holder på produktene sine (`activePin`); nye priser vises som avvik (`priceDrift`) til brukeren velger «Bruk nye priser» eller «Behold godkjent liste».
+- Planmotoren bruker aldri en pris med `validUntil` før handledagen (utløpt tilbud).
+

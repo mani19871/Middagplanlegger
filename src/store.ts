@@ -6,6 +6,7 @@ import { enqueue } from './sync/queue';
 import { applyListEvent, type ListEvent, type ListLog } from './sync/list';
 import type { DocBody, DocName } from './sync/docs';
 import type { MemberInfo } from './sync/protocol';
+import type { ListChange, PlanVersion } from './engine/substitution';
 
 /** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
 export interface DocMeta { version: number; base: DocBody }
@@ -34,10 +35,12 @@ export interface AppState {
   sync: SyncMeta | null;
   /** Melding til brukeren om synk (f.eks. at enheten er fjernet fra husstanden). */
   syncNotice: string | null;
+  /** «Utsolgt / fant ikke»-valg i handlelista (idempotent på id) og planversjoner med årsak. Se engine/substitution.ts. */
+  listChanges: ListChange[]; planHistory: PlanVersion[];
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
-  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null,
+  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null, listChanges: [], planHistory: [],
 };
 type OldState = Partial<AppState> & { checked?: Record<string, boolean>; manual?: { id: string; text: string; note: string }[] };
 const KEY = 'middag-state-v1';

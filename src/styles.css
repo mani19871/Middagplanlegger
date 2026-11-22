@@ -107,3 +107,9 @@ main:focus { outline:none; }
 .danger { color:var(--bad); border-color:var(--bad); }
 .field label, label.big { display:block; font-size:1.05rem; margin:8px 0 4px; }
 .notice { background:var(--gl); border-radius:14px; padding:12px 14px; margin:10px 0; }
+/* Utsolgt / fant ikke */
+.list .oos { flex:none; max-width:96px; min-height:44px; white-space:normal; line-height:1.15; font-size:.8rem; margin:0; }
+.bigbtn { display:block; width:100%; min-height:52px; text-align:left; margin:6px 0; padding:12px 14px; }
+.bigbtn b { display:block; } .bigbtn small { display:block; color:var(--mut); font-size:.85rem; margin-top:2px; }
+.bigbtn .warntext, .warntext { color:#6b4500; }
+.driftlist { margin:6px 0; padding-left:18px; } .driftlist li { margin:4px 0; }

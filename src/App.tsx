@@ -8,6 +8,7 @@ import { useSync } from './sync/useSync';
 import { pendingCount, syncStatus, type SyncStatus } from './sync/engine';
 import WeekView from './views/WeekView';
 import ListView from './views/ListView';
+import { useChangeKit } from './views/ListChanges';
 import PapersView from './views/PapersView';
 import PantryView from './views/PantryView';
 import { Leaf, icons } from './views/art';
@@ -80,7 +81,8 @@ export default function App() {
   const alts = useMemo(() => alternatives(state.slots, ctx), [state.slots, ctx]);
   const useCombo = state.option === 'combo' && alts.combo;
   const activeStores = useCombo ? alts.combo!.storeIds : [state.settings.regularStoreId];
-  const basket = useCombo ? alts.combo! : alts.regular;
+  // Brukerens «utsolgt / fant ikke»-valg og den godkjente listens produkter legges oppå motorens kurv.
+  const { basket, kit } = useChangeKit(state, update, ctx, activeStores, useCombo ? alts.combo! : alts.regular, week);
   // Egen sum med regelgodkjente tilbud; basissummen og butikksammenligningen over er uendret.
   const offerTotal = useMemo(() => totalWithOffers(basket, hints, day, state.settings), [basket, hints, day, state.settings]);
   const approvedHints = hints.filter((h) => h.approved).length;
@@ -107,7 +109,7 @@ export default function App() {
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} />}
-        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} />}
+        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} kit={kit} />}
         {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
           purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
         {tab === 'Matskap' && <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} />}
