@@ -1,0 +1,15 @@
+# Vei B i docs/installasjon-ubuntu.md: port 80/443 brukes allerede av en annen webserver på maskinen (Nginx eller Caddy
+# installert direkte på verten, ikke i Docker). Denne filen legges OPPÅ docker-compose.yml:
+#   - appen publiseres bare på 127.0.0.1:${APP_PORT} (standard 8790), så bare webserveren på samme maskin når den;
+#   - vår egen Caddy startes ikke (profilen «egen-caddy» slås aldri på i vei B), så vi rører ikke port 80/443.
+# Bruk (fra denne katalogen):
+#   docker compose -f docker-compose.yml -f docker-compose.bak-proxy.yml --env-file .env.drift up -d --build
+# TRUST_PROXY=1 (satt i docker-compose.yml) er riktig her så lenge NØYAKTIG én proxy står foran appen og porten bare er
+# bundet til 127.0.0.1. Bind den aldri til 0.0.0.0 eller serverens offentlige adresse: da kan hvem som helst forfalske
+# IP-adressen sin i ratebegrensningen. Docker åpner publiserte porter forbi ufw, så 127.0.0.1 er det som beskytter.
+services:
+  app:
+    ports:
+      - "127.0.0.1:${APP_PORT:-8790}:8787"
+  caddy:
+    profiles: ["egen-caddy"]

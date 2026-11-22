@@ -7,6 +7,9 @@
 #   docker compose --env-file .env.drift up -d --build
 #   docker compose --env-file .env.drift ps                  # «healthy» etter ca. 30 sekunder
 #
+# Vei B (port 80/443 er opptatt av en annen webserver på maskinen): docker-compose.bak-proxy.yml legges oppå via
+# COMPOSE_FILE i .env.drift; se docs/installasjon-ubuntu.md.
+#
 # Bare Caddy publiserer porter. Appen (8787) er ikke nåbar utenfra: det er et krav for TRUST_PROXY=1, ellers kan
 # hvem som helst forfalske IP-adressen sin i ratebegrensningen.
 name: middagsplanlegger
@@ -30,6 +33,12 @@ services:
     read_only: true             # serveren skriver bare til /data
     tmpfs:
       - /tmp
+    # Ressursgrenser, så appen ikke kan ta minne eller CPU fra andre prosjekter på samme server
+    # (docs/installasjon-ubuntu.md, «Isolasjon»). Kopien backup.sh lager ligger midlertidig i /tmp (tmpfs = minne) og
+    # teller med i mem_limit: øk grensen hvis databasene til sammen nærmer seg 1 GB.
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 256
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
@@ -53,6 +62,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data        # sertifikater og nøkler. Mist ikke dette volumet (ny utstedelse har grenser hos Let's Encrypt)
       - caddy-config:/config
+    mem_limit: 512m
+    cpus: 1
+    pids_limit: 256
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
