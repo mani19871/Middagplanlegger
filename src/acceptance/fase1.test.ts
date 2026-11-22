@@ -205,6 +205,25 @@ describe('F1: rettbytte bevarer låste retter', () => {
   });
 });
 
+describe('F1: absolutte krav slår låste retter (regel 4) – kjent hull', () => {
+  // WeekView låser hver rett brukeren bytter til. Aktiveres et allergifilter etterpå, beholder generatePlan den låste retten.
+  // Kurven viser da «ukjent pris» for den bruddvarens linje, men retten står fortsatt i planen. `it.fails` slår ut når hullet er rettet.
+  it.fails('HULL: en låst rett med et allergen som nå er unngått blir ikke liggende i planen', () => {
+    const c = ctx({ avoid: ['gluten'] });
+    const plan = generatePlan(c, [slot(0, 'bolognese', true)]); // bolognese har gluten
+    const dishes = plan.map((s) => catalog.recipes.find((r) => r.id === s.recipeId)!);
+    expect(dishes.every((r) => !r.allergens.includes('gluten'))).toBe(true);
+  });
+  it('avgrensing: kurven for den låste retten blir i alle fall aldri «komplett», så summen kåres aldri billigst', () => {
+    const c = ctx({ avoid: ['gluten'] });
+    const plan = generatePlan(c, [slot(0, 'bolognese', true)]);
+    const b = buildBasket(plan, ['demoA', 'demoB'], c);
+    expect(b.complete).toBe(false);
+    expect(budgetAnswer(b, 100_000_000)).toBe('ufullstendig');
+    expect(alternatives(plan, c).combo).toBeNull();
+  });
+});
+
 describe('F1: en familie kan planlegge, endre, handle offline og komme tilbake på nett uten doble kjøp', () => {
   // Beholdningslogg, utboks og idempotens er bevist i src/engine/inventory.test.ts («endring mens enheten er frakoblet»,
   // «samme kjøp mottatt to ganger …») og src/store.test.ts. Her: hele tilstanden overlever lagring og innlasting
