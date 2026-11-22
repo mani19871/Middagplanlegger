@@ -1,6 +1,6 @@
 # Hvor skal appen kjøre? Beslutningsguide for eier
 
-**Status: UTKAST, skrevet 2026-11-22; avsnitt 2, 3 og 8 avstemt samme dag mot den bygde synk-serveren.** Skrevet for en eier uten teknisk bakgrunn. Ingenting her er bestilt, og ingen kontoer er opprettet. Avsnitt 8 er prøvd i en Docker-kjøring i en sandkasse (ikke hos en leverandør); se «Hva som er testet». Alt som skal gjøres før ekte familier står samlet i [`pilot-sjekkliste.md`](pilot-sjekkliste.md). **Installasjonsguide (2026-11-22)** for eierens eksisterende one.com-server (Ubuntu 26.04, delt med et annet prosjekt): [`installasjon-ubuntu.md`](installasjon-ubuntu.md), med vei A (vår egen Caddy) og vei B (bak en eksisterende Nginx/Caddy). Prøvd i sandkasse, **ikke** på Ubuntu 26.04 eller hos one.com. **Oppdatert 2026-11-22** med eierens svar (avsnitt 7) og et kort avsnitt om webhotel (avsnitt 0).
+**Status: UTKAST, skrevet 2026-11-22; avsnitt 2, 3 og 8 avstemt samme dag mot den bygde synk-serveren.** Skrevet for en eier uten teknisk bakgrunn. Ingenting her er bestilt, og ingen kontoer er opprettet. Avsnitt 8 er prøvd i en Docker-kjøring i en sandkasse (ikke hos en leverandør); se «Hva som er testet». Alt som skal gjøres før ekte familier står samlet i [`pilot-sjekkliste.md`](pilot-sjekkliste.md). **Installasjonsguide (2026-11-22)** for eierens eksisterende one.com-server (Ubuntu 26.04, delt med et annet prosjekt): [`installasjon-ubuntu.md`](installasjon-ubuntu.md), med vei A (vår egen Caddy) og vei B (bak en eksisterende Nginx/Caddy). Prøvd i sandkasse, **ikke** på Ubuntu 26.04 eller hos one.com. **Eierens opplysninger 2026-11-22:** serveren står **i Europa, land ikke bekreftet**, med lokal lagring (400 GB); `husvett.no` er registrert hos one.com (DNS settes i one.coms panel); eieren har også et one.com-webhotell, som ikke kan kjøre serverdelen (avsnitt 0), så domenet skal peke mot serveren, og eksisterende nettside og e-post på domenet må kartlegges før DNS endres (`installasjon-ubuntu.md`, avsnitt 4). **Oppdatert 2026-11-22** med eierens svar (avsnitt 7) og et kort avsnitt om webhotel (avsnitt 0).
 
 **Les dette først om tallene.** Alle priser, regioner og vilkår under er fra min generelle kunnskap, ikke slått opp i dag. De er satt opp som grove intervaller i norske kroner (regnet med ca. 11 kr per euro og 10 kr per dollar) og kan være feil eller utdaterte. Alt som står under «Må verifiseres» (siste del av dokumentet) må sjekkes mot leverandørens egne prissider og vilkår før noe bestilles. Dokumentet er ikke juridisk rådgivning.
 
@@ -203,7 +203,7 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 | 2 | Driftsansvarlig: **«Admin» (rolle; navngis ikke)** | Responstid er ikke bestemt |
 | 3 | – | Månedlig tak ikke oppgitt |
 | 4 | – | Ikke besvart. Anbefaling: europeisk leverandør (avsnitt 0) |
-| 5 | Konto og domene: AVVR AS (følger av svar 1). Domene: **`husvett.no`** (hovedadresse; `www.husvett.no` omdirigeres), eierens beslutning 2026-11-22 | **Ikke bekreftet:** at domenet er kjøpt og står i AVVR AS sitt navn, og DNS. Appens navn er ikke avklart. Se «Slik velger og kjøper du et .no-domene» |
+| 5 | Konto og domene: AVVR AS (følger av svar 1). Domene: **`husvett.no`** (hovedadresse; `www.husvett.no` omdirigeres), eierens beslutning 2026-11-22. **Registrert hos one.com** (eierens opplysning 2026-11-22); DNS settes i one.coms panel | **Ikke bekreftet:** at domenet er kjøpt og står i AVVR AS sitt navn, og DNS. Appens navn er ikke avklart. Se «Slik velger og kjøper du et .no-domene» |
 | 6 | Kontakt-e-post for personvern: **`kontakt@husvett.no`** (felles adresse oppgitt av eieren 2026-11-22) | **Ikke bekreftet:** at postkassen er opprettet og virker, hvem som svarer innen 30 dager og e-postleverandør |
 | 7 | **Lukket pilot, hele Norge** | Antall husstander, startdato, betaling |
 | 8 | **730 dager** for inaktive husstander (`SYNC_RETENTION_DAYS=730`) | Logger og sikkerhetskopier. Innloggingens levetid (`SYNC_TOKEN_IDLE_DAYS`) er satt til samme 730 dager (`pilot-sjekkliste.md`, D15, avgjort) |
@@ -211,7 +211,7 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 | 10 | Eier vil ha **hjelp til oppsett** av sikkerhetskopinøkkelen | Hvem de to nøkkelholderne er (fremgangsmåte: avsnitt 0, steg 6) |
 | 11 | – | Ikke besvart |
 | 12 | Skriftlig Tjek-avtale finnes og er «ok» ifølge eier, men er fortrolig og deles ikke | Omfang ikke kjent for oss; spørsmål i `phase0/tjek-avtale.md`. Til svar foreligger: ingen lagring av tilbud |
-| – | Hosting: eier vet ikke, spurte om webhotel | Se avsnitt 0 |
+| – | Hosting: eier spurte om webhotel (har et one.com-webhotell, som ikke kan kjøre serverdelen). Eier har også en leid one.com Cloud server L (Ubuntu 26.04, lokal lagring 400 GB) som deles med et annet prosjekt. **Datalagring/region: Europa, land ikke bekreftet** (eierens opplysning 2026-11-22) | Om serveren skal brukes; nøyaktig land/datasenter; databehandleravtale med one.com. Installasjonsguide: [`installasjon-ubuntu.md`](installasjon-ubuntu.md) |
 | – | Eier-godkjenning av nye medlemmer: **nei**, invitasjonen holder | – |
 
 Spørsmålene slik de ble stilt:

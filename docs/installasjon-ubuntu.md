@@ -187,37 +187,70 @@ Git kjøres alltid som `husvett` (`sudo -u husvett git …`), ikke som root. Ikk
 
 ---
 
-## 4. DNS for husvett.no
+## 4. DNS for husvett.no (hos one.com)
 
 Gjør dette **tidlig**: endringer i DNS bruker tid på å nå fram, og i vei A må DNS peke riktig **før** første oppstart.
 
-**Ikke bekreftet:** at `husvett.no` er kjøpt og står i AVVR AS sitt navn (pilot-sjekkliste A4). Uten domenet kan du ikke gjøre dette avsnittet.
+**Eierens opplysning (2026-11-22):** `husvett.no` er registrert hos one.com, så DNS-oppføringene settes i **one.coms DNS-panel**. Eieren har også et vanlig one.com-**webhotell**. Webhotellet kan **ikke** kjøre Husvett (Node-server med SQLite; hosting.md, avsnitt 0). Domenet skal derfor peke mot **serveren (VPS-en)**, ikke mot webhotellet. **Ikke bekreftet av oss:** at domenet står i AVVR AS sitt navn (pilot-sjekkliste A4).
 
-1. **Finn serverens adresser** (skriv dem ikke i repoet): i one.coms kontrollpanel for serveren (oversikten viser IPv4 og eventuelt IPv6). Sammenlign med L16. **Sjekk dette:** at adressen i L16 er den samme som i kontrollpanelet. Begynner adressen i L16 med `10.`, `172.16.`–`172.31.` eller `192.168.`, er det en intern adresse: bruk den fra kontrollpanelet.
-2. **Finn hvor DNS for domenet styres:** hos den som har domenet (registraren), eller hos one.com hvis domenet ligger der. Fra din egen PC: `nslookup -type=NS husvett.no` viser navnetjenerne; de forteller hvem som styrer DNS.
-3. **Legg inn disse oppføringene** (ofte kalt «DNS-poster» eller «DNS records»):
+### 4.1 Kartlegg det som finnes på domenet i dag (før du endrer noe)
+
+En feil DNS-endring kan **stoppe e-posten** til `kontakt@husvett.no` eller ta ned en nettside som ligger på webhotellet. Kartlegg derfor først, og lagre resultatet **privat** (ikke i repoet; listen inneholder adresser):
+
+1. **Skjermbilde av hele DNS-listen** i one.com-panelet (alle oppføringer, også dem som er merket som standard).
+2. **Fra din egen PC** (Windows, Mac og Linux har `nslookup`):
+
+```sh
+nslookup -type=NS husvett.no
+nslookup -type=MX husvett.no
+nslookup -type=TXT husvett.no
+nslookup -type=A husvett.no
+nslookup -type=AAAA husvett.no
+nslookup www.husvett.no
+```
+
+`NS` viser hvem som styrer DNS (ventet: one.com). `MX` og `TXT` (SPF, ofte en linje med `v=spf1`) hører til e-posten. `A`/`AAAA` for `husvett.no` og `www` viser hvor nettsiden peker i dag (trolig webhotellet).
+3. **Nettside i dag:** åpne `https://husvett.no/` og `https://www.husvett.no/`. Ligger det en side på webhotellet som skal beholdes, avgjør eieren **før** DNS endres hva som skal skje med den: når `husvett.no` og `www` peker mot serveren, vises ikke webhotellets side der lenger.
+4. **E-post i dag:** send en prøvemelding til `kontakt@husvett.no` utenfra og se at den kommer fram. Da vet du at e-posten virket før endringen.
+
+### 4.2 Finn serverens adresser
+
+I one.coms kontrollpanel for serveren (oversikten viser IPv4 og eventuelt IPv6). **Skriv dem ikke i repoet.** Sammenlign med L16. **Sjekk dette:** at adressen i L16 er den samme som i kontrollpanelet. Begynner adressen i L16 med `10.`, `172.16.`–`172.31.` eller `192.168.`, er det en intern adresse: bruk den fra kontrollpanelet.
+
+### 4.3 Endre oppføringene i one.coms DNS-panel
+
+**Forbehold:** one.com endrer panelet sitt fra tid til annen. Navnene under er slik vi forventer dem, ikke kontrollert mot panelet i dag. Finner du ikke det som beskrives, stopp og ta et skjermbilde.
+
+1. Logg inn på one.coms kontrollpanel (med to-faktor) og velg domenet `husvett.no`.
+2. Finn DNS-innstillingene for domenet (hos one.com har de ligget under noe som «Avanserte innstillinger» → «DNS-innstillinger»; **sjekk dette**). Der står oppføringene i en liste, og det finnes en knapp for å legge til eller redigere en oppføring.
+3. **Endre bare oppføringene for `@` (selve `husvett.no`) og `www`**, slik:
 
 | Navn (vert) | Type | Verdi | Merknad |
 | --- | --- | --- | --- |
 | `@` (selve `husvett.no`; noen paneler vil ha feltet tomt) | A | `<SERVERENS IPv4>` | Hovedadressen |
-| `www` | A | `<SERVERENS IPv4>` | Caddy/Nginx sender `www` videre til `husvett.no` |
-| `@` | AAAA | `<SERVERENS IPv6>` | **Bare hvis serveren har en offentlig IPv6** (L16 / kontrollpanelet) |
-| `www` | AAAA | `<SERVERENS IPv6>` | Samme |
+| `www` | A | `<SERVERENS IPv4>` | Eller i stedet: `www` som **CNAME** til `husvett.no` (følger da `@` av seg selv). Ikke begge |
+| `@` | AAAA | `<SERVERENS IPv6>` | **Bare hvis serveren har en offentlig IPv6** (4.2) |
+| `www` | AAAA | `<SERVERENS IPv6>` | Samme (ikke nødvendig hvis `www` er CNAME) |
 
-4. **Fjern gamle oppføringer for `@` og `www`** som peker et annet sted (f.eks. standardoppføringer til et webhotell eller en «parkeringsside»), særlig **gamle AAAA-oppføringer**: Let's Encrypt bruker IPv6-adressen når den finnes, og en AAAA som peker til en annen server kan gi sertifikatfeil selv om A er riktig. Finnes en `CNAME` på `www`, må den bort før du kan lage A-oppføringen.
-5. **Ikke rør** `MX`, `TXT` (SPF, DKIM) eller andre oppføringer: de styrer e-post (`kontakt@husvett.no`). Peker MX mot selve `husvett.no`, spør utvikleren før du endrer A.
-6. **CAA:** fra PC-en, `nslookup -type=CAA husvett.no`. Ingen CAA-oppføring er greit. Finnes det CAA, må én av dem tillate `letsencrypt.org`.
-7. **Ikke slå på noen «proxy»- eller CDN-funksjon** i DNS-panelet (en tjeneste som legger seg foran serveren). Da står det to proxyer foran appen, og ratebegrensningen teller feil (sikkerhet.md S3).
+4. **Gamle A/AAAA for `@` og `www`** som peker mot webhotellet må endres eller fjernes, ellers peker domenet to steder. Særlig **gamle AAAA-oppføringer**: Let's Encrypt bruker IPv6-adressen når den finnes, og en AAAA som peker mot webhotellet kan gi sertifikatfeil selv om A er riktig. Har `www` en CNAME fra før, må den bort før du kan lage en A-oppføring på `www` (eller behold CNAME-en hvis den peker til `husvett.no`). **Sjekk dette:** om one.com viser webhotellets oppføringer som «standard»/låste, og om du da må slå dem av eller lage egne oppføringer som erstatter dem. Er du usikker: spør one.coms kundeservice før du endrer, og si at **e-posten skal beholdes**.
+5. **E-posten skal stå urørt.** Ikke endre, slett eller «tilbakestill» `MX`, `TXT` (SPF, DKIM), oppføringer for e-post som `mail`, `webmail`, `autodiscover` eller `autoconfig`, eller andre oppføringer du ikke vet hva er. Bruk **ikke** valg som «tilbakestill til standard», «pek domenet til ekstern server» eller bytte av navnetjenere (NS): slike valg kan erstatte hele listen og stoppe e-posten. Peker `MX` mot selve `husvett.no` (i stedet for et navn hos one.com), stopp og spør utvikleren før du endrer A.
+6. **CAA:** `nslookup -type=CAA husvett.no`. Ingen CAA-oppføring er greit. Finnes det CAA, må én av dem tillate `letsencrypt.org`.
+7. **Ikke slå på noen «proxy»- eller CDN-funksjon** for domenet (en tjeneste som legger seg foran serveren). Da står det to proxyer foran appen, og ratebegrensningen teller feil (sikkerhet.md S3).
 
-**Hvor lang tid?** Ofte noen minutter, noen ganger noen timer. Gamle svar kan huskes av andre DNS-tjenere til levetiden (TTL) på den gamle oppføringen er ute (ofte 1 time, i blant opptil et døgn). **Kontroller** fra PC-en (Windows, Mac og Linux har `nslookup`):
+### 4.4 Kontroller etterpå
+
+**Hvor lang tid?** Ofte noen minutter, noen ganger noen timer. Gamle svar kan huskes av andre DNS-tjenere til levetiden (TTL) på den gamle oppføringen er ute (ofte 1 time, i blant opptil et døgn). Fra PC-en:
 
 ```sh
 nslookup husvett.no 1.1.1.1
 nslookup www.husvett.no 1.1.1.1
 nslookup -type=AAAA husvett.no 1.1.1.1
+nslookup -type=MX husvett.no 1.1.1.1
 ```
 
-Svaret skal være serverens adresse (og ingen andre). På serveren kan du bruke `getent hosts husvett.no`.
+De tre første skal gi serverens adresse (og ingen andre). `MX` skal være **likt** det du noterte i 4.1. På serveren kan du bruke `getent hosts husvett.no`.
+
+**Send en ny prøvemelding til `kontakt@husvett.no` utenfra** og se at den kommer fram. Kommer den ikke: sammenlign DNS-listen med skjermbildet fra 4.1 og legg tilbake det som mangler (e-postoppføringene), eller kontakt one.com.
 
 ---
 
@@ -698,13 +731,14 @@ docker compose --env-file .env.drift ps
 | Appen starter ikke: `port is already allocated` (vei B) | `ss -tlnp '( sport = :8790 )'` | Velg et annet `APP_PORT` i `.env.drift`, og samme nummer i Nginx/Caddy |
 | Disken er nesten full | `df -h /`, `docker system df` | Ikke slett volumer. `docker builder prune` fjerner byggebuffer, men gjelder hele serveren (også plattformprosjektet): avtal først |
 | Sikkerhetskopien feilet | `journalctl -u husvett-backup` | «Fant ikke middag-databasen»: feil volum eller appen står stoppet. «Sett BACKUP_AGE_RECIPIENT»: `backup.env` mangler eller er feil |
+| E-post til `kontakt@husvett.no` kommer ikke fram etter DNS-endringen | `nslookup -type=MX husvett.no` og DNS-listen i one.com-panelet mot skjermbildet fra 4.1 | Legg tilbake e-postoppføringene som mangler, eller kontakt one.com. Rør ikke `MX` ellers |
 | Ingen tilbud fra Tjek | Appens logg: `tilbud-feil` | Utgående nett (L19). Ikke kritisk for synk |
 | Mistanke om innbrudd eller lekkasje | – | Rutinen for avvik: `personvern/05-innsyn-retting-sletting.md`, avsnitt 6 (72 timer) |
 
 **Vanlige feil med HTTPS (Let's Encrypt):**
 
-- **DNS peker ikke ennå, eller peker feil:** meldinger som `NXDOMAIN`, `unauthorized` eller `Timeout during connect`. Kontroller med `nslookup` (avsnitt 4) og vent. Caddy prøver igjen av seg selv; certbot må kjøres på nytt.
-- **Gammel AAAA-oppføring:** A er riktig, men sertifikatet feiler likevel. Fjern eller rett AAAA (avsnitt 4).
+- **DNS peker ikke ennå, eller peker feil:** meldinger som `NXDOMAIN`, `unauthorized` eller `Timeout during connect`. Kontroller med `nslookup` (avsnitt 4.4) og vent. Caddy prøver igjen av seg selv; certbot må kjøres på nytt.
+- **Gammel AAAA-oppføring:** A er riktig, men sertifikatet feiler likevel. Fjern eller rett AAAA (avsnitt 4.3).
 - **Port 80 er stengt** (brannmur hos one.com): sertifikatet kan ikke kontrolleres. Åpne TCP 80 og 443.
 - **For mange forsøk:** Let's Encrypt har grenser for mislykkede forsøk og for nye sertifikater per uke. Vent (minst en time) i stedet for å prøve om og om igjen, og **slett aldri volumet `caddy-data`** (der ligger sertifikatene).
 - **Nettleseren viser fortsatt gammel side:** DNS-svaret er husket et sted. Prøv fra mobilnett, eller vent til TTL er ute.
@@ -720,6 +754,8 @@ docker compose --env-file .env.drift ps
 - **Ikke kopier `middag.sqlite` med `cp`** mens appen kjører; bruk `backup.sh` (hosting.md).
 - **Ikke start to Husvett-servere mot samme volum,** og ikke kjør `docker compose up` fra en annen kopi av repoet på samme server.
 - **Ikke kjør `docker system prune --volumes`, `docker volume prune -a` eller `docker compose down -v`.** De kan slette databasen. (`docker compose down` uten `-v` er trygt.)
+- **Ikke endre e-postoppføringer i DNS** (`MX`, SPF/DKIM i `TXT`, `mail`, `autodiscover` o.l.), ikke bytt navnetjenere og ikke bruk «tilbakestill»-valg i one.com-panelet: det kan stoppe e-posten til `kontakt@husvett.no`. Kartlegg først (avsnitt 4.1).
+- **Ikke la domenet peke mot webhotellet** for Husvett: webhotellet kan ikke kjøre serverdelen.
 - **Ikke slett volumet `caddy-data`** (vei A): sertifikatene ligger der.
 - **Ikke endre plattformprosjektets filer, nettverk, containere eller brannmur.** Bare ett nytt vertsoppsett i vei B, med sikkerhetskopi først.
 - **Ikke legg brukere i gruppen `docker`** (det er root-tilgang).
@@ -734,7 +770,7 @@ docker compose --env-file .env.drift ps
 
 1. Avsnitt 1: les tilstanden, velg vei (avsnitt 2).
 2. Avsnitt 3: programmer, Docker (bare om det mangler), bruker, mappe, kode.
-3. Avsnitt 4: DNS (tidlig).
+3. Avsnitt 4: kartlegg nettside og e-post på domenet, så DNS i one.coms panel (tidlig). Bare `@` og `www`; e-postoppføringene står urørt.
 4. Avsnitt 5: `.env.drift` (vei B: to ekstra linjer).
 5. Avsnitt 6A eller 6B/6C: start.
 6. Avsnitt 7: kontroller isolasjonen; avsnitt 8: kontroller på serveren og utenfra.
@@ -759,6 +795,7 @@ docker compose --env-file .env.drift ps
 **Ikke prøvd:**
 
 - **Noe som helst på Ubuntu 26.04 eller hos one.com:** installasjon av Docker fra apt-kilden (eller reserveveien), `adduser`-valgene, nettkonsollen (lime inn), one.coms brannmur og om serveren har IPv6.
+- one.coms DNS-panel (menynavn, om webhotellets standardoppføringer er låste) og at e-posten overlever endringen.
 - Ekte domene, DNS og Let's Encrypt (verken Caddy eller certbot); certbot-stegene i 6B (6–7) og `www`-omdirigeringen i Nginx; HTTP/3.
 - At Docker-publiserte porter går forbi `ufw` på akkurat denne serveren (kjent Docker-oppførsel, ikke målt her).
 - Kjøring under systemd (timer og tjeneste), cron-linjen, `rclone` og lagring utenfor serveren, `shred` på serverens disk.
@@ -774,8 +811,8 @@ docker compose --env-file .env.drift ps
 1. **Hva viser leseskjemaet i avsnitt 1?** Særlig L3 (hvem bruker 80/443), L7–L9 (Docker), L12–L13 (disk og minne), L16 (har serveren IPv6?), L18 (opprydding som kan slette volumer) og L19 (utgående nett). Det avgjør vei A eller B.
 2. **Godtar plattformprosjektet** at Husvett kjører på samme server, at Docker installeres (hvis den mangler), og (vei B) at det legges til ett vertsoppsett i deres Nginx/Caddy? Hvem hos dem skal varsles før endringer og oppdateringer?
 3. **Hvem har `sudo`/root og `docker`-tilgang** på serveren i dag? De kan lese Husvetts data og må inn i tilgangslisten (pilot-sjekkliste B8, C14, C16). Er det akseptabelt for piloten?
-4. **one.com som databehandler:** finnes det en databehandleravtale med one.com for denne serveren, og ligger serveren (og eventuelle øyeblikksbilder) i EØS? (pilot-sjekkliste B6). Har one.com en brannmur i kontrollpanelet for serveren?
-5. **Er `husvett.no` kjøpt, i AVVR AS sitt navn, og hvor styres DNS?** (A4).
+4. **one.com som databehandler:** finnes det en databehandleravtale med one.com for denne serveren, og i hvilket land står serveren (eieren oppgir «Europa», land ikke bekreftet), og ligger eventuelle øyeblikksbilder også der? (pilot-sjekkliste B6). Har one.com en brannmur i kontrollpanelet for serveren?
+5. **Står `husvett.no` (registrert hos one.com) i AVVR AS sitt navn** (A4)? **Ligger det en nettside på webhotellet** på `husvett.no` eller `www` som skal beholdes (den vises ikke lenger der når domenet peker mot serveren)? Og hvem hos dere kan rette e-postoppføringene hvis noe går galt?
 6. **Hvem er de to nøkkelholderne** for sikkerhetskopiene (A9)?
 7. **Hvor skal kopiene ligge utenfor serveren** (leverandør i EØS, med databehandleravtale), og er 30 dager riktig slettefrist (A7)?
 8. **Gjenopprettingsøvelsen:** godtar du at den private nøkkelen er på serveren et kort øyeblikk under en gjenoppretting (9.5), eller skal øvelsen og en ekte gjenoppretting gjøres på en annen maskin?
