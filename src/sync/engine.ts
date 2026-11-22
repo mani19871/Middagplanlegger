@@ -8,7 +8,7 @@ import type { AppState, DocConflict } from '../store';
 import { applyListEvents, type ListEvent } from './list';
 import { DOC_NAMES, fieldsOf, fromFields, isValidDoc, merge3, stable, type DocBody, type DocName, type PlanDoc, type SettingsDoc } from './docs';
 import { HttpTransport, SyncError, type SyncApi } from './api';
-import { LIMITS, type DocVersion, type Envelope, type MemberInfo } from './protocol';
+import { cleanEvent, LIMITS, type DocVersion, type Envelope, type MemberInfo } from './protocol';
 import { defaultSettings } from '../data/defaults';
 
 export interface SyncIO { get(): AppState; set(f: (s: AppState) => AppState): void }
@@ -27,7 +27,33 @@ export function withDoc(s: AppState, name: DocName, body: DocBody): AppState {
 }
 export const isDirty = (s: AppState, name: DocName) => {
   const m = s.sync?.docs[name];
-  return !m || stable(docBody(s, name)) !== stable(m.base);
+  return !m || !!m.restored || stable(docBody(s, name)) !== stable(m.base);
+};
+
+/**
+ * Serveren er gjenopprettet fra en eldre kopi (den har ikke det enheten har sett). Enheten begynner på nytt fra 0,
+ * legger hele sin lokale logg i utboksene igjen (serveren lagrer hver id én gang) og sender dokumentene sine på nytt:
+ * neste versjon fra serveren blir base, så lokal verdi ikke overskrives av den eldre.
+ */
+export function resetForRestore(s: AppState): AppState {
+  if (!s.sync) return s;
+  // Bare enhetens egne hendelser (og migrerte data): serveren avviser hendelser som utgir seg for et annet medlem.
+  const others = new Set(s.sync.members.filter((m) => !m.me).map((m) => m.id));
+  const missing = <T extends { id: string; by: string }>(outbox: T[], log: T[]) => {
+    const ids = new Set(outbox.map((e) => e.id));
+    return [...outbox, ...log.filter((e) => !ids.has(e.id) && !others.has(e.by))];
+  };
+  const docs = Object.fromEntries(Object.entries(s.sync.docs).map(([k, m]) => [k, { ...m!, version: 0, restored: true }]));
+  return {
+    ...s,
+    outbox: missing(s.outbox, s.inventory), listOutbox: missing(s.listOutbox, s.list),
+    changeOutbox: missing(s.changeOutbox ?? [], s.listChanges ?? []), versionOutbox: missing(s.versionOutbox ?? [], s.planHistory ?? []),
+    sync: { ...s.sync, cursor: 0, anchor: undefined, docs },
+  };
+}
+const markRestored = (s: AppState, name: DocName): AppState => {
+  const m = s.sync?.docs[name];
+  return s.sync && m ? { ...s, sync: { ...s.sync, docs: { ...s.sync.docs, [name]: { ...m, version: 0, restored: true } } } } : s;
 };
 
 /**
@@ -38,9 +64,11 @@ export function receiveDoc(s: AppState, d: DocVersion): AppState {
   const sync = s.sync;
   if (!sync || !isValidDoc(d.name, d.body)) return s;
   const meta = sync.docs[d.name];
-  if (meta && meta.version >= d.version) return s;
+  if (meta && !meta.restored && meta.version >= d.version) return s;
   const local = docBody(s, d.name);
   const docs = { ...sync.docs, [d.name]: { version: d.version, base: d.body } };
+  // Etter gjenoppretting: serverens (eldre) versjon blir base, lokal verdi beholdes og sendes som neste versjon.
+  if (meta?.restored) return { ...s, sync: { ...sync, docs } };
   // Første gang (nettopp med i husstanden) eller uendret lokalt: husstandens versjon gjelder.
   if (!meta || stable(local) === stable(meta.base)) {
     const conflicts = { ...sync.conflicts };
@@ -140,20 +168,29 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
     // 2. Hent alt nytt etter cursor og flett.
     for (let round = 0; round < 50; round++) {
       const cursor = io.get().sync?.cursor ?? 0;
-      const r = await api.pull(cursor);
+      const r = await api.pull(cursor, io.get().sync?.anchor);
+      if (r.reset) {
+        // Gjenopprettet server: begynn på nytt og send alt eget på nytt. Etter nullstilling (cursor 0, uten anker)
+        // kan serveren ikke svare «reset» igjen, så dette går bare én gang.
+        io.set((s) => (same(s) ? resetForRestore(s) : s));
+        return syncOnce(io, apiBase, now);
+      }
       io.set((s) => {
         if (!same(s) || s.sync!.cursor !== cursor) return s;
-        const inv = r.events.filter((e) => e.stream === 'beholdning').map((e) => e.event as InventoryEvent);
-        const lst = r.events.filter((e) => e.stream === 'liste').map((e) => e.event as ListEvent);
-        const chg = r.events.filter((e) => e.stream === 'endring').map((e) => e.event as ListChange);
-        const ver = r.events.filter((e) => e.stream === 'planversjon').map((e) => e.event as PlanVersion);
+        const evs = r.events.map((e) => ({ ...e, event: cleanEvent(e.stream, e.event) }));
+        const inv = evs.filter((e) => e.stream === 'beholdning').map((e) => e.event as InventoryEvent);
+        const lst = evs.filter((e) => e.stream === 'liste').map((e) => e.event as ListEvent);
+        const chg = evs.filter((e) => e.stream === 'endring').map((e) => e.event as ListChange);
+        const ver = evs.filter((e) => e.stream === 'planversjon').map((e) => e.event as PlanVersion);
         let next: AppState = {
           ...s, inventory: applyEvents(s.inventory, inv), list: applyListEvents(s.list, lst), listChanges: chg.reduce(applyChange, s.listChanges ?? []),
           planHistory: ver.reduce(addVersion, s.planHistory ?? []),
         };
         for (const d of r.docs) next = receiveDoc(next, d);
         const me = r.members.find((m) => m.me) ?? next.sync!.me;
-        return { ...next, sync: { ...next.sync!, cursor: r.cursor, members: r.members, me } };
+        const last = r.events.at(-1);
+        const anchor = last ? `${last.seq}:${(last.event as { id: string }).id}` : next.sync!.anchor;
+        return { ...next, sync: { ...next.sync!, cursor: r.cursor, anchor, members: r.members, me } };
       });
       if (!r.more) break;
     }
@@ -172,7 +209,9 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
         } catch (e) {
           if (!(e instanceof SyncError) || e.status !== 409) throw e;
           const cur = e.current;
-          if (cur) io.set((x) => same(x) ? receiveDoc(x, cur) : x);
+          // Serverens versjon er eldre enn den enheten bygde på: serveren er gjenopprettet fra en eldre kopi.
+          if (cur && cur.version < baseVersion) io.set((x) => same(x) ? receiveDoc(markRestored(x, name), cur) : x);
+          else if (cur) io.set((x) => same(x) ? receiveDoc(x, cur) : x);
           else io.set((x) => {
             if (!same(x)) return x;
             const docs = { ...x.sync!.docs };
@@ -194,10 +233,12 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
   }
 }
 
-export type SyncStatus = 'lokal' | 'synket' | 'synker' | 'venter' | 'konflikt';
-export function syncStatus(s: AppState, runtime: { offline: boolean; busy: boolean }, purchaseConflicts: number): SyncStatus {
+export type SyncStatus = 'lokal' | 'synket' | 'synker' | 'venter' | 'konflikt' | 'feil';
+export function syncStatus(s: AppState, runtime: { offline: boolean; busy: boolean; lastError?: string | null }, purchaseConflicts: number): SyncStatus {
   if (!s.sync) return 'lokal';
   if (Object.keys(s.sync.conflicts).length > 0 || purchaseConflicts > 0) return 'konflikt';
+  // Feil som ikke bare er manglende nett (kvote, serverfeil, avvist forespørsel): vises tydelig, ikke som «Synker …».
+  if (runtime.lastError && runtime.lastError !== 'nett' && !runtime.busy) return 'feil';
   const pending = pendingCount(s);
   if (runtime.offline) return 'venter';
   if (pending > 0 || runtime.busy) return 'synker';

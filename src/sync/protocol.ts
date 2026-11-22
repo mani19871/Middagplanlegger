@@ -21,6 +21,13 @@ export interface MemberInfo { id: string; label: string; role: Role; createdAt: 
 export interface DocVersion { name: DocName; version: number; body: DocBody; updatedBy: string; updatedAt: string }
 export interface SyncResponse {
   cursor: number; more: boolean; events: StoredEnvelope[]; docs: DocVersion[]; members: MemberInfo[];
+  /** Husstandens nåværende `seq` (siste skriving). */
+  head?: number;
+  /**
+   * Serveren har ikke det enheten har sett (cursor etter `head`, eller ankeret finnes ikke): databasen er gjenopprettet
+   * fra en eldre kopi. Enheten begynner på nytt fra 0 og sender alt sitt eget på nytt (idempotent på id).
+   */
+  reset?: boolean;
 }
 export interface PushResponse { accepted: string[]; rejected: { id: string; code: string }[] }
 export interface JoinResponse { token: string; member: MemberInfo }
@@ -31,6 +38,8 @@ export interface HouseholdResponse { members: MemberInfo[]; invites: { id: strin
 export type ErrorCode =
   | 'ugyldig_forespørsel' | 'for_stor' | 'ikke_autentisert' | 'ingen_tilgang' | 'ikke_funnet' | 'for_mange_forespørsler'
   | 'ugyldig_kode' | 'enhet_finnes' | 'konflikt' | 'ugyldig_dokument' | 'serverfeil'
+  /** Bare eieren kan lage og trekke tilbake invitasjoner (pilotbeslutning). */
+  | 'bare_eier'
   /** Husstanden har nådd en kvote (medlemmer, invitasjoner eller lagrede hendelser). Se docs/sikkerhet.md. */
   | 'kvote_full';
 
@@ -115,6 +124,43 @@ export function versionOk(v: PlanVersion): boolean {
     && Array.isArray(v.declined) && v.declined.length <= 200 && v.declined.every((d) => isObj(d) && onlyKeys(d as unknown as Record<string, unknown>, ['key', 'ingredient', 'name', 'reason', 'before', 'after'])
       && str(d.key, 64) && str(d.ingredient, 64) && str(d.name, 120) && DRIFT_REASONS.includes(d.reason) && sideOk(d.before) && sideOk(d.after))
     && (v.parents === undefined || (Array.isArray(v.parents) && v.parents.length <= 20 && v.parents.every((p) => str(p, 100) && p !== v.id)));
+}
+
+// ---------- Strenge feltlister ----------
+
+const BASE_KEYS = ['id', 'at', 'by', 'type'];
+/** Kjente felt per strøm og hendelsestype. Alt annet fjernes ved mottak (lagres og deles aldri). */
+const KEYS: Record<string, Record<string, string[]>> = {
+  beholdning: {
+    'kjøp': ['week', 'line', 'ingredient', 'productId', 'storeId', 'packs', 'packSize', 'unit'],
+    'løs': ['line', 'packs'], angre: ['line'], laget: ['week', 'line', 'day', 'recipeId', 'uses'],
+    telling: ['ingredient', 'amount'], rest: ['week', 'ingredient', 'amount'], hjemme: ['week', 'line', 'ingredient', 'amount'],
+  },
+  liste: { kryss: ['week', 'key'], avkryss: ['week', 'key', 'seen'], manuell: ['line'], 'manuell-fjern': ['lineId'] },
+  endring: {
+    erstatt: ['week', 'line', 'storeId', 'ingredient', 'fromProductId', 'soldOut', 'productId', 'prev'],
+    'fant-ikke': ['week', 'line', 'storeId', 'ingredient', 'fromProductId', 'soldOut', 'choice', 'prev'],
+    'angre-endring': ['week', 'line', 'prev'],
+  },
+};
+const pick = (o: Record<string, unknown>, keys: string[]) => {
+  const out: Record<string, unknown> = {};
+  for (const k of keys) if (o[k] !== undefined) out[k] = o[k];
+  return out;
+};
+/**
+ * Hendelsen med bare kjente felt (S13 i docs/sikkerhet.md). Brukes av serveren før lagring og ved utlevering (eldre
+ * rader kan ha ekstra felt), og av klienten ved mottak. Planversjoner har strengt skjema og avvises i stedet.
+ * Ukjent strøm eller type: uendret (valideringen avviser den).
+ */
+export function cleanEvent<E>(stream: Stream, event: E): E {
+  const e = event as unknown as Record<string, unknown>;
+  const keys = e && typeof e === 'object' ? KEYS[stream]?.[e.type as string] : undefined;
+  if (!keys) return event;
+  const out = pick(e, [...BASE_KEYS, ...keys]);
+  if (stream === 'beholdning' && e.type === 'laget' && Array.isArray(e.uses)) out.uses = e.uses.map((u) => (u && typeof u === 'object' ? pick(u as Record<string, unknown>, ['ingredient', 'amount']) : u));
+  if (stream === 'liste' && e.type === 'manuell' && e.line && typeof e.line === 'object') out.line = pick(e.line as Record<string, unknown>, ['id', 'text', 'note']);
+  return out as E;
 }
 
 /** Gyldig konvolutt? Returnerer feilkode eller null. */

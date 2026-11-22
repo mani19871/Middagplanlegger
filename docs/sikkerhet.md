@@ -23,14 +23,14 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 | S3 | Høy | `X-Forwarded-For` lest fra venstre: ratebegrensningen kan omgås bak en proxy som legger til | Rettet |
 | S4 | Middels | Ingen kvoter: et medlem eller stjålet token kan fylle disken; mange husstander likeså | Rettet |
 | S5 | Middels | Tidspunkt fram i tid ligger sist i loggen for alltid | Rettet (klippes) |
-| S6 | Middels | Invitasjonskode gir medlemskap uten godkjenning; alle medlemmer kan invitere | Delvis (samlet gjettegrense, kvote på koder); godkjenning må avgjøres |
+| S6 | Middels | Invitasjonskode gir medlemskap uten godkjenning; alle medlemmer kan invitere | Delvis: bare eieren inviterer (`403 bare_eier`), samlet gjettegrense, kvote på koder; «eier godkjenner nye medlemmer» er en senere beslutning |
 | S7 | Middels | Token utløper aldri | Rettet (glidende utløp, 180 dager); rotasjon ikke bygget |
 | S8 | Lav | Fjernede medlemmer beholder etikett og «sist sett» | Rettet (anonymiseres) |
 | S9 | Lav | IPv6-klient kan bytte adresse for hvert forsøk | Rettet (/64) |
 | S10 | Lav | Feilmeldinger i logg og i `/api/offers` | Rettet |
 | S11 | Lav | Statisk filtjener: alle metoder, `index.html` for alt, feil MIME, uhåndtert strømfeil | Rettet |
 | S12 | Lav | Etiketter: retningsstyring (U+2066–2069), myk bindestrek, enslige surrogater, ikke NFC | Rettet |
-| S13 | Lav | Hendelser i `beholdning`, `liste`, `endring` kan ha ekstra felt som lagres og deles | Åpen (anbefaling) |
+| S13 | Lav | Hendelser i `beholdning`, `liste`, `endring` kan ha ekstra felt som lagres og deles | Rettet: `cleanEvent` fjerner ukjente felt før lagring og ved utlevering (testet i `server/sync/api.test.ts`) |
 | S14 | Lav | En ny enhet kan ta over en fjernet enhets offentlige id | Åpen (dokumentert) |
 | S15 | Lav | `by` kan være en hvilken som helst id som ikke er et annet medlem | Åpen (dokumentert) |
 | S16 | Info | Ratebegrensning i minnet | Dokumentert |

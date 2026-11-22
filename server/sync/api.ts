@@ -18,7 +18,7 @@ import { createHash, createHmac, randomBytes as nodeRandomBytes, randomUUID } fr
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { DOC_NAMES, isValidDoc, stable, type DocName } from '../../src/sync/docs';
 import {
-  checkEnvelope, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type StoredEnvelope, type Stream,
+  checkEnvelope, cleanEvent, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type StoredEnvelope, type Stream,
 } from '../../src/sync/protocol';
 import { QuotaExceededError, type DeviceRow, type DocOut, type SyncStorage } from '../storage/types';
 import { ipKey, RateLimiter } from './rateLimit';
@@ -70,6 +70,7 @@ const MESSAGES: Record<ErrorCode, string> = {
   ikke_funnet: 'Fant ikke det du ba om.', for_mange_forespørsler: 'For mange forespørsler. Vent litt og prøv igjen.',
   ugyldig_kode: 'Koden er ugyldig, brukt eller utløpt.', enhet_finnes: 'Denne enheten er allerede med i husstanden.',
   kvote_full: 'Husstanden har nådd en grense (antall medlemmer, invitasjoner eller lagrede endringer).',
+  bare_eier: 'Bare eieren av husstanden kan lage og trekke tilbake invitasjoner.',
   konflikt: 'Dokumentet er endret på en annen enhet.', ugyldig_dokument: 'Dokumentet har ugyldig innhold.', serverfeil: 'Noe gikk galt på serveren.',
 };
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -204,6 +205,8 @@ export function createSyncApi(opts: SyncApiOptions) {
       return [200, { member: memberInfo({ ...me, label }, me) }];
     }
     if (path === '/api/household/invites' && method === 'POST') {
+      // Pilotbeslutning: bare eieren inviterer. «Eier godkjenner nye medlemmer» er ikke bygget (docs/synk.md).
+      if (me.role !== 'eier') throw new HttpError(403, 'bare_eier');
       if ((await storage.activeInvites(hh, now())).length >= quotas.activeInvites) throw new HttpError(403, 'kvote_full');
       const code = newCode();
       const expiresAt = new Date(Date.parse(now()) + ttl).toISOString();
@@ -211,6 +214,7 @@ export function createSyncApi(opts: SyncApiOptions) {
       return [201, { code, expiresAt }];
     }
     if (parts[2] === 'invites' && parts.length === 4 && method === 'DELETE') {
+      if (me.role !== 'eier') throw new HttpError(403, 'bare_eier');
       if (!(await storage.deleteInvite(hh, parts[3]))) throw new HttpError(404, 'ikke_funnet');
       return [204, null];
     }
@@ -256,7 +260,8 @@ export function createSyncApi(opts: SyncApiOptions) {
           rejected.push({ id, code: 'ugyldig_hendelse' }); continue;
         }
         const event = at > received + skew ? { ...x.event, at: new Date(received).toISOString() } : x.event;
-        ok.push({ stream: x.stream, id: event.id, by: event.by, body: JSON.stringify(event) });
+        // Bare kjente felt lagres og deles (ukjente felt fjernes, ikke avvist, så eldre klienter virker).
+        ok.push({ stream: x.stream, id: event.id, by: event.by, body: JSON.stringify(cleanEvent(x.stream, event)) });
       }
       let accepted: string[] = [];
       try {
@@ -271,10 +276,23 @@ export function createSyncApi(opts: SyncApiOptions) {
     if (path === '/api/sync' && method === 'GET') {
       const raw = url.searchParams.get('after') ?? '0';
       if (!/^\d{1,15}$/.test(raw)) throw new HttpError(400, 'ugyldig_forespørsel');
-      const r = await storage.readSince(hh, Number(raw), LIMITS.pullPage);
-      const members = await storage.members(hh);
-      const events: StoredEnvelope[] = r.events.map((e) => ({ seq: e.seq, stream: e.stream, event: JSON.parse(e.body) }));
-      return [200, { cursor: r.cursor, more: r.more, events, docs: r.docs.map(docOut), members: members.map((m) => memberInfo(m, me)) }];
+      const after = Number(raw);
+      // Anker: siste hendelse enheten har sett («seq:id»). Finnes den ikke lenger, er databasen gjenopprettet fra en
+      // eldre kopi (og kanskje skrevet videre på); da må enheten begynne på nytt og sende sitt eget på nytt.
+      const anchor = url.searchParams.get('anchor');
+      let anchorSeq = 0, anchorId = '';
+      if (anchor !== null) {
+        const m = /^(\d{1,15}):(.{1,100})$/.exec(anchor);
+        if (!m) throw new HttpError(400, 'ugyldig_forespørsel');
+        anchorSeq = Number(m[1]); anchorId = m[2];
+      }
+      const r = await storage.readSince(hh, after, LIMITS.pullPage);
+      const members = (await storage.members(hh)).map((m) => memberInfo(m, me));
+      if (after > r.head || (anchorSeq > 0 && (await storage.eventIdAt(hh, anchorSeq)) !== anchorId)) {
+        return [200, { cursor: 0, more: true, events: [], docs: [], members, head: r.head, reset: true }];
+      }
+      const events: StoredEnvelope[] = r.events.map((e) => ({ seq: e.seq, stream: e.stream, event: cleanEvent(e.stream, JSON.parse(e.body)) }));
+      return [200, { cursor: r.cursor, more: r.more, events, docs: r.docs.map(docOut), members, head: r.head }];
     }
     if (parts[2] === 'docs' && parts.length === 4 && method === 'PUT') {
       const name = parts[3] as DocName;
@@ -298,6 +316,16 @@ export function createSyncApi(opts: SyncApiOptions) {
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     let url: URL;
     try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { return false; }
+    // Helsesjekk for Docker og oppetidsovervåking: databasen svarer. Ingen innhold, ingen autentisering.
+    if (url.pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
+      let ok = true;
+      try { await storage.ping(); } catch { ok = false; log('helsesjekk: databasen svarer ikke'); }
+      res.statusCode = ok ? 200 : 503;
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ status: ok ? 'ok' : 'feil' }));
+      return true;
+    }
     if (!/^\/api\/(household|sync)(\/|$)/.test(url.pathname)) return false;
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');

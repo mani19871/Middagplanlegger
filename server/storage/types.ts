@@ -14,7 +14,7 @@ export interface NewDevice { id: string; publicId: string; label: string; tokenH
 export interface EventIn { stream: Stream; id: string; by: string; body: string }
 export interface EventOut { seq: number; stream: Stream; body: string }
 export interface DocOut { name: DocName; version: number; body: string; updatedBy: string; updatedAt: string }
-export interface ReadResult { events: EventOut[]; docs: DocOut[]; cursor: number; more: boolean }
+export interface ReadResult { events: EventOut[]; docs: DocOut[]; cursor: number; more: boolean; /** Husstandens nåværende `seq`. */ head: number }
 export type JoinResult = { ok: true; device: DeviceRow } | { ok: false; code: 'ugyldig_kode' | 'enhet_finnes' | 'kvote_full' };
 /** Kvoter per husstand (docs/sikkerhet.md). Lagringen sjekker dem i samme transaksjon som skrivingen. */
 export interface MemberQuota { /** Aktive medlemmer. */ active: number; /** Alle rader, også fjernede. */ total: number }
@@ -59,6 +59,10 @@ export interface SyncStorage {
    */
   appendEvents(householdId: string, deviceId: string, events: EventIn[], now: string, quota?: EventQuota): Promise<string[]>;
   readSince(householdId: string, after: number, limit: number): Promise<ReadResult>;
+  /** Id-en til hendelsen med denne `seq` i husstanden, eller null (finnes ikke, f.eks. etter gjenoppretting fra eldre kopi). */
+  eventIdAt(householdId: string, seq: number): Promise<string | null>;
+  /** Helsesjekk: databasen svarer (SELECT 1). Kaster ved feil. */
+  ping(): Promise<void>;
   /** Skriver dokumentet hvis baseVersion er gjeldende versjon (0 = finnes ikke). Ellers returneres gjeldende versjon. */
   putDoc(householdId: string, name: DocName, baseVersion: number, body: string, updatedBy: string, now: string): Promise<PutDocResult>;
   close(): Promise<void>;

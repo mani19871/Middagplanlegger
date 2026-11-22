@@ -43,12 +43,8 @@ COPY --from=build --chown=node:node /app/dist ./dist
 RUN mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 8787
-# Serveren har ingen egen helse-rute. Sjekken gjør to kall mot den kjørende serveren:
-#  1) GET /api/household med et ugyldig (men riktig formatert) token må gi 401 «ikke_autentisert». Det går via
-#     synk-API-et og slår opp i databasen, så en databasefeil gir 500 og dermed «unhealthy».
-#     Ugyldig token endrer ingenting og teller bare mot ratebegrensningen for 127.0.0.1.
-#  2) GET / må gi 200 (appen er bygget; ellers 404).
-# Bruker ikke /api/offers: den starter et oppslag mot Tjek.
+# Helsesjekk: GET /healthz kjører SELECT 1 mot synk-databasen (200, ellers 503) uten innhold eller autentisering,
+# og GET / må gi 200 (appen er bygget). Bruker ikke /api/offers: den starter et oppslag mot Tjek.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "const b='http://127.0.0.1:'+(process.env.PORT||8787);fetch(b+'/api/household',{headers:{Authorization:'Bearer '+'a'.repeat(43)}}).then(async r=>{const j=await r.json();if(r.status!==401||j.error!=='ikke_autentisert')throw 1;return fetch(b+'/')}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "const b='http://127.0.0.1:'+(process.env.PORT||8787);fetch(b+'/healthz').then(r=>{if(!r.ok)throw 1;return fetch(b+'/')}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["npm", "run", "server"]

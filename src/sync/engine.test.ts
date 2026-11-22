@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { initialState, migrateState, recordEvent, recordList, type AppState } from '../store';
 import { conflicts, deriveStock, lineStates, purchaseLineId, type InventoryEvent } from '../engine/inventory';
 import { checks, manualLines, toggleEvent } from './list';
-import { SyncApi } from './api';
+import { SyncApi, syncErrorText } from './api';
 import { connect, isDirty, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { merge3 } from './docs';
 import { activeChanges, applyChange, changeLineId, notFoundEvent, substituteEvent, versionsFor, type AdjustedLine, type ListChange } from '../engine/substitution';
@@ -13,6 +13,10 @@ import { defaultSettings } from '../data/defaults';
 import type { Catalog } from '../engine/types';
 import { startTestServer } from '../../server/sync/testkit';
 import { createHash } from 'node:crypto';
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { SqliteStorage } from '../../server/storage/sqlite';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
@@ -427,5 +431,95 @@ describe('godkjent liste og «utsolgt / fant ikke» i husstanden', () => {
     expect(b.state.approved).toBe(false);
     expect(b.state.slots.map((s) => s.recipeId)).toEqual(['taco', 'bolognese']);
     expect(view(b).ps.pin).toBeNull();
+  });
+});
+
+describe('gjenoppretting av serveren fra en eldre kopi', () => {
+  // Filbasert database som kan kopieres (VACUUM INTO) og legges tilbake; serveren startes på nytt på samme port.
+  let dir = '';
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'middag-restore-')); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+  async function fileServer() {
+    await srv.close();
+    srv = await startTestServer({ storage: new SqliteStorage(join(dir, 'db.sqlite')) });
+  }
+  async function restore(backup: string) {
+    const port = Number(new URL(srv.base).port);
+    await srv.close();
+    await srv.storage.close();
+    for (const f of ['db.sqlite', 'db.sqlite-wal', 'db.sqlite-shm']) rmSync(join(dir, f), { force: true });
+    copyFileSync(backup, join(dir, 'db.sqlite'));
+    srv = await startTestServer({ storage: new SqliteStorage(join(dir, 'db.sqlite')), port });
+  }
+  // Etter omstart kan første kall treffe en lukket keep-alive-forbindelse; appen prøver bare igjen ved neste runde.
+  const retry = async <T,>(f: () => Promise<T>) => { try { return await f(); } catch { return f(); } };
+  const serverIds = (d: Device) => retry(async () => (await d.api.withToken(d.state.sync!.token).pull(0)).events.map((e) => (e.event as { id: string }).id).sort());
+  const syncOk = async (d: Device) => { for (let i = 0; i < 3; i++) if ((await d.sync()).ok) return; throw new Error('synk feilet'); };
+
+  it('enheter som har sett mer enn kopien, sender sitt eget på nytt: ingenting går tapt, ingen doble rader', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    a.toggle('demoA:pasta');
+    await a.sync(); await b.sync();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    // Etter kopien: nye hendelser fra begge og et nytt budsjett. Alt er levert, utboksene er tomme.
+    a.record(tell(a, 300));
+    b.toggle('demoA:ris');
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 111_100 } };
+    await a.sync(); await b.sync(); await a.sync();
+    const before = await serverIds(a);
+    expect(b.state.settings.budgetOre).toBe(111_100);
+    expect(a.state.outbox).toEqual([]);
+
+    await restore(backup);
+    expect((await serverIds(a)).length).toBeLessThan(before.length); // serveren har mistet det siste
+    await syncOk(b); await syncOk(a); await syncOk(b);
+    expect(await serverIds(a)).toEqual(before);
+    expect(srv.storage.counts().events).toBe(before.length);
+    for (const d of [a, b]) {
+      expect(d.state.settings.budgetOre).toBe(111_100);
+      expect(Object.keys(d.state.sync!.conflicts)).toEqual([]);
+      expect(d.state.sync!.rejected).toBe(0); // bare egne hendelser sendes på nytt
+      expect(syncStatus(d.state, { offline: false, busy: false }, 0)).toBe('synket');
+    }
+    // En ny enhet ser alt, også det som kom etter kopien.
+    const c = new Device('enhet-cccc3333');
+    await c.join(await a.invite());
+    await c.sync();
+    expect(c.state.settings.budgetOre).toBe(111_100);
+    expect(c.state.inventory.map((e) => e.id)).toEqual(a.state.inventory.map((e) => e.id));
+    expect(checks(c.state.list, WEEK).has('demoA:ris')).toBe(true);
+  });
+
+  it('oppdages også når andre har skrevet forbi enhetens cursor etter gjenopprettingen (anker)', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    a.record(tell(a, 1));
+    await a.sync(); await b.sync();
+    const lost = a.state.inventory[0].id;
+    await restore(backup);
+    // B skriver mye før A synker, så serverens seq går forbi A sin cursor.
+    for (let i = 0; i < 5; i++) b.toggle(`demoA:x${i}`);
+    await syncOk(b);
+    expect((await srv.storage.readSince((await srv.storage.authenticate(sha(a.state.sync!.token), srv.now()))!.householdId, 0, 1000)).head)
+      .toBeGreaterThanOrEqual(a.state.sync!.cursor);
+    await syncOk(a); await syncOk(b);
+    expect(await serverIds(b)).toContain(lost);
+    expect(b.state.inventory.map((e) => e.id)).toContain(lost);
+  });
+});
+
+describe('synkstatus ved feil', () => {
+  it('feil som ikke bare er manglende nett vises som «feil» med norsk tekst, ikke som «synker»', async () => {
+    const { a } = await pair();
+    expect(syncStatus(a.state, { offline: false, busy: false, lastError: 'kvote_full' }, 0)).toBe('feil');
+    expect(syncStatus(a.state, { offline: true, busy: false, lastError: 'nett' }, 0)).toBe('venter');
+    expect(syncStatus(a.state, { offline: false, busy: true, lastError: 'serverfeil' }, 0)).toBe('synker');
+    expect(syncErrorText('kvote_full')).toMatch(/grense/);
+    expect(syncErrorText('nett')).toBeNull();
+    expect(syncErrorText('noe-nytt')).toMatch(/lagret på denne enheten/);
   });
 });

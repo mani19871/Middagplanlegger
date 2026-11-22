@@ -2,10 +2,12 @@
 // Viser at en avkrysning vises hos den andre, og at en endring gjort uten nett flettes riktig ved gjenoppkobling.
 // Deretter: godkjent liste deles, en erstatning («utsolgt») vises hos begge med samme sum i handlelista og ukeplanen,
 // og ulike «fant ikke»-valg på samme vare (én enhet uten nett) blir en synlig konflikt som én voksen løser.
+// Til slutt: tilbudskjeder (offerChains) valgt på A vises på B, og serveren gjenopprettes fra en eldre kopi
+// (databasefil byttes, serveren startes på nytt): enhetene sender det som manglet på nytt, uten doble rader.
 // Kjør: npm run e2e:sync   (bygger appen først). Krever Playwright med Chromium.
 // Serveren startes med egen midlertidig database og egen hemmelighet; ingenting skrives i repoet.
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -20,19 +22,25 @@ try { ({ chromium } = createRequire(import.meta.url)('playwright')); } catch {
 const PORT = Number(process.env.E2E_PORT ?? 8899);
 const BASE = `http://localhost:${PORT}`;
 const dir = mkdtempSync(join(tmpdir(), 'middag-e2e-'));
-const server = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server/index.ts'], {
-  env: { ...process.env, PORT: String(PORT), SYNC_DB: join(dir, 'e2e.sqlite'), SYNC_SECRET: randomBytes(16).toString('hex') },
-  stdio: ['ignore', 'pipe', 'pipe'],
-});
+const DB = join(dir, 'e2e.sqlite');
+const SECRET = randomBytes(16).toString('hex');
 let log = '';
-server.stdout.on('data', (d) => { log += d; });
-server.stderr.on('data', (d) => { log += d; });
+const startServer = () => {
+  const p = spawn(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'server/index.ts'], {
+    env: { ...process.env, PORT: String(PORT), SYNC_DB: DB, SYNC_SECRET: SECRET }, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  p.stdout.on('data', (d) => { log += d; });
+  p.stderr.on('data', (d) => { log += d; });
+  return p;
+};
+let server = startServer();
+const stopServer = () => new Promise((r) => { if (server.exitCode !== null) return r(); server.once('exit', r); server.kill(); });
 const stop = () => { server.kill(); rmSync(dir, { recursive: true, force: true }); };
 
 const step = (s) => console.log(`• ${s}`);
 async function waitForServer() {
   for (let i = 0; i < 100; i++) {
-    try { if ((await fetch(BASE + '/')).ok) return; } catch { /* starter */ }
+    try { if ((await fetch(BASE + '/healthz')).ok) return; } catch { /* starter */ }
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error('Serveren startet ikke:\n' + log);
@@ -172,6 +180,68 @@ try {
   if (sA.listChanges.length !== sB.listChanges.length || (sB.changeOutbox ?? []).length || (sB.versionOutbox ?? []).length) throw new Error('Endringslogg eller utboks er ikke lik på begge');
   if (await total(A) !== await total(B)) throw new Error(`Ulik sum etter konflikten: ${await total(A)} / ${await total(B)}`);
   step(`OK: ${sA.planHistory.length} planversjoner og ${sA.listChanges.length} valg likt på begge, sum ${await total(B)}`);
+
+  // ---------- Tilbudskjeder (offerChains) ----------
+  step('A velger tilbudskjeden Kiwi; B skal få samme valg (innstillingene synkes, kostkrav gjør ikke)');
+  await A.getByRole('tab', { name: 'Uka' }).click();
+  await A.getByRole('button', { name: /Rediger uke/ }).click();
+  const openMore = async (p) => { if (await p.getByRole('button', { name: /^Flere valg/ }).count()) await p.getByRole('button', { name: /^Flere valg/ }).click(); };
+  await openMore(A);
+  await A.locator('fieldset.chains label', { hasText: 'Kiwi' }).locator('input').check();
+  await A.getByRole('tab', { name: 'Handleliste' }).click();
+  await B.waitForFunction(() => (JSON.parse(localStorage.getItem('middag-state-v1')).settings.offerChains ?? []).includes('KIWI'), null, T);
+  await B.getByRole('tab', { name: 'Uka' }).click();
+  await B.getByRole('button', { name: /Rediger uke|Se ukeplan/ }).first().click();
+  if (await B.getByRole('button', { name: /Rediger uke/ }).count()) await B.getByRole('button', { name: /Rediger uke/ }).click();
+  await openMore(B);
+  if (!(await B.locator('fieldset.chains label', { hasText: 'Kiwi' }).locator('input').isChecked())) throw new Error('B ser ikke Kiwi som valgt kjede');
+  await B.getByRole('tab', { name: 'Handleliste' }).click();
+
+  // ---------- Gjenoppretting fra eldre kopi ----------
+  step('Kopi av databasen; deretter nye endringer fra begge');
+  const backup = join(dir, 'kopi.sqlite');
+  const { DatabaseSync } = await import('node:sqlite');
+  const snap = new DatabaseSync(DB);
+  snap.prepare('VACUUM INTO ?').run(backup);
+  snap.close();
+  const fresh = async (p) => (await p.locator('ul.list input[type=checkbox]:not(:checked)').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label').replace(/^Kryss av /, ''))));
+  const [nA] = await fresh(A);
+  await A.locator(`ul.list input[aria-label="Kryss av ${nA}"]`).check();
+  const nB = (await fresh(B)).find((n) => n !== nA);
+  await B.locator(`ul.list input[aria-label="Kryss av ${nB}"]`).check();
+  for (const p of [A, B]) {
+    await p.waitForFunction((q) => document.querySelector(q)?.checked === true, `ul.list input[aria-label^="${nA},"]`, T);
+    await p.waitForFunction((q) => document.querySelector(q)?.checked === true, `ul.list input[aria-label^="${nB},"]`, T);
+  }
+  const serverEvents = async (p) => {
+    const token = await p.evaluate(() => JSON.parse(localStorage.getItem('middag-state-v1')).sync.token);
+    const r = await fetch(`${BASE}/api/sync?after=0`, { headers: { Authorization: `Bearer ${token}` } });
+    return (await r.json()).events.map((e) => e.event.id).sort();
+  };
+  const beforeRestore = await serverEvents(A);
+  step(`Serveren stoppes og databasen legges tilbake fra kopien (${beforeRestore.length} hendelser før)`);
+  await stopServer();
+  for (const f of ['e2e.sqlite', 'e2e.sqlite-wal', 'e2e.sqlite-shm']) rmSync(join(dir, f), { force: true });
+  copyFileSync(backup, DB);
+  server = startServer();
+  await waitForServer();
+  const lostNow = (await serverEvents(A)).length;
+  if (lostNow >= beforeRestore.length) throw new Error('Kopien inneholdt allerede alt; testen viser ingenting');
+  step(`Serveren har ${lostNow} hendelser etter gjenoppretting; venter på at enhetene sender det som mangler`);
+  for (let i = 0; i < 60; i++) {
+    const now = await serverEvents(A);
+    if (now.length === beforeRestore.length) break;
+    await A.waitForTimeout(1000);
+  }
+  const afterRestore = await serverEvents(A);
+  if (JSON.stringify(afterRestore) !== JSON.stringify(beforeRestore)) throw new Error(`Etter gjenoppretting: ${afterRestore.length} av ${beforeRestore.length} hendelser`);
+  for (const p of [A, B]) {
+    await p.getByText(/Synket med husstanden/).first().waitFor(T);
+    await p.waitForFunction((q) => document.querySelector(q)?.checked === true, `ul.list input[aria-label^="${nA},"]`, T);
+    await p.waitForFunction((q) => document.querySelector(q)?.checked === true, `ul.list input[aria-label^="${nB},"]`, T);
+  }
+  if (!(await state(B)).settings.offerChains?.includes('KIWI')) throw new Error('Kjedevalget forsvant etter gjenoppretting');
+  step(`OK: alle ${afterRestore.length} hendelser er tilbake, ingen doble, kjedevalget står`);
   if (process.env.E2E_SCREENSHOT_DIR) {
     await A.screenshot({ path: join(process.env.E2E_SCREENSHOT_DIR, 'enhet-a.png') });
     await B.screenshot({ path: join(process.env.E2E_SCREENSHOT_DIR, 'enhet-b.png') });

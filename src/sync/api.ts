@@ -19,7 +19,27 @@ export const ERROR_TEXT: Record<string, string> = {
   enhet_finnes: 'Denne enheten er allerede med i husstanden.', ingen_tilgang: 'Bare eieren av husstanden kan gjøre dette.',
   for_mange_forespørsler: 'For mange forsøk. Vent litt og prøv igjen.', ikke_autentisert: 'Enheten er ikke lenger med i husstanden.',
   kvote_full: 'Husstanden har nådd en grense (antall medlemmer, invitasjoner eller lagrede endringer). Endringene er lagret på denne enheten.',
+  bare_eier: 'Bare eieren av husstanden kan lage og trekke tilbake invitasjoner.',
 };
+
+/**
+ * Tekst til brukeren når en synk-runde feilet (`useSync().lastError`). null: ingen feil, eller bare uten nett (det vises
+ * som «Venter på nett»). Endringene ligger alltid trygt på enheten.
+ */
+export function syncErrorText(code: string | null): string | null {
+  if (!code || code === 'nett') return null;
+  const text: Record<string, string> = {
+    kvote_full: 'Husstanden har nådd en grense for lagrede endringer. Nye endringer er lagret på denne enheten, men deles ikke før det er plass. Kontakt den som drifter tjenesten.',
+    for_mange_forespørsler: 'Serveren ber oss vente litt. Synken prøver igjen av seg selv.',
+    serverfeil: 'Noe gikk galt på serveren. Synken prøver igjen av seg selv; endringene er lagret her.',
+    for_stor: 'En endring var for stor til å sendes. Den er lagret på denne enheten.',
+    ugyldig_forespørsel: 'Serveren avviste forespørselen. Oppdater appen; endringene er lagret her.',
+    ugyldig_dokument: 'Planen eller innstillingene har en verdi serveren ikke godtar (f.eks. et tomt felt). Rett den, så sendes den.',
+    ikke_autentisert: 'Enheten er ikke lenger med i husstanden. Dataene er beholdt her.',
+    ugyldig_svar: 'Fikk et uventet svar fra serveren. Synken prøver igjen.',
+  };
+  return text[code] ?? 'Synken feilet. Den prøver igjen av seg selv; endringene er lagret på denne enheten.';
+}
 
 export class SyncApi {
   constructor(private base: string, private fetchFn: Fetch, private token: string | null = null) {}
@@ -55,7 +75,9 @@ export class SyncApi {
   leave() { return this.call<void>('POST', '/api/household/leave', {}); }
   deleteHousehold() { return this.call<void>('DELETE', '/api/household'); }
   push(events: Envelope[]) { return this.call<PushResponse>('POST', '/api/sync/events', { events }); }
-  pull(after: number) { return this.call<SyncResponse>('GET', `/api/sync?after=${after}`); }
+  pull(after: number, anchor?: string) {
+    return this.call<SyncResponse>('GET', `/api/sync?after=${after}${anchor ? `&anchor=${encodeURIComponent(anchor)}` : ''}`);
+  }
   putDoc(name: DocName, baseVersion: number, body: DocBody) { return this.call<{ version: number }>('PUT', `/api/sync/docs/${name}`, { baseVersion, body }); }
 }
 

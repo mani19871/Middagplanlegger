@@ -245,8 +245,18 @@ export class SqliteStorage implements SyncStorage {
     const docs = (this.db.prepare('SELECT name, version, body, updated_by, updated_at FROM docs WHERE household_id = ? AND seq > ? AND seq <= ? ORDER BY name')
       .all(householdId, after, cursor) as { name: DocName; version: number; body: string; updated_by: string; updated_at: string }[])
       .map((r): DocOut => ({ name: r.name, version: r.version, body: r.body, updatedBy: r.updated_by, updatedAt: r.updated_at }));
-    return { events, docs, cursor, more };
+    return { events, docs, cursor, more, head };
   }
+
+  async eventIdAt(householdId: string, seq: number): Promise<string | null> {
+    const r = this.db.prepare('SELECT id FROM events WHERE household_id = ? AND seq = ?').get(householdId, seq) as { id: string } | undefined;
+    return r?.id ?? null;
+  }
+
+  async ping(): Promise<void> { this.db.prepare('SELECT 1').get(); }
+
+  /** Konsistent kopi mens serveren kjører (VACUUM INTO). Filen må ikke finnes fra før. */
+  backupTo(path: string): void { this.db.prepare('VACUUM INTO ?').run(path); }
 
   async putDoc(householdId: string, name: DocName, baseVersion: number, body: string, updatedBy: string, now: string): Promise<PutDocResult> {
     return this.tx((): PutDocResult => {

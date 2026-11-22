@@ -50,7 +50,9 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Offline først: skriv alltid lokalt (hendelse + utboks, eller dokumentfelt i `AppState`), aldri direkte til serveren. Appen skal virke uten server.
 - Ingen siste-skriving-vinner. Delt data er enten idempotente hendelser (beholdning, handleliste, utsolgt / fant ikke, planversjoner) eller versjonerte dokumenter med tre-veis fletting og eksplisitt konflikt (plan, innstillinger). Ny delt data må passe inn i en av de to modellene.
 - Avkrysning lagres per person (`by`); «fjern kryss» fjerner bare kryss enheten har sett. `by` er enhetens offentlige id; serveren avviser hendelser som utgir seg for et annet medlem.
-- Identitet uten passord/e-post: enhetstoken (bare sha256 på serveren), engangsinvitasjon med utløp. Etiketter, ikke navn.
+- Identitet uten passord/e-post: enhetstoken (bare sha256 på serveren), engangsinvitasjon med utløp, bare eieren inviterer (`bare_eier`). Etiketter, ikke navn.
+- Strenge feltlister: `cleanEvent` fjerner ukjente felt i `beholdning`, `liste` og `endring`; ny hendelsestype eller nytt felt må legges inn der (og i `versionOk` for `planversjon`).
+- Gjenoppretting fra eldre kopi: serveren svarer `reset` (cursor etter `head` eller ukjent anker); klienten sender sitt eget på nytt (`resetForRestore`). `GET /healthz` til helsesjekk.
 - Synkes aldri: postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`; mulige helseopplysninger), tilbud fra Tjek. Serveren avviser ukjente felt.
 - Alle endepunkter: autentisering avgrenset til husstanden, ratebegrensning, størrelses- og lengdegrenser, norske feilkoder. Ny lagring implementerer `SyncStorage` (PostgreSQL senere).
 - Endringer i synk krever test i `server/sync/api.test.ts` eller `src/sync/engine.test.ts`.

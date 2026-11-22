@@ -5,6 +5,7 @@ import { hasDietFilter, recordEvent, usePersistentState } from './store';
 import { conflicts, deriveStock, type InventoryEvent } from './engine/inventory';
 import HouseholdView from './views/HouseholdView';
 import { useSync } from './sync/useSync';
+import { syncErrorText } from './sync/api';
 import { pendingCount, syncStatus, type SyncStatus } from './sync/engine';
 import WeekView from './views/WeekView';
 import ListView from './views/ListView';
@@ -31,11 +32,11 @@ const inviteFromHash = () => {
 };
 const STATUS_TEXT: Record<SyncStatus, string> = {
   lokal: '✓ Lagret på denne enheten', synket: '✓ Synket med husstanden', synker: '↻ Synker …',
-  venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt – må avklares',
+  venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt – må avklares', feil: '⚠ Synk feilet – endringene er lagret her',
 };
 
 const CHIP_TEXT: Record<SyncStatus, string> = {
-  lokal: 'Del med husstanden', synket: '✓ Synket', synker: '↻ Synker', venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt',
+  lokal: 'Del med husstanden', synket: '✓ Synket', synker: '↻ Synker', venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt', feil: '⚠ Synkfeil',
 };
 
 export default function App() {
@@ -102,6 +103,8 @@ export default function App() {
             👥 {adults} voksne, {kids} barn ⌄</button>
           <button className={`syncchip ${status}`} aria-label={`Husstand og deling. ${statusText}`} onClick={() => setTab('Husstand')}>
             🏠 {CHIP_TEXT[status]}</button>
+          {/* Synkfeil leses opp (kvote full, serverfeil …); detaljene står på Husstand-skjermen. */}
+          <span className="sr" role="status" aria-live="polite">{status === 'feil' ? `Synk feilet. ${syncErrorText(runtime.lastError) ?? ''}` : ''}</span>
         </div>
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>

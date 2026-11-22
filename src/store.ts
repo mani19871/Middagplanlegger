@@ -9,12 +9,18 @@ import type { MemberInfo } from './sync/protocol';
 import { addVersion, type ListChange, type PlanVersion } from './engine/substitution';
 
 /** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
-export interface DocMeta { version: number; base: DocBody }
+export interface DocMeta {
+  version: number; base: DocBody;
+  /** Serveren er gjenopprettet fra en eldre kopi: neste versjon fra serveren tas som base, og lokal verdi sendes. */
+  restored?: boolean;
+}
 /** Felt i et dokument som er endret ulikt på to enheter. Lokal verdi gjelder til brukeren har valgt. */
 export interface DocConflict { theirs: DocBody; version: number; fields: string[]; by: string; at: string }
 export interface SyncMeta {
   /** Enhetstoken (bare hash på serveren). */
   token: string; me: MemberInfo; cursor: number;
+  /** Siste hendelse enheten har sett («seq:id»), så serveren kan oppdage at den er gjenopprettet fra en eldre kopi. */
+  anchor?: string;
   docs: Partial<Record<DocName, DocMeta>>; conflicts: Partial<Record<DocName, DocConflict>>;
   members: MemberInfo[];
   /** Antall hendelser serveren har avvist (ugyldige). */

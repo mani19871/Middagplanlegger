@@ -336,3 +336,57 @@ describe('planversjoner (strøm planversjon)', () => {
     expect(r.rejected.map((x) => x.id)).toEqual(['c3', 'c4']);
   });
 });
+
+describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () => {
+  it('GET /healthz svarer uten autentisering og uten innhold; 503 når databasen ikke svarer', async () => {
+    const r = await raw('/healthz');
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ status: 'ok' });
+    expect(r.headers.get('cache-control')).toBe('no-store');
+    expect((await raw('/healthz', { method: 'HEAD' })).status).toBe(200);
+    await srv.storage.close();
+    expect((await raw('/healthz')).status).toBe(503);
+  });
+
+  it('bare eieren kan lage og trekke tilbake invitasjoner (403 bare_eier)', async () => {
+    const { A, B } = await household();
+    expect(await code(B.invite())).toBe('403 bare_eier');
+    const inv = await A.invite();
+    const { invites } = await A.household();
+    expect(inv.code).toBeTruthy();
+    expect(await code(B.deleteInvite(invites[0].id))).toBe('403 bare_eier');
+    expect(await code(A.deleteInvite(invites[0].id))).toBe('ok');
+  });
+
+  it('sync-svaret har head; cursor etter head eller et anker som ikke finnes gir reset', async () => {
+    const { A } = await household();
+    await A.push([telling('t1', 'enhet-aaaa1111'), telling('t2', 'enhet-aaaa1111')]);
+    const r = await A.pull(0);
+    expect(r.head).toBe(r.cursor);
+    expect(r.reset).toBeUndefined();
+    const anchor = `${r.events[1].seq}:t2`;
+    expect((await A.pull(r.cursor, anchor)).reset).toBeUndefined();
+    expect(await A.pull(r.cursor + 5)).toMatchObject({ reset: true, events: [], cursor: 0 });
+    expect(await A.pull(r.cursor, `${r.events[1].seq}:noe-annet`)).toMatchObject({ reset: true });
+    expect(await code(A.pull(0, 'feil-format'))).toBe('400 ugyldig_forespørsel');
+  });
+
+  it('ukjente felt i beholdning, liste og endring fjernes før lagring og deling (ikke avvist)', async () => {
+    const { A, B } = await household();
+    const r = await A.push([
+      { stream: 'beholdning', event: { type: 'telling', id: 'x1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5, navn: 'Kari', allergi: 'gluten' } as never },
+      { stream: 'liste', event: { type: 'manuell', id: 'x2', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'm1', text: 'Torsk', note: '', skjult: 'x' }, ekstra: 1 } as never },
+      { stream: 'endring', event: { type: 'angre-endring', id: 'x3', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'endring|x', posisjon: '59.9,10.7' } as never },
+    ]);
+    expect(r.accepted).toEqual(['x1', 'x2', 'x3']);
+    const got = (await B.pull(0)).events.map((e) => e.event);
+    expect(got).toEqual([
+      { type: 'telling', id: 'x1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5 },
+      { type: 'manuell', id: 'x2', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'm1', text: 'Torsk', note: '' } },
+      { type: 'angre-endring', id: 'x3', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'endring|x' },
+    ]);
+    // Også i databasen: feltene er aldri lagret.
+    const hh = (await srv.storage.authenticate(sha((A as unknown as { token: string }).token), srv.now()))!.householdId;
+    expect((await srv.storage.readSince(hh, 0, 10)).events.map((e) => e.body).join('')).not.toMatch(/Kari|gluten|skjult|ekstra|posisjon/);
+  });
+});

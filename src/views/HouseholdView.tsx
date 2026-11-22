@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { deviceId, initialState, type AppState } from '../store';
-import { SyncError } from '../sync/api';
+import { SyncError, syncErrorText } from '../sync/api';
 import { defaultApi } from '../sync/useSync';
 import { connect, disconnect, resolveConflict } from '../sync/engine';
 import { fieldText, type DocName } from '../sync/docs';
@@ -103,6 +103,7 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
         <div className="drow"><span>Status</span><b>{statusText}</b></div>
         <div className="drow"><span>Sist synket</span><b>{time(sync.lastSync)}</b></div>
         {runtime.offline && <p className="fine">Endringene er lagret på enheten og sendes automatisk når den er på nett igjen.</p>}
+        {syncErrorText(runtime.lastError) && <p className="warntext">⚠ {syncErrorText(runtime.lastError)}</p>}
         {sync.rejected > 0 && <p className="fine">{sync.rejected} endring{sync.rejected === 1 ? '' : 'er'} ble avvist av serveren som ugyldig og er bare på denne enheten.</p>}
         <button className="ghost" disabled={runtime.busy} aria-busy={runtime.busy} onClick={runtime.syncNow}>{runtime.busy ? '↻ Synker …' : '↻ Synk nå'}</button>
       </div>
@@ -146,7 +147,10 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
 
       <h3>Inviter en voksen</h3>
       <div className="card">
-        {invite ? (
+        {!isOwner ? (
+          <p className="fine">Bare eieren av husstanden ({members.find((m) => m.role === 'eier' && !m.removed)?.label ?? 'eieren'}) kan lage invitasjoner.
+            Be eieren invitere den nye voksne.</p>
+        ) : invite ? (
           <>
             <p>Skriv inn koden på den andre enheten under Husstand → «Bli med», eller send lenken:</p>
             <p className="code"><span aria-hidden>{invite.code}</span><span className="sr">Invitasjonskode: {invite.code.split('').join(' ')}</span></p>
@@ -157,7 +161,7 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
               noen i husstanden.</p>
           </>
         ) : <button className="cta" disabled={busy} onClick={() => act(async () => { setCopied(''); setInvite(await api.invite()); await load(); })}>➕ Lag invitasjon</button>}
-        {info && info.invites.length > 0 && (
+        {isOwner && info && info.invites.length > 0 && (
           <p className="fine">{info.invites.length} aktiv{info.invites.length === 1 ? '' : 'e'} invitasjon{info.invites.length === 1 ? '' : 'er'}.{' '}
             <button className="link" style={{ display: 'inline' }} onClick={() => act(async () => {
               for (const i of info.invites) await api.deleteInvite(i.id);
