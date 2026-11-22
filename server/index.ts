@@ -2,7 +2,7 @@
 // Serverer også synk-API-et for delt husstand (server/sync/api.ts, docs/synk.md) og appen (dist/).
 // Sikkerhetshoder, statiske filer og krasjvern ligger i server/app.ts (docs/sikkerhet.md).
 // Start: npm run server  (NODE_USE_ENV_PROXY=1 hvis du er bak proxy). Port: PORT (standard 8787).
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { dirname, join } from 'node:path';
 import { ingredients } from '../src/data/catalog';
@@ -21,10 +21,16 @@ if (DB !== ':memory:') mkdirSync(dirname(DB), { recursive: true });
 if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskoder blir ugyldige når serveren startes på nytt.');
 // Token som ikke er brukt på SYNC_TOKEN_IDLE_DAYS dager slutter å virke (0 = av). SYNC_MAX_TOTAL_MB: tak for alle
 // husstanders hendelser samlet (vern mot full disk). Se docs/sikkerhet.md.
+const dbExisted = DB !== ':memory:' && existsSync(DB);
 const idleDays = Number(process.env.SYNC_TOKEN_IDLE_DAYS ?? 180);
 const totalMb = Number(process.env.SYNC_MAX_TOTAL_MB ?? 0);
+const storage = new SqliteStorage(DB);
+// Oppstartskontroll uten innhold: feil eller manglende volum gir ellers en stille, tom database.
+if (DB === ':memory:') console.warn('Synk-databasen ligger bare i minnet (SYNC_DB=:memory:): alt forsvinner ved omstart.');
+else if (!dbExisted) console.warn(`Synk-databasen fantes ikke og er opprettet tom: ${DB}. Er volumet montert riktig? (Ventet ved første oppstart.)`);
+else console.log(`Synk-databasen: ${DB} (${storage.counts().households} husstander).`);
 const syncApi = createSyncApi({
-  storage: new SqliteStorage(DB), secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
+  storage, secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
   tokenIdleMs: Number.isFinite(idleDays) && idleDays > 0 ? idleDays * 86_400_000 : undefined,
   quotas: Number.isFinite(totalMb) && totalMb > 0 ? { totalEventBytes: totalMb * 1024 * 1024 } : undefined,
 });

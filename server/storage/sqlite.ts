@@ -40,8 +40,10 @@ const DEVICE_COLS = 'id, household_id, public_id, label, role, created_at, last_
 
 export class SqliteStorage implements SyncStorage {
   private db: DatabaseSync;
+  private wal: boolean;
   constructor(path = ':memory:') {
     this.db = new DatabaseSync(path);
+    this.wal = path !== ':memory:';
     this.db.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA secure_delete = ON;');
     if (path !== ':memory:') this.db.exec('PRAGMA journal_mode = WAL;');
     this.db.exec(SCHEMA);
@@ -88,6 +90,7 @@ export class SqliteStorage implements SyncStorage {
     if (idleBefore && (r.last_seen ?? r.created_at) < idleBefore) {
       // Utløpt etter lang inaktivitet: enheten forlater husstanden (eierskap går videre; siste som går sletter alt).
       this.tx(() => this.leaveTx(r.household_id, r.id, now));
+      this.scrub();
       return null;
     }
     // «Sist sett» lagres med minutt-oppløsning: nok til medlemslista, mindre bruksmønster lagret.
@@ -152,15 +155,19 @@ export class SqliteStorage implements SyncStorage {
   }
 
   async revoke(householdId: string, deviceId: string, now: string): Promise<boolean> {
-    return this.tx(() => {
+    const changed = this.tx(() => {
       const r = this.db.prepare("UPDATE devices SET token_hash = NULL, revoked_at = ?, role = 'voksen', label = ?, last_seen = NULL WHERE id = ? AND household_id = ? AND revoked_at IS NULL")
         .run(now, REMOVED_LABEL, deviceId, householdId);
       return Number(r.changes) > 0;
     });
+    if (changed) this.scrub();
+    return changed;
   }
 
   async leave(householdId: string, deviceId: string, now: string): Promise<{ deletedHousehold: boolean }> {
-    return this.tx(() => this.leaveTx(householdId, deviceId, now));
+    const r = this.tx(() => this.leaveTx(householdId, deviceId, now));
+    this.scrub();
+    return r;
   }
   private leaveTx(householdId: string, deviceId: string, now: string): { deletedHousehold: boolean } {
     const me = this.device(deviceId);
@@ -178,6 +185,17 @@ export class SqliteStorage implements SyncStorage {
 
   async deleteHousehold(householdId: string): Promise<void> {
     this.tx(() => { this.db.prepare('DELETE FROM households WHERE id = ?').run(householdId); });
+    this.scrub();
+  }
+
+  /**
+   * Etter sletting og anonymisering: `secure_delete` overskriver sidene i databasefilen først når WAL-filen skrives
+   * tilbake (checkpoint). Til da ligger gamle sider (etiketter, hendelser) i `-wal`. TRUNCATE skriver alt tilbake og
+   * tømmer WAL-filen med en gang. Gjelder ikke sikkerhetskopier (egen slettefrist, docs/sikkerhet.md).
+   */
+  private scrub() {
+    if (!this.wal) return;
+    try { this.db.exec('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* opptatt av en leser: neste checkpoint tar det */ }
   }
 
   async appendEvents(householdId: string, deviceId: string, events: EventIn[], now: string, quota?: EventQuota): Promise<string[]> {

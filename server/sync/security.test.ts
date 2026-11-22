@@ -1,5 +1,5 @@
 // Sikkerhetstester: negative tester og fuzz mot synk-API-et og HTTP-laget (server/app.ts). Se docs/sikkerhet.md.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { connect } from 'node:net';
 import type { AddressInfo } from 'node:net';
@@ -454,6 +454,28 @@ describe('dataminimering', () => {
     const inv = await A.invite();
     const again = await anon().join(inv.code, 'enhet-bbbb2222', 'Pappa');
     expect(again.member.label).toBe('Pappa');
+  });
+});
+
+describe('sletting på disk (WAL)', () => {
+  it('etter fjerning og sletting finnes etikett og hendelser verken i databasefilen eller i -wal', async () => {
+    const file = join(root, 'middag.sqlite');
+    const storage = new SqliteStorage(file);
+    const dev = (id: string, label: string, tokenHash: string) => ({ id, publicId: `enhet-${id}`, label, tokenHash });
+    const now = '2026-11-23T10:00:00.000Z';
+    const owner = await storage.createHousehold('hh1', dev('aaaa1111', 'EierEtikettUnik', 'h1'), now);
+    await storage.createInvite('hh1', { id: 'i1', codeHash: 'c1', createdBy: owner.id, expiresAt: '2026-11-24T10:00:00.000Z' }, now);
+    const joined = await storage.join('c1', dev('bbbb2222', 'MammaEtikettUnik', 'h2'), now);
+    if (!joined.ok) throw new Error('join');
+    await storage.appendEvents('hh1', owner.id, [{ stream: 'liste', id: 'e1', by: 'enhet-aaaa1111', body: '{"tekst":"HendelseInnholdUnik"}' }], now);
+    const onDisk = () => ['', '-wal'].map((s) => { try { return readFileSync(file + s).toString('latin1'); } catch { return ''; } }).join('');
+    expect(onDisk()).toContain('MammaEtikettUnik');
+    await storage.revoke('hh1', joined.device.id, now);
+    expect(onDisk()).not.toContain('MammaEtikettUnik');
+    expect(onDisk()).toContain('HendelseInnholdUnik');
+    await storage.deleteHousehold('hh1');
+    expect(onDisk()).not.toMatch(/EierEtikettUnik|HendelseInnholdUnik/);
+    await storage.close();
   });
 });
 

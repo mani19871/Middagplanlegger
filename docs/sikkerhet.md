@@ -36,6 +36,8 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 | S16 | Info | Ratebegrensning i minnet | Dokumentert |
 | S17 | Info | `tsx`, devDependencies og eksperimentell `node:sqlite` i produksjon | Dokumentert |
 | S18 | Info | Tidsavbrudd mot trege klienter | Rettet |
+| S19 | Middels | Slettede data blir liggende i `-wal` til neste checkpoint | Rettet |
+| S20 | Lav | Feil eller manglende volum gir en stille, tom database | Rettet (varsel ved oppstart) |
 
 ### S1 Kritisk: ugyldig URL krasjet hele serveren
 
@@ -140,6 +142,19 @@ Serveren avviser `by` lik et annet (også fjernet) medlems id, men godtar andre 
 - **`npm audit`** 2026-11-22: 0 sårbarheter (161 pakker, alle avhengigheter; også `--omit=dev`). Kjøretidsavhengigheter er bare `react` og `react-dom`.
 - **Docker** kjører som `node` (ikke root), og databasen ligger i `/data` med eier `node`. Imaget inneholder hele `node_modules` med devDependencies (Vite, Vitest, TypeScript, tsx) fordi serveren kjøres med `tsx`. Det øker angrepsflaten (mer kode som kan ha sårbarheter), men ingenting av det nås over HTTP. **Anbefaling:** bygg serveren til JavaScript (esbuild/tsc) og kjør `npm ci --omit=dev` i kjøretrinnet; kjør containeren skrivebeskyttet med `/data` som volum, `/tmp` som tmpfs, `cap_drop: [ALL]` og `no-new-privileges` (gjort i `docs/drift/docker-compose.yml`).
 - **`node:sqlite`** er eksperimentell i Node 22 (skriver `ExperimentalWarning`). Databasen er vanlig SQLite, men API-et kan endre seg mellom Node-versjoner. **Anbefaling:** lås Node-versjonen i imaget (f.eks. `node:22.x.y-alpine` med digest), oppdater bevisst og kjør testene før oppgradering; vurder `better-sqlite3` eller PostgreSQL før bred lansering.
+
+### S19 Middels: slettede data i WAL-filen
+
+- **Hvor:** `server/storage/sqlite.ts`. Databasen kjører i WAL-modus med `PRAGMA secure_delete = ON`, men `secure_delete` overskriver sidene i hovedfilen først når WAL-filen skrives tilbake (checkpoint, automatisk ved ca. 1 000 sider). Til da lå slettede husstander, hendelser og etiketter i klartekst i `middag.sqlite-wal`, og en sikkerhetskopi av katalogen tok dem med.
+- **Reproduksjon:** opprett husstand med en unik etikett, fjern medlemmet eller slett husstanden, søk etter etiketten i `middag.sqlite` og `middag.sqlite-wal`. Før rettelsen: funnet. Testen «etter fjerning og sletting finnes etikett og hendelser verken i databasefilen eller i -wal» feiler uten rettelsen (prøvd).
+- **Rettet:** `PRAGMA wal_checkpoint(TRUNCATE)` etter sletting av husstand, fjerning, forlating og utløp av token: alt skrives tilbake (og overskrives) og WAL-filen tømmes. Er databasen opptatt av en leser, tar neste checkpoint det.
+- **Gjelder ikke:** sikkerhetskopier og øyeblikksbilder tatt før slettingen. De trenger egen slettefrist (docs/synk.md, Drift).
+
+### S20 Lav: tom database ved feil volum
+
+Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å si fra, og familiene ser at husstanden er borte (enhetene får `401` og kobles fra, men beholder dataene lokalt). Nå skriver serveren ved oppstart om databasen var ny (`Synk-databasen fantes ikke og er opprettet tom: … Er volumet montert riktig?`), eller hvor mange husstander den har. Det logges uten innhold. Drift bør varsle på den linjen etter første oppstart.
+
+`SYNC_SECRET`: tap eller bytte av hemmeligheten gjør bare aktive invitasjonskoder ugyldige (de er HMAC med hemmeligheten). Enhetstokenene er vanlig sha256 og virker videre; ingen data går tapt.
 
 ### S18 Rettet: trege klienter
 
