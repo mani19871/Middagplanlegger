@@ -88,3 +88,4 @@ select.field { display:block; width:100%; }
 .markbought { width:100%; margin:6px 0 14px; font-weight:600; }
 .list .main .pill { margin-top:4px; }
 .prow strong .sub { display:block; font-weight:400; color:var(--mut); font-size:.8rem; }
+.row-field.wrapfield { flex-wrap:wrap; } .row-field.wrapfield input { min-width:140px; }

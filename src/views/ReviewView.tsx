@@ -159,7 +159,7 @@ function AllowForm({ ingredients, onRule }: { ingredients: Ingredient[]; onRule:
       <summary>Legg til unntak fra utelukkelseslisten</summary>
       <p className="fine">Bruk når et søkeord inneholder et utelukket ord, f.eks. «soyasaus» (saus) eller «fiskekaker» (kake). Resten av overskriften sjekkes fortsatt,
         og treffene havner i køen som forslag, ikke som godkjent.</p>
-      <div className="row-field">
+      <div className="row-field wrapfield">
         <input aria-label="Unntaksmønster" placeholder="f.eks. soyasaus" style={{ flex: 1, width: 'auto' }} value={pattern} onChange={(e) => setPattern(e.target.value)} />
         <select aria-label="Ingrediens for unntak" className="field" style={{ width: 'auto' }} value={ing} onChange={(e) => setIng(e.target.value)}>
           {choices.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
