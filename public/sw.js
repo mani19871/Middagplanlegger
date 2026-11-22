@@ -1,11 +1,36 @@
-// Enkel cache-først-service worker slik at appen og handlelisten virker frakoblet.
-const CACHE = 'middag-v1';
-self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/']))); });
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+// Service worker: appskallet (HTML, JS, CSS, ikoner) caches slik at appen åpner frakoblet.
+// Aldri cache /api/: tilbudsdata fra Tjek er live-visning og skal ikke lagres (se CLAUDE.md, Tilbudskilder).
+const CACHE = 'middag-v2';
+const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+
+self.addEventListener('install', (e) => {
+  e.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await cache.addAll(SHELL);
+    // Forhåndslast de innebygde JS/CSS-filene fra forsiden, slik at første frakoblede åpning virker.
+    const html = await (await fetch('/', { cache: 'no-cache' })).text();
+    const assets = [...new Set([...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map((m) => m[1]))];
+    await Promise.all(assets.map((u) => cache.add(u).catch(() => {})));
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', (e) => e.waitUntil((async () => {
+  for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+  await self.clients.claim();
+})()));
+
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request).then((r) => { const copy = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return r; })
-      .catch(() => caches.match(e.request).then((m) => m || caches.match('/')))
-  );
+  const req = e.request;
+  const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  e.respondWith((async () => {
+    try {
+      const res = await fetch(req);
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
+      return res;
+    } catch {
+      return (await caches.match(req)) || (req.mode === 'navigate' ? await caches.match('/') : undefined) || Response.error();
+    }
+  })());
 });

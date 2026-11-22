@@ -7,6 +7,7 @@ import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import PlanForm from './PlanForm';
 import OfferTotalNote from './OfferTotalNote';
+import { Sheet } from './Sheet';
 import type { OfferTotal } from '../engine/offerTotal';
 import { recipeNutrition, scaleNutrition, weekNutrition, type NutritionTable } from '../engine/nutrition';
 import nutritionData from '../data/nutrition.json';
@@ -58,8 +59,9 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
       <div className="tcol"><span className="lab">Anslått handel</span>
         <strong className={answer === 'over' ? 'bad' : ''}>{kr(basket.totalOre)}</strong></div>
       <div className="tcol r"><span className="lab">Budsjett</span><strong className="sm">{kr(settings.budgetOre)}</strong></div>
-      <div className="bar"><i style={{ width: `${pct}%` }} className={answer === 'over' ? 'over' : ''} /></div>
-      <p className="fine">
+      <p className="sr">Anslått handel {kr(basket.totalOre)} av budsjett {kr(settings.budgetOre)}. Anslått pris, ikke en garanti for sluttpris.</p>
+      <div className="bar" aria-hidden><i style={{ width: `${pct}%` }} className={answer === 'over' ? 'over' : ''} /></div>
+      <p className="fine" role="status">
         {answer === 'innenfor' && `Anslått innenfor budsjett · margin ${kr(margin)} · `}
         {answer === 'over' && `Anslått ${kr(-margin)} over budsjett · `}
         {answer === 'ufullstendig' && `Ufullstendig prisgrunnlag, kjent delsum · `}
@@ -95,18 +97,20 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={() => setMode('plan')}>←</button></div>
         <h1 className="page">Velg handletur</h1>
         <p className="fine">Samme {slots.length} middager.</p>
-        <button className={`card alt big ${sel === 'regular' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'regular' }))}>
+        <div role="radiogroup" aria-label="Handletur">
+        <button role="radio" aria-checked={sel === 'regular'} className={`card alt big ${sel === 'regular' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'regular' }))}>
           <span className="radio" aria-hidden>{sel === 'regular' ? '◉' : '○'}</span>
           <span className="rinfo"><strong>Én butikk</strong><small>{storeName(ctx, settings.regularStoreId)}</small></span>
           <strong className="amt">{regular.complete ? kr(regular.totalOre) : `${kr(regular.totalOre)}+`}</strong>
         </button>
         {combo ? (
-          <button className={`card alt big ${sel === 'combo' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'combo' }))}>
+          <button role="radio" aria-checked={sel === 'combo'} className={`card alt big ${sel === 'combo' ? 'sel' : ''}`} onClick={() => update((s) => ({ ...s, option: 'combo' }))}>
             <span className="radio" aria-hidden>{sel === 'combo' ? '◉' : '○'}</span>
             <span className="rinfo"><strong>{combo.stops >= 2 ? 'To butikker' : 'Annen butikk'}</strong><small>{usedStores(combo).join(' + ')}</small></span>
             <strong className="amt">{kr(combo.totalOre)}</strong>
           </button>
         ) : <div className="card alt muted"><strong>Ingen komplett kombinasjon</strong><span>Ikke alle varer har pris i flere butikker.</span></div>}
+        </div>
         {combo && saving !== null && saving > 0 && (
           <div className="banner">🏷 Du sparer <b>{kr(saving)}</b> {extraStop ? 'med et ekstra stopp' : 'ved å bytte butikk'}.</div>
         )}
@@ -180,10 +184,9 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
       <button className="ghost" onClick={regenerate}>Lag ny uke (låste beholdes)</button>
 
       {sheetSlot && (
-        <div className="backdrop" onClick={closeSheet}>
-          <div className="sheet" role="dialog" aria-label={`Bytt ${DAYS[sheetSlot.day].toLowerCase()}s middag`} onClick={(e) => e.stopPropagation()}>
-            <div className="grab" />
-            <div className="pagehead"><h2>Bytt {DAYS[sheetSlot.day].toLowerCase()}s middag</h2><button className="x" aria-label="Lukk" onClick={closeSheet}>✕</button></div>
+        <Sheet label={`Bytt ${DAYS[sheetSlot.day].toLowerCase()}s middag`} onClose={closeSheet}>
+            <div className="grab" aria-hidden />
+            <div className="pagehead"><h2>Bytt {DAYS[sheetSlot.day].toLowerCase()}s middag</h2><button className="x" data-autofocus aria-label="Lukk" onClick={closeSheet}>✕</button></div>
             <small className="lab">Dagens rett</small>
             <div className="row inner"><Thumb id={sheetSlot.recipeId} /><span className="rinfo"><strong>{recipe(sheetSlot.recipeId).name}</strong>
               <small>⏱ {recipe(sheetSlot.recipeId).minutes} min</small></span></div>
@@ -201,8 +204,8 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                 onChange={(e) => patchSlot(sheetSlot.day, e.target.checked
                   ? { extra: 1, extraFor: slots.find((x) => x.day > sheetSlot.day)?.day ?? sheetSlot.day + 1 } : { extra: 0, extraFor: undefined })} /> Reserver 1 ekstra porsjon til matpakke</label>
             </div>
-            <small className="lab">Velg ny middag</small>
-            <div className="opts">
+            <small className="lab" id="swaplab">Velg ny middag</small>
+            <div className="opts" role="radiogroup" aria-labelledby="swaplab">
               {opts.map((o) => {
                 const p = pill(o.deltaOre);
                 return (
@@ -221,8 +224,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
             <p className="fine">Næringsdata: Matvaretabellen (Mattilsynet). Generelle matvarer, ikke en bestemt vare; uten salt, olje og krydder. Veiledende tall, ikke kostråd eller anbefalt inntak. Sier ingenting om allergener.</p>
             <button className="cta" disabled={!chosen} onClick={() => { patchSlot(sheetSlot.day, { recipeId: pick!, locked: true }); closeSheet(); }}>
               {chosen ? `Velg ${chosen.recipe.name.toLowerCase()} ›` : 'Velg en middag'}</button>
-          </div>
-        </div>
+        </Sheet>
       )}
     </>
   );

@@ -68,7 +68,7 @@ export default function App() {
           👥 {adults} voksne, {kids} barn ⌄</button>
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>
-      <main>
+      <main id="panel" role="tabpanel" aria-labelledby={`tab-${tab}`} tabIndex={-1}>
         {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
@@ -76,10 +76,16 @@ export default function App() {
         {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} />}
         {tab === 'Matskap' && <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} />}
       </main>
-      <nav role="tablist">
+      <nav role="tablist" aria-label="Hovedmeny" onKeyDown={(e) => {
+        // Piltaster flytter mellom faner (roving tabindex), Home/End til første/siste.
+        const i = TABS.indexOf(tab);
+        const next = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
+        if (next < 0) return;
+        e.preventDefault(); setTab(TABS[next]); document.getElementById(`tab-${TABS[next]}`)?.focus();
+      }}>
         {TABS.map((t) => (
-          <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-            {icons[t]}<span>{t}</span></button>
+          <button key={t} id={`tab-${t}`} role="tab" aria-selected={tab === t} aria-controls="panel" tabIndex={tab === t ? 0 : -1} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
+            <span aria-hidden>{icons[t]}</span><span>{t}</span></button>
         ))}
       </nav>
     </div>

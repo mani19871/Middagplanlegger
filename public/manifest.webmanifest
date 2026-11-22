@@ -1,2 +1,17 @@
-{ "name": "Middagsplanlegger", "short_name": "Middag", "start_url": "/", "display": "standalone",
-  "background_color": "#f6f4ee", "theme_color": "#1f6f54", "lang": "nb", "icons": [] }
+{
+  "name": "Middagsplanlegger",
+  "short_name": "Middag",
+  "description": "Ukeplan for middag, én handlekurv og anslått pris.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ee",
+  "theme_color": "#17503b",
+  "lang": "nb",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -119,8 +119,8 @@ export default function PantryView({ state, record, week, ctx, basket }: Props) 
         : doable.map((r) => <div key={r.id} className="card"><strong>{r.name}</strong><br /><small>{r.minutes} min · alle ingredienser finnes i skapet</small></div>)}
       <h3>Registrer vare hjemme</h3>
       <div className="row-field">
-        <select value={ing} onChange={(e) => setIng(e.target.value)}>{items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>
-        <input type="number" min={0} value={qty} onChange={(e) => setQty(Number(e.target.value))} aria-label="Mengde" /><small>{unitOf(ing)}</small>
+        <select aria-label="Vare" value={ing} onChange={(e) => setIng(e.target.value)}>{items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>
+        <input type="number" min={0} value={qty} onChange={(e) => setQty(Number(e.target.value))} aria-label={`Mengde i ${unitOf(ing) === 'stk' ? 'stykk' : unitOf(ing)}`} /><small aria-hidden>{unitOf(ing)}</small>
       </div>
       <div className="two">
         <button className="cta" onClick={() => count(ing, confirmedAmount(ing) + qty)}>＋ Registrer vare</button>
