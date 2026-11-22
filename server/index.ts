@@ -19,10 +19,14 @@ const PORT = Number(process.env.PORT ?? 8787);
 const DB = process.env.SYNC_DB ?? join(process.env.DATA_DIR ?? join(process.cwd(), 'data'), 'middag.sqlite');
 if (DB !== ':memory:') mkdirSync(dirname(DB), { recursive: true });
 if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskoder blir ugyldige når serveren startes på nytt.');
+// Token som ikke er brukt på SYNC_TOKEN_IDLE_DAYS dager slutter å virke (0 = av). SYNC_MAX_TOTAL_MB: tak for alle
+// husstanders hendelser samlet (vern mot full disk). Se docs/sikkerhet.md.
 const idleDays = Number(process.env.SYNC_TOKEN_IDLE_DAYS ?? 180);
+const totalMb = Number(process.env.SYNC_MAX_TOTAL_MB ?? 0);
 const syncApi = createSyncApi({
   storage: new SqliteStorage(DB), secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
   tokenIdleMs: Number.isFinite(idleDays) && idleDays > 0 ? idleDays * 86_400_000 : undefined,
+  quotas: Number.isFinite(totalMb) && totalMb > 0 ? { totalEventBytes: totalMb * 1024 * 1024 } : undefined,
 });
 const TTL_MS = 6 * 60 * 60 * 1000;
 /** Etter en feil mot Tjek venter vi før neste forsøk, så anonyme kall til /api/offers ikke kan hamre på Tjek. */

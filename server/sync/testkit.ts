@@ -9,7 +9,7 @@ export async function startTestServer(opts: Partial<SyncApiOptions> = {}) {
   let clock = Date.parse('2026-11-23T10:00:00.000Z');
   const handle = createSyncApi({
     storage, now: () => new Date(clock).toISOString(), secret: 'testhemmelighet',
-    limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, joinPer10Min: 1000 }, ...opts,
+    limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, createGlobalPerHour: 100_000, joinPer10Min: 1000 }, ...opts,
   });
   const server = createServer(async (req, res) => {
     if (!(await handle(req, res))) { res.statusCode = 404; res.end(); }

@@ -49,6 +49,7 @@ const DEFAULT_RATES = {
   /** Per IP: alle kall. */ ipPerMin: 600,
   /** Per enhet: autentiserte kall. */ devicePerMin: 240,
   /** Per IP: nye husstander per time. */ createPerHour: 20,
+  /** Alle IP-er samlet: nye husstander per time (mot å fylle disken med mange husstander). */ createGlobalPerHour: 200,
   /** Per IP: forsøk på å bli med per 10 min (mot gjetting av koder). */ joinPer10Min: 20,
   /** Alle IP-er samlet: feilede forsøk på å bli med per 10 min (mot gjetting fra mange adresser). */ joinFailGlobalPer10Min: 1000,
 };
@@ -59,6 +60,8 @@ export const DEFAULT_QUOTAS = {
   /** Aktive invitasjoner samtidig. */ activeInvites: 5,
   /** Lagrede hendelser. */ events: 100_000,
   /** Samlet størrelse på lagrede hendelser (byte). */ eventBytes: 64 * 1024 * 1024,
+  /** Alle husstander samlet (byte). Nås taket, kan ingen lagre nye hendelser før drift har ryddet eller økt det. */
+  totalEventBytes: 4 * 1024 * 1024 * 1024,
 };
 
 const MESSAGES: Record<ErrorCode, string> = {
@@ -153,6 +156,7 @@ export function createSyncApi(opts: SyncApiOptions) {
 
     if (path === '/api/household' && method === 'POST') {
       limit(`create:${ip}`, rates.createPerHour, 3_600_000);
+      limit('create:*', rates.createGlobalPerHour, 3_600_000);
       const body = await readJson(req);
       const token = newToken();
       const d = await storage.createHousehold(randomUUID(), {
@@ -256,7 +260,7 @@ export function createSyncApi(opts: SyncApiOptions) {
       }
       let accepted: string[] = [];
       try {
-        accepted = ok.length ? await storage.appendEvents(hh, me.id, ok, now(), { events: quotas.events, bytes: quotas.eventBytes }) : [];
+        accepted = ok.length ? await storage.appendEvents(hh, me.id, ok, now(), { events: quotas.events, bytes: quotas.eventBytes, totalBytes: quotas.totalEventBytes }) : [];
       } catch (e) {
         // Hele kallet avvises, så hendelsene blir liggende i enhetens utboks til det er plass.
         if (e instanceof QuotaExceededError) throw new HttpError(403, 'kvote_full');

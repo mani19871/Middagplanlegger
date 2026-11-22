@@ -13,7 +13,7 @@ import { SqliteStorage } from '../storage/sqlite';
 import { createSyncApi, type SyncApiOptions } from './api';
 import { ipKey } from './rateLimit';
 
-const SECRET = 'HEMMELIG-INNHOLD-UTENFOR-DIST';
+const SECRET = 'HEMMELIG INNHOLD UTENFOR DIST';
 let root: string;
 let dist: string;
 let srv: Awaited<ReturnType<typeof start>>;
@@ -24,8 +24,8 @@ async function start(opts: Partial<SyncApiOptions> = {}, appOpts: { hsts?: boole
   const storage = new SqliteStorage(':memory:');
   let clock = Date.parse('2026-11-23T10:00:00.000Z');
   const sync = createSyncApi({
-    storage, now: () => new Date(clock).toISOString(), secret: 'testhemmelighet', log: (m) => logs.push(m),
-    limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, joinPer10Min: 1000 }, ...opts,
+    storage, now: () => new Date(clock).toISOString(), secret: 'test-hemmelig', log: (m) => logs.push(m),
+    limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, createGlobalPerHour: 100_000, joinPer10Min: 1000 }, ...opts,
   });
   const app = createApp({ dist, handlers: [sync], log: (m) => logs.push(m), ...appOpts });
   const server: Server = createServer(app);
@@ -396,6 +396,19 @@ describe('kvoter per husstand', () => {
     expect((await A.push([telling('e1', 'enhet-aaaa1111'), telling('e3', 'enhet-aaaa1111')])).accepted).toEqual(['e1', 'e3']);
     expect((await A.push([telling('e3', 'enhet-aaaa1111')])).accepted).toEqual(['e3']);
     expect(await code(A.push([telling('e4', 'enhet-aaaa1111')]))).toBe('403 kvote_full');
+  });
+
+  it('samlet tak for alle husstander og samlet grense for nye husstander per time', async () => {
+    await srv.close();
+    srv = await start({ quotas: { totalEventBytes: 250 }, trustProxy: true, limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, createGlobalPerHour: 3, joinPer10Min: 1000 } });
+    const make = (i: number) => post('/api/household', JSON.stringify({ deviceId: `enhet-${i}aaaaaaa` }), { 'X-Forwarded-For': `192.0.2.${i}` });
+    const one = await (await make(1)).json();
+    const two = await (await make(2)).json();
+    expect((await make(3)).status).toBe(201);
+    expect((await make(4)).status).toBe(429); // fra en ny IP, men over samlet grense
+    const A = anon().withToken(one.token), B = anon().withToken(two.token);
+    expect((await A.push([telling('a1', 'enhet-1aaaaaaa')])).accepted).toEqual(['a1']);
+    expect(await code(B.push([telling('b1', 'enhet-2aaaaaaa'), telling('b2', 'enhet-2aaaaaaa')]))).toBe('403 kvote_full');
   });
 
   it('samlet størrelse teller i byte (UTF-8), og tellerne følger idempotens', async () => {

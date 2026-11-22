@@ -124,7 +124,8 @@ describe('regel 7: personvern og hemmeligheter', () => {
   });
   it('ingen presis posisjon: koden bruker ikke geolokasjon', () => {
     for (const f of tracked.filter((x) => /^(src|server)\//.test(x) && code(x) && !isTest(x))) {
-      expect(text(f), f).not.toMatch(/geolocation|getCurrentPosition|watchPosition/);
+      // «geolocation=()» i Permissions-Policy (server/app.ts) forbyr posisjon og er lov.
+      expect(text(f), f).not.toMatch(/geolocation(?!=\(\))|getCurrentPosition|watchPosition/);
     }
   });
   it('lagret tilstand har ingen personfelt: spiserne har bare etikett, porsjon og dager, og postnummer er tomt fra start', () => {

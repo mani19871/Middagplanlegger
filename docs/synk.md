@@ -113,8 +113,13 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 - Invitasjonskode: 10 tegn fra 32 tegn (50 bit), HMAC-SHA256 med `SYNC_SECRET`, én gangs bruk, 24 t, ratebegrenset. Koden står i fragmentet (`#bli-med=`), så den havner ikke i serverlogger.
 - All data er avgrenset til husstanden til tokenet. En hendelse kan ikke ha `by` lik et annet medlems id.
 - Inndata: JSON-kropp høyst 256 KB og `Content-Type: application/json`, høyst 500 hendelser per kall, 4 KB per hendelse, 64 KB per dokument, lengdegrenser på alle strenger, tall må være endelige og innenfor grenser, tidspunkter i ISO-format, dokumenter med ukjente felt avvises.
-- Ratebegrensning (i minnet): 600 kall/min per IP, 240/min per enhet, 20 nye husstander/t og 20 forsøk på å bli med/10 min per IP. `TRUST_PROXY=1` leser IP fra `X-Forwarded-For` (bare bak egen proxy).
+- Ratebegrensning (i minnet): 600 kall/min per IP, 240/min per enhet, 20 nye husstander/t per IP og 200/t samlet, 20 forsøk på å bli med/10 min per IP og 1 000 feilede samlet. IPv6 telles per /64. `TRUST_PROXY=1` leser siste adresse i `X-Forwarded-For` (bare bak nøyaktig én egen proxy).
+- Kvoter per husstand: 12 aktive medlemmer (50 rader totalt), 5 aktive invitasjoner, 100 000 hendelser og 64 MB; alle husstander samlet `SYNC_MAX_TOTAL_MB`. Over kvoten: `403 kvote_full`, og hendelsene blir i utboksen.
+- `at` mer enn 10 min fram i tid settes til mottakstid; ugyldige datoer avvises. Tilbakedatering er lov.
+- Token som ikke er brukt på `SYNC_TOKEN_IDLE_DAYS` (180) dager slutter å virke. Fjernede, forlatte og utløpte medlemmer får etiketten «Tidligere medlem» uten «sist sett».
+- Streng CSP med Trusted Types og øvrige sikkerhetshoder på alle svar (`server/app.ts`). Logger og feilsvar har aldri token, kode, etikett eller feilmelding.
 - Service workeren cacher aldri `/api/`.
+- Full gjennomgang med funn og hva som gjenstår: `docs/sikkerhet.md`.
 
 ## Drift
 
@@ -123,7 +128,10 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 | `SYNC_DB` | `$DATA_DIR/middag.sqlite` | Databasefil (`:memory:` for test) |
 | `DATA_DIR` | `data/` (Docker: `/data`) | Katalog for databasen; monter et volum |
 | `SYNC_SECRET` | tilfeldig per prosess | Hemmelighet for invitasjonskoder. Uten den slutter aktive koder å virke ved omstart. Sett den som hemmelighet ved oppstart, aldri i repoet |
-| `TRUST_PROXY` | av | `1` bak en kjent reverse proxy |
+| `TRUST_PROXY` | av | `1` bak nøyaktig én kjent reverse proxy |
+| `SYNC_TOKEN_IDLE_DAYS` | 180 | Dager uten bruk før et enhetstoken slutter å virke (`0` = aldri) |
+| `SYNC_MAX_TOTAL_MB` | 4096 | Tak for alle husstanders hendelser samlet |
+| `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
 
 `node:sqlite` er innebygd i Node 22 og er eksperimentell (skriver en «ExperimentalWarning» ved start; versjonen er festet i `Dockerfile`, se `docs/hosting.md`, «node:sqlite»). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører, aldri `cp` av bare hovedfilen (WAL); krypter kopien. Ferdig skript (`VACUUM INTO` + age-kryptering), Docker Compose med Caddy og gjenopprettingsprosedyre: `docs/drift/` og `docs/hosting.md`, avsnitt 8.
 
@@ -148,14 +156,14 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 
 ## Kjente svakheter
 
-- **Token i localStorage.** XSS i appen gir full tilgang til husstanden. Ingen utløp eller rotasjon av token; tap av enheten krever at eieren fjerner den.
-- **Invitasjon uten godkjenning.** Den som har en gyldig kode innen 24 t blir medlem uten at eieren bekrefter. Ingen varsel til de andre.
+- **Token i localStorage.** XSS i appen gir full tilgang til husstanden (dempet av streng CSP og Trusted Types). Glidende utløp etter 180 dager uten bruk, men ingen rotasjon; tap av enheten krever at eieren fjerner den. Se `docs/sikkerhet.md` (S2, S7).
+- **Invitasjon uten godkjenning.** Alle medlemmer kan lage koder, og den som har en gyldig kode innen 24 t blir medlem uten at eieren bekrefter. Ingen varsel til de andre. Må avgjøres før piloten (`docs/sikkerhet.md`, S6).
 - **Alle voksne kan alt med data.** Et medlem kan angre andres kjøp, fjerne avkrysninger og endre planen. Det er tilsiktet for en familie, men det finnes ingen historikk i UI over hvem som endret plan og innstillinger (serveren lagrer bare siste `updatedBy`).
-- **Klientens klokke** bestemmer rekkefølgen i loggen. En enhet med feil klokke (eller et medlem som vil) kan tilbakedatere hendelser. Serveren sjekker bare formatet.
+- **Klientens klokke** bestemmer rekkefølgen i loggen. Tid langt fram klippes til mottakstid, men en enhet (eller et medlem som vil) kan tilbakedatere hendelser, og enheten som sendte en klippet hendelse beholder sin egen tid lokalt (`docs/sikkerhet.md`, S5).
 - **Mistet eierenhet.** Er eierens enhet borte, kan ingen fjerne medlemmer eller slette husstanden; de andre kan bare forlate (siste som går sletter alt). Overføring av eierskap mangler.
 - **Allergier deles ikke** (se «Kostkrav og allergier» over). En enhet uten filter kan lage en plan med allergener for hele husstanden; avbøtet med synlig allergentekst og banner, ikke fjernet.
-- **Ingen kvoter eller oppbevaringstid.** Hendelsesloggen vokser uten tak og komprimeres ikke; et medlem kan fylle databasen innenfor ratebegrensningen. Oppbevaringstid for gamle uker er ikke bestemt.
-- **Fjernede medlemmer** beholdes som rad (offentlig id, etikett, uten token) og hendelsene deres blir i husstanden til den slettes.
+- **Ingen oppbevaringstid.** Kvoter stopper et medlem fra å fylle databasen, men loggen komprimeres ikke og gamle uker slettes ikke. Oppbevaringstid er ikke bestemt.
+- **Fjernede medlemmer** beholdes som rad (offentlig id, etiketten «Tidligere medlem», uten token og «sist sett») og hendelsene deres blir i husstanden til den slettes.
 - **Planversjoner synkes ikke.** `planHistory` (godkjente versjoner og fastholdte produkter, `activePin`) er lokal. Har én enhet en godkjent liste med fastholdte produkter og en annen ikke, kan de etter en prisendring vise ulike produkter på samme vare, og kjøp på de to linjene telles da hver for seg. Krever en egen modell (versjoner som hendelser) før det kan deles.
 - **Ratebegrensning i minnet** virker bare med én serverprosess. Flere prosesser trenger felles teller (Redis eller databasen).
 - **Flere faner på samme enhet** deler token og localStorage; de kan skrive over hverandres lokale tilstand (gjaldt også før synk).
@@ -169,7 +177,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 3. **Personvernerklæring, behandlingsprotokoll og DPIA-vurdering** oppdatert mot denne løsningen (`docs/personvern/`), behandlingsansvarlig avklart, **databehandleravtaler** med hosting- og backupleverandør.
 4. **Oppbevaringstid** for hendelser og dokumenter, og en rutine som sletter eldre data.
 5. **Overvåking** av feilrater og databasestørrelse uten å logge innhold, token eller invitasjonskoder.
-6. **Gjennomgang av sikkerhet** (CSP-hode mot XSS, avhengigheter, ratebegrensning med flere prosesser).
+6. **Sikkerhet:** gjennomgang gjort (`docs/sikkerhet.md`); punktene under «Må på plass før ekte familier» der gjelder.
 7. **Test på to ekte telefoner** over mobilnett, med appen installert, gjennom en hel handleuke.
 
 ## Ekte kontoer senere (ikke bygget)

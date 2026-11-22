@@ -51,3 +51,4 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Synkes aldri: postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`; mulige helseopplysninger), tilbud fra Tjek. Serveren avviser ukjente felt.
 - Alle endepunkter: autentisering avgrenset til husstanden, ratebegrensning, størrelses- og lengdegrenser, norske feilkoder. Ny lagring implementerer `SyncStorage` (PostgreSQL senere).
 - Endringer i synk krever test i `server/sync/api.test.ts` eller `src/sync/engine.test.ts`.
+- Sikkerhet (`docs/sikkerhet.md`): nye endepunkter og lagring må holde kvotene (`kvote_full`), aldri logge token, kode, etikett eller feilmelding, og gi samme 401/404 uansett om noe finnes. Nye hendelsesstrømmer har `at` (klippes fram i tid) og streng feltliste. CSP i `server/app.ts` er streng (ingen inline-skript, Trusted Types); sjekk med `npm run check:csp`. Negative tester i `server/sync/security.test.ts`.

@@ -201,6 +201,10 @@ export class SqliteStorage implements SyncStorage {
           const u = this.db.prepare('SELECT event_count, event_bytes FROM households WHERE id = ?').get(householdId) as { event_count: number; event_bytes: number };
           // Kaster inne i transaksjonen: alt over rulles tilbake.
           if (u.event_count > quota.events || u.event_bytes > quota.bytes) throw new QuotaExceededError();
+          if (quota.totalBytes !== undefined) {
+            const all = (this.db.prepare('SELECT COALESCE(SUM(event_bytes), 0) AS n FROM households').get() as { n: number }).n;
+            if (all > quota.totalBytes) throw new QuotaExceededError();
+          }
         }
       }
       return ids;

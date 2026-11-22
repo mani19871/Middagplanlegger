@@ -18,7 +18,11 @@ export interface ReadResult { events: EventOut[]; docs: DocOut[]; cursor: number
 export type JoinResult = { ok: true; device: DeviceRow } | { ok: false; code: 'ugyldig_kode' | 'enhet_finnes' | 'kvote_full' };
 /** Kvoter per husstand (docs/sikkerhet.md). Lagringen sjekker dem i samme transaksjon som skrivingen. */
 export interface MemberQuota { /** Aktive medlemmer. */ active: number; /** Alle rader, også fjernede. */ total: number }
-export interface EventQuota { /** Antall lagrede hendelser. */ events: number; /** Samlet størrelse (byte, UTF-8) på lagrede hendelser. */ bytes: number }
+export interface EventQuota {
+  /** Antall lagrede hendelser i husstanden. */ events: number;
+  /** Samlet størrelse (byte, UTF-8) på husstandens lagrede hendelser. */ bytes: number;
+  /** Samlet størrelse på alle husstanders hendelser (vern mot å fylle disken med mange husstander). */ totalBytes?: number;
+}
 /** Kastes av appendEvents når nye hendelser ville gått over kvoten. Ingenting er da lagret. */
 export class QuotaExceededError extends Error { constructor() { super('kvote_full'); this.name = 'QuotaExceededError'; } }
 /** Etiketten en fjernet eller utløpt enhet får (dataminimering: egen etikett og «sist sett» fjernes). */
