@@ -1,7 +1,7 @@
 // Generell liste over vanlige basisvarer husstanden kan velge å alltid ha hjemme (utvidelse B). Bare varenavn, ingen
 // priser, butikker eller avtaler. Varer med `ingredient` svarer til en vare i (demo)katalogen og kan få minstemengde
 // når den kan telles i matskapet; de andre bruker nivå («har / snart tom / tom»). Husholdningsvarer (toalettpapir,
-// vaskemidler) hører ikke hjemme her (utvidelse C, ikke bygd).
+// vaskemidler) hører ikke hjemme her, men i utvidelse C (src/data/household-rules.json).
 import type { StapleChoice } from '../engine/types';
 
 export const stapleChoices: StapleChoice[] = [

@@ -8,9 +8,10 @@
 //    enhet blir stående. Ingen siste-skriving-vinner, og ingen avkrysning forsvinner uten at noen så den.
 // Tilstanden er en ren mengdeoperasjon over hele loggen, så rekkefølgen hendelsene kommer i spiller ingen rolle.
 //
-// Manuelle linjer (fra kundeaviser, «Lag nå» og basisvarer): `manuell` legger til en linje med egen id, `manuell-fjern` fjerner den for godt.
+// Manuelle linjer (fra kundeaviser, «Lag nå», basisvarer og husholdningsvarer): `manuell` legger til en linje med egen id, `manuell-fjern` fjerner den for godt.
 
 import { STAPLE_PREFIX, type StapleListFacts } from '../engine/staples';
+import { HOUSEHOLD_PREFIX } from '../engine/household';
 
 interface Base { id: string; at: string; by: string }
 export interface ManualLineData { id: string; text: string; note: string }
@@ -95,4 +96,19 @@ export function stapleListFacts(log: ListLog): StapleListFacts {
     .map((e) => ({ key: e.key, at: e.at, id: e.id }))
     .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : 1)).map(({ key, at }) => ({ key, at }));
   return { lines, removed, checks };
+}
+
+// ---------- Husholdningsvarer, «Andre varer» (engine/household.ts) ----------
+
+/**
+ * Husholdningslinjer i lista: linjer som ligger der (i rekkefølgen de ble lagt til), linje-id-er som er fjernet (til ny
+ * linje-id for samme tilbud) og varenavn som har vært lagt på lista før (til nøktern fremheving). Uavhengig av rekkefølge.
+ * Linjene har bare varenavn og «tilbud hos ‹kjede›»; pris og gyldighet ligger aldri i lista.
+ */
+export function householdListFacts(log: ListLog): { lines: ManualLineData[]; removed: string[]; history: string[] } {
+  const isHouse = (id: string) => id.startsWith(HOUSEHOLD_PREFIX);
+  const lines = manualLines(log).filter((m) => isHouse(m.id));
+  const removed = [...new Set(log.flatMap((e) => (e.type === 'manuell-fjern' && isHouse(e.lineId) ? [e.lineId] : [])))].sort();
+  const history = [...new Set(log.flatMap((e) => (e.type === 'manuell' && isHouse(e.line.id) ? [e.line.text] : [])))].sort();
+  return { lines, removed, history };
 }

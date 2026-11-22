@@ -25,6 +25,10 @@ import { toHints } from './offers/hints';
 import type { OfferHint } from './engine/deals';
 import { totalWithOffers } from './engine/offerTotal';
 import type { Mode } from './views/WeekView';
+import type { HouseholdFeed } from './views/household/HouseholdCatch';
+import { classifyHousehold } from './engine/household';
+import { HOUSEHOLD_RULES } from './data/household';
+import { FOOD_TERMS } from './offers/household';
 
 const TABS = ['Uka', 'Kundeaviser', 'Handleliste', 'Matskap'] as const;
 type Tab = (typeof TABS)[number] | 'Husstand';
@@ -61,6 +65,8 @@ export default function App() {
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
   const kids = state.settings.eaters.length - adults;
   const [hints, setHints] = useState<OfferHint[]>([]);
+  // Husholdningstilbud (utvidelse C): bare i minnet, til tilbudsfangsten og prisene under «Andre varer». Lagres og synkes aldri.
+  const [house, setHouse] = useState<HouseholdFeed | null>(null);
   useEffect(() => {
     let stop = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -70,8 +76,9 @@ export default function App() {
         if (stop) return;
         // Med handledagen: en lagret pris som ikke er sett på over MAX_PRICE_AGE_DAYS dager, gir ikke hint (prices.ts).
         if (r.status === 'ok') setHints(toHints(r.offers, catalog.ingredients, undefined, shopDate()));
-        else if (r.status === 'loading') timer = setTimeout(load, 5000);
-      } catch { /* ingen tilbudsserver: planlegg uten tilbud */ }
+        setHouse({ status: r.status, offers: r.other ?? [], observed: r.observed });
+        if (r.status === 'loading') timer = setTimeout(load, 5000);
+      } catch { if (!stop) setHouse({ status: 'error', offers: [], observed: null }); /* ingen tilbudsserver: planlegg uten tilbud */ }
     };
     load();
     return () => { stop = true; clearTimeout(timer); };
@@ -100,6 +107,8 @@ export default function App() {
   // Egen sum med regelgodkjente tilbud; basissummen og butikksammenligningen over er uendret.
   const offerTotal = useMemo(() => totalWithOffers(basket, hints, day, state.settings), [basket, hints, day, state.settings]);
   const approvedHints = hints.filter((h) => h.approved).length;
+  // Alle husholdningstilbud klassifisert med appens regler; handledag, kjede og gyldighet avgjøres per linje (engine/household.ts).
+  const houseMatches = useMemo(() => (house?.offers ?? []).flatMap((o) => classifyHousehold(o, HOUSEHOLD_RULES, FOOD_TERMS) ?? []), [house]);
   const regenerate = () => update((s) => ({ ...s, slots: generatePlan({ ...ctx, settings: s.settings }, s.slots), approved: false }));
 
   return (
@@ -135,8 +144,8 @@ export default function App() {
         {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores} kit={kit}
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
-        {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} />}
-        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} kit={kit} />}
+        {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} house={house} />}
+        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} kit={kit} houseMatches={houseMatches} />}
         {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
           purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
         {tab === 'Matskap' && (

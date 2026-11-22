@@ -414,3 +414,29 @@ describe('regresjon: basisvarer (staples.ts) påvirker aldri kurv, sum, sammenli
     }
   });
 });
+
+describe('regresjon: husholdningsvarer (household.ts) påvirker aldri middagskurv, sum, sammenligning, tilbudssum eller budsjett', () => {
+  it('samme plan, kurv, alternativer, «Med kontrollerte tilbud» og budsjettsvar med og uten varegrupper og husholdningstilbud', async () => {
+    const { classifyHousehold, householdTotal, parseHouseholdRules } = await import('./household');
+    const rules = parseHouseholdRules((await import('../data/household-rules.json')).default);
+    const house = { id: 'h1', source: 'tjek', heading: 'Toalettpapir 24 rull', description: null, priceOre: 9990, prePriceOre: null, amount: null, unit: null, pieces: null,
+      dealerName: 'Kiwi', validFrom: '2026-11-23', validUntil: '2026-11-29', observed: '2026-11-23T08:00:00.000Z' };
+    const m = classifyHousehold(house, rules, [])!;
+    const hint: OfferHint = { id: 't1', ingredient: 'torsk', dealer: 'Kiwi', chain: 'KIWI', priceOre: 5000, prePriceOre: 8000, amount: 400, unit: 'g', validFrom: '2026-11-23', validUntil: '2026-11-29', approved: true };
+    for (const over of [{}, { avoid: ['gluten' as const] }, { vegetarian: true }, { offerChains: ['KIWI'] }]) {
+      const without = { ...ctx(over), shopDate: '2026-11-23', offers: [hint] };
+      const withHouse = { ...ctx({ ...over, householdGroups: ['papir', 'kjaeledyr'] }), shopDate: '2026-11-23', offers: [hint] };
+      const slots = generatePlan(without);
+      expect(generatePlan(withHouse)).toEqual(slots);
+      const a = buildBasket(slots, ['demoA', 'demoB'], without), b = buildBasket(slots, ['demoA', 'demoB'], withHouse);
+      expect(JSON.stringify(b)).toBe(JSON.stringify(a));
+      expect(JSON.stringify(alternatives(slots, withHouse))).toBe(JSON.stringify(alternatives(slots, without)));
+      expect(totalWithOffers(b, [hint], '2026-11-23', withHouse.settings)).toEqual(totalWithOffers(a, [hint], '2026-11-23', without.settings));
+      expect(budgetAnswer(b, withHouse.settings.budgetOre)).toBe(budgetAnswer(a, without.settings.budgetOre));
+      // «Andre varer» har egen sum, og en husholdningsvare uten gyldig pris gjør ikke middagskurven ufullstendig.
+      const other = householdTotal([{ id: 'hus:tjek:h1#0', text: 'Toalettpapir', note: 'tilbud hos Kiwi' }, { id: 'hus:tjek:borte#0', text: 'Batterier', note: '' }], [m], '2026-11-23', ['KIWI']);
+      expect([other.totalOre, other.complete]).toEqual([9990, false]);
+      expect([b.totalOre, b.complete, b.unknownCount]).toEqual([a.totalOre, a.complete, a.unknownCount]);
+    }
+  });
+});

@@ -1,11 +1,12 @@
 // Lese-endepunkt for lagrede tilbud: GET /api/offers/lagret → samme form som live (/api/offers, LiveResponse) pluss
-// `stored`, `oldestObserved` og `truncated`. Anonymt (tilbud er ikke husstandsdata), bare GET/HEAD, ingen parametre,
+// `stored`, `oldestObserved` og `truncated`, og husholdningstilbud i `other` (utvidelse C). Anonymt (tilbud er ikke husstandsdata), bare GET/HEAD, ingen parametre,
 // ratebegrenset per IP, høyst `maxOffers` tilbud. Feilsvar er faste norske tekster; loggen får bare navnet på feilen.
 // Se docs/sikkerhet.md (S21).
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { MAX_PRICE_AGE_DAYS } from '../../src/engine/prices';
 import type { Ingredient } from '../../src/engine/types';
 import type { LiveResponse } from '../../src/offers/client';
+import { householdCandidates } from '../../src/offers/household';
 import { sortLive, toLiveOffer, type LiveOffer } from '../../src/offers/service';
 import type { NormalizedOffer } from '../../src/offers/types';
 import { ipKey, RateLimiter } from '../sync/rateLimit';
@@ -23,6 +24,7 @@ export interface OffersApiOptions {
   trustProxy?: boolean;
   /** Kall per IP per minutt. */ perMinute?: number;
   /** Høyst så mange tilbud i ett svar. */ maxOffers?: number;
+  /** Høyst så mange husholdningstilbud (`other`, utvidelse C) i ett svar. */ maxOther?: number;
   /** Tillatte bildeverter (TJEK_IMAGE_HOSTS). Andre bildeadresser fjernes fra svaret. Standard: ingen. */ imageHosts?: string[];
   log?: (m: string) => void;
 }
@@ -41,6 +43,7 @@ export function createOffersApi(o: OffersApiOptions) {
   const log = o.log ?? ((m: string) => console.error(m));
   const perMinute = o.perMinute ?? 60;
   const maxOffers = o.maxOffers ?? 1500;
+  const maxOther = o.maxOther ?? 500;
   const limiter = new RateLimiter();
   // Samme svar så lenge dagen og siste henting er de samme: ingen ny matching per kall.
   let memo: { key: string; body: string } | null = null;
@@ -56,7 +59,7 @@ export function createOffersApi(o: OffersApiOptions) {
   async function build(today: string, last: string | null): Promise<string> {
     const failed = !last && o.collector().failures > 0;
     if (!last) {
-      const r: LiveResponse = { status: failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek', stored: true, observed: null, oldestObserved: null, offers: [], truncated: false };
+      const r: LiveResponse = { status: failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek', stored: true, observed: null, oldestObserved: null, offers: [], other: [], truncated: false };
       return JSON.stringify(r);
     }
     const key = `${today}|${last}`;
@@ -64,11 +67,22 @@ export function createOffersApi(o: OffersApiOptions) {
     // Bare priser sett innenfor aldersgrensen (src/engine/prices.ts); en eldre pris er ikke et tilbud i dag.
     const rows = await o.store.current({ today, observedSince: minusDays(today, MAX_PRICE_AGE_DAYS), limit: maxOffers * 4 });
     const live: LiveOffer[] = [];
-    for (const r of rows) { const l = toLiveOffer(toOffer(r, o.imageHosts ?? []), o.ingredients, today); if (l) live.push(l); }
+    const all: NormalizedOffer[] = [];
+    for (const r of rows) {
+      const offer = toOffer(r, o.imageHosts ?? []);
+      all.push(offer);
+      const l = toLiveOffer(offer, o.ingredients, today);
+      if (l) live.push(l);
+    }
     sortLive(live);
     const shown = live.slice(0, maxOffers);
+    // Husholdningstilbud (utvidelse C): bare de klassifiseringen kjenner igjen, gyldige i dag eller innen 7 dager (som over).
+    // Klienten klassifiserer på nytt med sine egne regler og filtrerer på handledag og kjeder.
+    const house = householdCandidates(all.filter((x) => x.validUntil >= today));
+    const other = house.slice(0, maxOther);
     const oldest = shown.reduce<string | null>((m, l) => (m === null || l.offer.observed < m ? l.offer.observed : m), null);
-    const r: LiveResponse = { status: 'ok', error: null, source: 'tjek', stored: true, observed: last, oldestObserved: oldest, offers: shown, truncated: live.length > shown.length || rows.length >= maxOffers * 4 };
+    const r: LiveResponse = { status: 'ok', error: null, source: 'tjek', stored: true, observed: last, oldestObserved: oldest, offers: shown, other,
+      truncated: live.length > shown.length || house.length > other.length || rows.length >= maxOffers * 4 };
     memo = { key, body: JSON.stringify(r) };
     return memo.body;
   }

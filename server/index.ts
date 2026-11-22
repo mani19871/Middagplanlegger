@@ -7,7 +7,9 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { dirname, join } from 'node:path';
 import { ingredients } from '../src/data/catalog';
+import { collectHousehold } from '../src/offers/household';
 import { collectOffers, type LiveOffer } from '../src/offers/service';
+import type { NormalizedOffer } from '../src/offers/types';
 import { TjekSource } from '../src/offers/tjek';
 import { createApp } from './app';
 import { createOffersApi } from './offers/api';
@@ -60,6 +62,8 @@ const source = new TjekSource(
   () => new Date().toISOString(),
 );
 const collectNow = () => collectOffers(source, ingredients, { country: 'NO', today: oslo() });
+// Husholdningstilbud (utvidelse C): ett søk per vare i src/data/household-rules.json, i samme runde og samme kallbudsjett.
+const collectHouseNow = () => collectHousehold(source, { country: 'NO', today: oslo() });
 // Produktbilder og avissider lastes av nettleseren direkte fra Tjek, bare fra verter i TJEK_IMAGE_HOSTS (CSP img-src).
 // Tom liste: ingen bilder. Vertene er ikke bekreftet mot ekte svar her; serveren logger vertsnavn den ser som ikke er tillatt.
 const imageHosts = imageHostsFrom(process.env.TJEK_IMAGE_HOSTS);
@@ -71,7 +75,7 @@ function logForeignHosts(list: LiveOffer[]) {
   if (fresh.size) { for (const h of fresh) loggedHosts.add(h); console.log(`Tilbud: bilder fra verter som ikke er i TJEK_IMAGE_HOSTS (vises ikke): ${[...fresh].sort().join(', ')}`); }
 }
 
-interface Cache { offers: LiveOffer[]; observed: string; day: string }
+interface Cache { offers: LiveOffer[]; other: NormalizedOffer[]; observed: string; day: string }
 let cache: Cache | null = null;
 let refreshing: Promise<void> | null = null;
 let failedAt = 0;
@@ -84,9 +88,9 @@ if (offerStore) {
   if (offerCfg.fetch) {
     // Periodisk henting med bakoff; den holder også live-visningen i minnet oppdatert, så /api/offers ikke henter selv.
     collector = startOfferCollector({
-      collect: collectNow, store: offerStore, country: 'NO', now: () => new Date().toISOString(),
+      collect: collectNow, collectOther: collectHouseNow, store: offerStore, country: 'NO', now: () => new Date().toISOString(),
       intervalMs: offerCfg.refreshMs, retryMs: RETRY_MS, retentionDays: offerCfg.retentionDays,
-      onCollected: (offers, at) => { cache = { offers, observed: at, day: oslo() }; logForeignHosts(offers); },
+      onCollected: (offers, at, other) => { cache = { offers, other, observed: at, day: oslo() }; logForeignHosts(offers); },
     });
   }
 }
@@ -97,7 +101,11 @@ function refresh() {
   if (collector || !offerCfg.fetch || refreshing || Date.now() - failedAt < RETRY_MS) return;
   const day = oslo();
   refreshing = collectNow()
-    .then((offers) => { cache = { offers, observed: new Date().toISOString(), day }; failedAt = 0; logForeignHosts(offers); })
+    .then(async (offers) => {
+      // Husholdningssøket er et tillegg: feiler det, vises mattilbudene likevel (bare feilens navn logges).
+      const other = await collectHouseNow().catch((e: unknown) => { console.error(`tilbud-feil husholdning: ${e instanceof Error ? e.name : typeof e}`); return [] as NormalizedOffer[]; });
+      cache = { offers, other, observed: new Date().toISOString(), day }; failedAt = 0; logForeignHosts(offers);
+    })
     // Bare navnet på feilen logges (meldingen har statuskode og sti hos Tjek); ingenting av det sendes til appen.
     .catch((e: unknown) => { failedAt = Date.now(); console.error(`tilbud-feil: ${e instanceof Error ? e.name : typeof e}`); })
     .finally(() => { refreshing = null; });
@@ -117,6 +125,7 @@ function offers(req: IncomingMessage, res: ServerResponse): boolean {
   res.end(JSON.stringify({
     status: cache ? 'ok' : failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek',
     observed: cache?.observed ?? null, offers: withImages(cache?.offers ?? []),
+    other: (cache?.other ?? []).map((o) => ({ ...o, image: allowedImage(o.image, imageHosts) })),
   }));
   return true;
 }

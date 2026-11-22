@@ -41,6 +41,12 @@ export interface Settings {
    * Påvirker aldri planmotorens kurv, butikksum eller sammenligning; gir bare forslag på handlelista.
    */
   staples?: Staple[];
+  /**
+   * Husholdningsvaregrupper husstanden følger i tilbudsfangsten (engine/household.ts, id-er fra
+   * src/data/household-rules.json). Mangler: alle grupper. Delt i innstillingsdokumentet. Påvirker aldri planmotorens
+   * kurv, butikksum, sammenligning eller filtre.
+   */
+  householdGroups?: string[];
 }
 /**
  * En basisvare: valg fra den generelle lista (`src/data/staples.ts`) eller egen vare (`egen:<navn>`, med `name`).

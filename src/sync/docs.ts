@@ -8,6 +8,8 @@
 // Ren og deterministisk. Validering deles med serveren (server/sync/api.ts).
 import type { Settings, Slot, Staple } from '../engine/types';
 import { isValidStaples } from '../engine/staples';
+import { isValidHouseholdGroups } from '../engine/household';
+import { HOUSEHOLD_RULES } from '../data/household';
 import { stapleChoices } from '../data/staples';
 import { catalog } from '../data/catalog';
 
@@ -102,7 +104,7 @@ const DAY_NAMES = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'
 const FIELD_TEXT: Record<string, string> = {
   approved: 'godkjenning', option: 'valg av handletur', eaters: 'hvem som spiser', days: 'dager og tid', budgetOre: 'budsjett',
   storeIds: 'butikker', regularStoreId: 'vanlig butikk', maxStops: 'antall stopp', extraStoreThresholdOre: 'grense for ekstra butikk',
-  useOffers: 'tilbud', offerChains: 'tilbudskjeder',
+  useOffers: 'tilbud', offerChains: 'tilbudskjeder', householdGroups: 'varegrupper for husholdningsvarer',
 };
 /** Lesbar tekst for et felt, til konfliktvisningen. */
 export const fieldText = (k: string) => {
@@ -123,7 +125,7 @@ export const fieldText = (k: string) => {
  */
 const SETTINGS_KEYS: Record<keyof SettingsDoc, true> = {
   eaters: true, days: true, budgetOre: true, storeIds: true, regularStoreId: true, maxStops: true,
-  extraStoreThresholdOre: true, useOffers: true, offerChains: true, staples: true,
+  extraStoreThresholdOre: true, useOffers: true, offerChains: true, staples: true, householdGroups: true,
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -168,7 +170,9 @@ export function isValidDoc(name: string, body: unknown): body is DocBody {
       // Kjeder for tilbud (valgfritt): kjedenavn, ingen persondata.
       && (body.offerChains === undefined || (Array.isArray(body.offerChains) && body.offerChains.length <= 40 && body.offerChains.every((c) => str(c, 40))))
       // Basisvarer (valgfritt): id fra den generelle lista eller egen vare med kort, renset navn; minstemengde (engine/staples.ts).
-      && isValidStaples(body.staples, { choices: stapleChoices, ingredients: catalog.ingredients });
+      && isValidStaples(body.staples, { choices: stapleChoices, ingredients: catalog.ingredients })
+      // Varegrupper for husholdningsvarer (valgfritt): bare id-er fra den generelle lista (engine/household.ts), ingen fritekst.
+      && isValidHouseholdGroups(body.householdGroups, HOUSEHOLD_RULES);
   }
   return false;
 }

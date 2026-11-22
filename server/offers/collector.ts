@@ -4,6 +4,7 @@
 // intervall. Tjeks offentlige tak er 8 000 000 kall per måned per land (§ 8.5); vår avtales grense er ikke kjent for oss
 // (phase0/tjek-avtale.md), så standarden ligger langt under. Klokke og timer settes inn, så alt kan testes uten nett.
 import type { LiveOffer } from '../../src/offers/service';
+import type { NormalizedOffer } from '../../src/offers/types';
 import type { OfferStore } from './types';
 
 /** Kastes av kallbudsjettet når dagens grense er nådd. Ingen kall er da sendt. */
@@ -26,6 +27,11 @@ export class CallBudget {
 export interface CollectorOptions {
   /** Én hel innsamling (collectOffers mot Tjek). Observasjonstiden er satt av kilden per tilbud. */
   collect: () => Promise<LiveOffer[]>;
+  /**
+   * Husholdningstilbud (utvidelse C, src/offers/household.ts), hentet etter mattilbudene i samme runde og lagret i samme
+   * tilbudslager. En feil her (også kallgrensen) stopper ikke runden: mattilbudene lagres, og bare feilens navn logges.
+   */
+  collectOther?: () => Promise<NormalizedOffer[]>;
   store: OfferStore;
   country: string;
   now: () => string;
@@ -36,7 +42,7 @@ export interface CollectorOptions {
   /** Planlegg neste runde. Standard: setTimeout som ikke holder prosessen i live. Returnerer avlysning. */
   schedule?: (fn: () => void, ms: number) => () => void;
   /** Etter en vellykket runde: tilbudene og hentetidspunktet (live-visningen i minnet bruker dem). */
-  onCollected?: (offers: LiveOffer[], at: string) => void;
+  onCollected?: (offers: LiveOffer[], at: string, other: NormalizedOffer[]) => void;
 }
 export interface CollectorState { lastOk: string | null; failures: number; running: boolean }
 export interface OfferCollector {
@@ -64,16 +70,20 @@ export function startOfferCollector(o: CollectorOptions): OfferCollector {
     const at = o.now();
     try {
       const offers = await o.collect();
-      const r = await o.store.record(offers.map((l) => l.offer), o.country, o.now());
+      let other: NormalizedOffer[] = [];
+      if (o.collectOther) {
+        try { other = await o.collectOther(); } catch (e) { log(`tilbud-feil husholdning: ${e instanceof Error ? e.name : typeof e}`); }
+      }
+      const r = await o.store.record([...offers.map((l) => l.offer), ...other], o.country, o.now());
       await o.store.setLastFetch(at);
       st.lastOk = at; st.failures = 0;
-      o.onCollected?.(offers, at);
+      o.onCollected?.(offers, at, other);
       let deleted = 0;
       if (o.retentionDays > 0) {
         const before = new Date(Date.parse(o.now()) - o.retentionDays * DAY_MS).toISOString();
         for (let n = BATCH; n === BATCH;) { n = await o.store.deleteBefore(before, BATCH); deleted += n; }
       }
-      log(`Tilbud: ${offers.length} hentet (${r.inserted} nye, ${r.updated} endret, ${r.seen} sett igjen${r.skipped ? `, ${r.skipped} avvist` : ''})${deleted ? `, ${deleted} gamle slettet` : ''}.`);
+      log(`Tilbud: ${offers.length} hentet${o.collectOther ? `, ${other.length} husholdning` : ''} (${r.inserted} nye, ${r.updated} endret, ${r.seen} sett igjen${r.skipped ? `, ${r.skipped} avvist` : ''})${deleted ? `, ${deleted} gamle slettet` : ''}.`);
       next(o.intervalMs);
     } catch (e) {
       if (e instanceof BudgetExceededError) {

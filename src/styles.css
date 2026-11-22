@@ -143,3 +143,14 @@ main:focus { outline:none; }
 .staplerow > .haveopts { padding-left:0; }
 .ownstaple { display:flex; flex-direction:column; gap:4px; margin-top:12px; } .ownstaple input { width:100%; }
 .stapleact { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; } .stapleact .ghost.sm { min-height:44px; }
+/* Husholdningsvarer (utvidelse C): tilbudsfangst og «Andre varer» */
+.housegroups { border:1px solid var(--line); border-radius:14px; padding:8px 12px 4px; margin:10px 0; display:flex; flex-wrap:wrap; gap:8px; min-width:0; }
+.housegroups legend { font-weight:600; padding:0 4px; }
+.housegroups label.pill.pick { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:6px 12px; max-width:100%; white-space:normal; }
+.housegroups label.pill.pick input { width:20px; height:20px; margin:0; }
+.housegroups .fine { flex-basis:100%; margin:2px 0 6px; }
+.housegrid { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.housecard { min-width:0; overflow-wrap:anywhere; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; display:flex; flex-direction:column; gap:3px; }
+.housecard .ghost.sm { min-height:44px; margin-top:auto; }
+.housecard .pill { max-width:100%; white-space:normal; }
+.housetotal { margin-top:8px; }

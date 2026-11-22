@@ -11,14 +11,14 @@ const offer = (id: string, observed: string, over: Partial<NormalizedOffer> = {}
 });
 const live = (o: NormalizedOffer): LiveOffer => ({ offer: o, ingredient: 'torsk', unitPriceOre: 19975, needsReview: false, reasons: [], approved: false, rule: null, phase: 'nå' });
 
-function harness(collect: () => Promise<LiveOffer[]>, extra: { retentionDays?: number; store?: SqliteOfferStore } = {}) {
+function harness(collect: () => Promise<LiveOffer[]>, extra: { retentionDays?: number; store?: SqliteOfferStore; collectOther?: () => Promise<NormalizedOffer[]> } = {}) {
   let clock = Date.parse('2026-11-23T08:00:00.000Z');
   const delays: number[] = [];
   let pending: (() => void) | null = null;
   const logs: string[] = [];
   const store = extra.store ?? new SqliteOfferStore(':memory:');
   const job = startOfferCollector({
-    collect, store, country: 'NO', now: () => new Date(clock).toISOString(), log: (m) => logs.push(m),
+    collect, collectOther: extra.collectOther, store, country: 'NO', now: () => new Date(clock).toISOString(), log: (m) => logs.push(m),
     intervalMs: 6 * 3_600_000, retryMs: 5 * 60_000, retentionDays: extra.retentionDays ?? 180,
     schedule: (fn, ms) => { delays.push(ms); pending = fn; return () => { pending = null; }; },
   });
@@ -112,5 +112,24 @@ describe('CallBudget', () => {
     day = '2026-11-24';
     expect(() => b.take()).not.toThrow();
     expect(b.used()).toBe(1);
+  });
+});
+
+describe('startOfferCollector: husholdningstilbud (utvidelse C)', () => {
+  const house = (id: string) => offer(id, '2026-11-23T07:59:00.000Z', { heading: 'Toalettpapir 24 rull', amount: null, unit: null });
+  it('lagrer husholdningstilbudene i samme tilbudslager (ingen persondata) og gir dem til live-visningen', async () => {
+    const h = harness(async () => [live(offer('a', '2026-11-23T07:59:30.000Z'))], { collectOther: async () => [house('h1'), house('h2')] });
+    await h.job.idle();
+    const rows = await h.store.current({ today: '2026-11-23', observedSince: '2026-11-09', limit: 10 });
+    expect(rows.map((r) => r.id)).toEqual(['a', 'h1', 'h2']);
+    expect(h.logs.at(-1)).toMatch(/1 hentet, 2 husholdning \(3 nye/);
+  });
+  it('feil i husholdningssøket stopper ikke runden: mattilbudene lagres, og loggen får bare feilens navn', async () => {
+    const h = harness(async () => [live(offer('a', '2026-11-23T07:59:30.000Z'))], { collectOther: async () => { throw new BudgetExceededError(); } });
+    await h.job.idle();
+    expect((await h.store.current({ today: '2026-11-23', observedSince: '2026-11-09', limit: 10 })).map((r) => r.id)).toEqual(['a']);
+    expect(h.job.state()).toMatchObject({ failures: 0, lastOk: '2026-11-23T08:00:00.000Z' });
+    expect(h.logs.join('\n')).toMatch(/husholdning: BudgetExceededError/);
+    expect(h.delays).toEqual([6 * 3_600_000]);
   });
 });

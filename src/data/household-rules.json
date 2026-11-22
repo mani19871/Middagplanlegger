@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "description": "Husholdningsvarer (utvidelse C): generelle varegrupper med søkeord, utelukkelser og kuraterte regler. Menneskekuratert: mønstre og ord, aldri tilbud. Lagre aldri tilbudsinnhold (pris, periode, butikk) her. Gruppene er generelle og uten bleier, medisin eller annet som kan avsløre helse eller barns alder. Søkeordtreff er bare forslag («trenger kontroll»); bare en «godkjent»-regel godkjenner. Endres via Kundeaviser → Kontroll → Husholdning → «Eksporter regler».",
+  "groups": [
+    {
+      "id": "rengjoring",
+      "name": "Vask og rengjøring",
+      "items": [
+        { "id": "rengjoringsmiddel", "name": "Rengjøringsmiddel", "terms": ["rengjøringsmiddel", "allrengjøring", "universalrengjøring", "grønnsåpe", "glassrens", "vindusvask", "baderomsrens", "kalkfjerner", "skuremiddel", "skurekrem", "klorin", "toalettrens", "wc-rens"] },
+        { "id": "kluter", "name": "Kluter og svamper", "terms": ["mikrofiberklut", "oppvaskklut", "klut", "kluter", "svamp", "svamper", "skuresvamp"] }
+      ]
+    },
+    {
+      "id": "oppvask-klesvask",
+      "name": "Oppvask og klesvask",
+      "items": [
+        { "id": "oppvaskmiddel", "name": "Oppvaskmiddel", "terms": ["oppvaskmiddel", "håndoppvask"] },
+        { "id": "maskinoppvask", "name": "Maskinoppvask", "terms": ["oppvasktabletter", "maskinoppvask", "oppvaskmaskintabletter", "maskinsalt", "skyllemiddel"] },
+        { "id": "vaskemiddel", "name": "Vaskemiddel", "terms": ["vaskemiddel", "tøyvask", "vaskepulver", "vaskekapsler", "colorvask", "ullvask"] },
+        { "id": "toymykner", "name": "Tøymykner", "terms": ["tøymykner", "skyllemykner"] },
+        { "id": "flekkfjerner", "name": "Flekkfjerner", "terms": ["flekkfjerner"] }
+      ]
+    },
+    {
+      "id": "hygiene",
+      "name": "Bad og hygiene",
+      "items": [
+        { "id": "handsape", "name": "Håndsåpe", "terms": ["håndsåpe", "flytende såpe", "såpe"] },
+        { "id": "dusj", "name": "Dusjsåpe", "terms": ["dusjsåpe", "dusjkrem", "dusjgelé", "dusjgele"] },
+        { "id": "sjampo", "name": "Sjampo og balsam", "terms": ["sjampo", "shampoo", "balsam"] },
+        { "id": "tannkrem", "name": "Tannkrem", "terms": ["tannkrem"] },
+        { "id": "tannborste", "name": "Tannbørster", "terms": ["tannbørste", "tannbørster"] },
+        { "id": "deodorant", "name": "Deodorant", "terms": ["deodorant"] }
+      ]
+    },
+    {
+      "id": "papir",
+      "name": "Papir (kjøkkenrull, toalettpapir)",
+      "items": [
+        { "id": "toalettpapir", "name": "Toalettpapir", "terms": ["toalettpapir", "dopapir"] },
+        { "id": "kjokkenrull", "name": "Kjøkkenrull", "terms": ["kjøkkenrull", "tørkerull", "husholdningsrull", "tørkepapir"] },
+        { "id": "servietter", "name": "Servietter", "terms": ["servietter", "serviett"] },
+        { "id": "kaffefilter", "name": "Kaffefilter", "terms": ["kaffefilter"] }
+      ]
+    },
+    {
+      "id": "folie-poser",
+      "name": "Bakepapir, folie og poser",
+      "items": [
+        { "id": "bakepapir", "name": "Bakepapir", "terms": ["bakepapir"] },
+        { "id": "folie", "name": "Folie", "terms": ["aluminiumsfolie", "alufolie", "plastfolie", "matfolie"] },
+        { "id": "matpapir", "name": "Matpapir", "terms": ["matpapir"] },
+        { "id": "fryseposer", "name": "Fryseposer", "terms": ["fryseposer", "frysepose", "brødposer", "plastposer"] },
+        { "id": "soppelposer", "name": "Søppelposer", "terms": ["søppelposer", "søppelpose", "avfallsposer", "avfallssekker", "søppelsekker", "bioposer"] }
+      ]
+    },
+    {
+      "id": "batterier-paerer",
+      "name": "Batterier og lyspærer",
+      "items": [
+        { "id": "batterier", "name": "Batterier", "terms": ["batteri", "batterier"] },
+        { "id": "lyspaerer", "name": "Lyspærer", "terms": ["lyspære", "lyspærer", "led-pære", "led-pærer"] }
+      ]
+    },
+    {
+      "id": "kjaeledyr",
+      "name": "Kjæledyr",
+      "items": [
+        { "id": "hundemat", "name": "Hundemat", "terms": ["hundemat", "hundefôr", "hundefor", "hundesnacks"] },
+        { "id": "kattemat", "name": "Kattemat", "terms": ["kattemat", "kattefôr", "kattefor"] },
+        { "id": "kattesand", "name": "Kattesand", "terms": ["kattesand"] }
+      ]
+    }
+  ],
+  "exclude": ["kaffe", "sjokolade", "godteri", "kjeks", "chips", "snacks", "brus", "juice", "saus", "suppe", "drikke", "iskrem", "pizza", "kake", "pålegg", "holder", "stativ", "dispenser", "leke", "støvsuger", "bind", "truse"],
+  "sensitive": ["bleie", "baby", "barne", "junior", "smokk", "medisin", "vitamin", "plaster", "paracet", "ibux", "smertestill", "tampong", "inkontinens", "graviditet", "eggløsning", "kondom", "prevensjon", "allergi"],
+  "rules": [
+    {
+      "pattern": "kaffefilter",
+      "decision": "tillatt",
+      "item": "kaffefilter",
+      "note": "Unntak fra utelukkelsesordet «kaffe». Treff er bare forslag til kontroll."
+    }
+  ]
+}

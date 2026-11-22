@@ -55,3 +55,19 @@ describe('eksport: basisvarer (utvidelse B)', () => {
     expect(exportText(x)).not.toContain('HEMMELIG-TOKEN');
   });
 });
+
+describe('eksport: husholdningsvarer (utvidelse C)', () => {
+  it('varegrupper og «Andre varer»-linjer er med; ingen tilbudstekst eller pris fra Tjek', () => {
+    const state: AppState = {
+      ...connected,
+      settings: { ...connected.settings, householdGroups: ['papir'] },
+      list: [{ type: 'manuell', id: 'm1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'hus:tjek:abc#0', text: 'Toalettpapir', note: 'tilbud hos Kiwi' } }],
+    };
+    const x = buildExport(state, 'enhet-aaaa1111', '2026-11-23T12:00:00.000Z', server);
+    expect(x.enhet.lagretPåEnheten.settings.householdGroups).toEqual(['papir']);
+    expect(x.enhet.lagretPåEnheten.list).toEqual(state.list);
+    expect(x.forklaring).toMatch(/Andre varer/);
+    expect(x.forklaring).toMatch(/householdGroups/);
+    expect(exportText(x)).not.toMatch(/priceOre|heading|validUntil/);
+  });
+});

@@ -15,17 +15,22 @@ import TjekPapers from './papers/TjekPapers';
 import { credit } from './papers/paperText';
 import { hasManualLine, manualLineId, offerKey, offerRecipes } from './papers/offerList';
 import { manualLines } from '../sync/list';
+import HouseholdCatch, { type HouseholdFeed } from './household/HouseholdCatch';
+import HouseholdReview from './household/HouseholdReview';
+import { shopDate as currentShopDate } from './dates';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void;
   /** Økes av App når brukeren trykker på den aktive fanen: lukker åpen utgave eller tilbudsdetalj. */
-  resetKey?: number }
+  resetKey?: number;
+  /** Husholdningstilbud fra Tjek (utvidelse C), hentet av App sammen med de andre tilbudene. Bare visning. */
+  house?: HouseholdFeed | null }
 type View = 'Hele Norge' | 'Nær meg' | 'Mine butikker';
 const COVERS = ['#1f5a46', '#b4532a', '#2b5d6b', '#6b4a2b', '#4b3a63'];
 const cover = (id: string) => COVERS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COVERS.length];
 const period = (e: Edition) => `${e.validFrom.slice(8)}.–${e.validTo.slice(8)}.${e.validTo.slice(5, 7)}.`;
 const place = (e: Edition) => (e.scope === 'nasjonal' ? 'Hele landet' : e.scope === 'regional' ? 'Regional utgave' : 'Lokal utgave');
 
-export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }: Props) {
+export default function PapersView({ state, update, ctx, goWeek, resetKey = 0, house = null }: Props) {
   const [view, setView] = useState<View>('Hele Norge');
   const [q, setQ] = useState('');
   const [when, setWhen] = useState<'denne' | 'kommende'>('denne');
@@ -33,7 +38,8 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
   const [offer, setOffer] = useState<Offer | null>(null);
   const [recipeId, setRecipeId] = useState<string>('');
   const [day, setDay] = useState<number>(-1);
-  const [mode, setMode] = useState<'live' | 'tjek' | 'aviser' | 'kontroll'>('live');
+  const [mode, setMode] = useState<'live' | 'hus' | 'tjek' | 'aviser' | 'kontroll'>('live');
+  const [reviewKind, setReviewKind] = useState<'mat' | 'hus'>('mat');
   const [live, setLive] = useState<LiveResponse | null>(null);
   const [liveErr, setLiveErr] = useState(false);
   const [liveId, setLiveId] = useState<string | undefined>();
@@ -163,11 +169,19 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
       <h1 className="page">Kundeaviser</h1>
       <div className="chips tabs">
         <button className={mode === 'live' ? 'chip on' : 'chip'} onClick={() => setMode('live')}>Tilbud nå</button>
+        <button className={mode === 'hus' ? 'chip on' : 'chip'} onClick={() => setMode('hus')}>Husholdning</button>
         <button className={mode === 'tjek' ? 'chip on' : 'chip'} onClick={() => setMode('tjek')}>Aviser fra Tjek</button>
         <button className={mode === 'aviser' ? 'chip on' : 'chip'} onClick={() => setMode('aviser')}>Aviser (demo)</button>
         <button className={mode === 'kontroll' ? 'chip on' : 'chip'} onClick={() => setMode('kontroll')}>Kontroll</button>
       </div>
-      {mode === 'kontroll' && <ReviewView ingredients={ctx.catalog.ingredients} />}
+      {mode === 'kontroll' && (<>
+        <div className="chips tabs" role="group" aria-label="Kontroll av mat eller husholdning">
+          <button className={reviewKind === 'mat' ? 'chip on' : 'chip'} aria-pressed={reviewKind === 'mat'} onClick={() => setReviewKind('mat')}>Mattreff</button>
+          <button className={reviewKind === 'hus' ? 'chip on' : 'chip'} aria-pressed={reviewKind === 'hus'} onClick={() => setReviewKind('hus')}>Husholdningstreff</button>
+        </div>
+        {reviewKind === 'mat' ? <ReviewView ingredients={ctx.catalog.ingredients} /> : <HouseholdReview feed={house} />}
+      </>)}
+      {mode === 'hus' && <HouseholdCatch state={state} update={update} feed={house} shopDate={ctx.shopDate ?? currentShopDate()} />}
       {mode === 'live' && <LiveOffers live={live} err={liveErr} ingName={ingName} onPick={pickLive} />}
       {mode === 'tjek' && <TjekPapers resetKey={resetKey} />}
       {mode === 'aviser' && (<>

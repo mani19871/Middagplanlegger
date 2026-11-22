@@ -18,6 +18,10 @@ import { COOK_NOW_PREFIX } from '../engine/cookNow';
 import { parseStapleLine, STAPLE_PREFIX, stapleStatus, stapleSuggestions } from '../engine/staples';
 import { stapleListFacts } from '../sync/list';
 import { STAPLE_INFO } from './StaplesView';
+import { HOUSEHOLD_PREFIX, householdTotal, type HouseholdMatch } from '../engine/household';
+import { householdListFacts } from '../sync/list';
+import type { NormalizedOffer } from '../offers/types';
+import { LINE_STATE, seenText, validityText } from './household/householdText';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; record: (...e: InventoryEvent[]) => void; week: string;
@@ -26,6 +30,11 @@ interface Props {
   syncText: string;
   /** «Utsolgt / fant ikke» og historikk. Uten den vises lista uten endringshandlinger. */
   kit?: ChangeKit;
+  /**
+   * Husholdningstilbud slik de vises nå (utvidelse C), klassifisert av engine/household.ts. Gir pris og gyldighet til
+   * linjene under «Andre varer»; lagres aldri i lista. Uten dem vises linjene uten pris.
+   */
+  houseMatches?: HouseholdMatch<NormalizedOffer>[];
 }
 const statusText: Record<BasketLine['status'], string> = { ordinær: 'Ordinær pris', tilbud: 'Tilbud', estimat: 'Estimert pris', ukjent: 'Ukjent pris' };
 const storeName = (id: string | null) => catalog.stores.find((s) => s.id === id)?.name ?? 'Ukjent butikk';
@@ -48,7 +57,7 @@ const boughtPill = (p: PurchaseState | undefined, l: BasketLine) => {
 };
 const lineText = (l: BasketLine) => (l.productId ? (l.packs > 1 ? `${l.packs} × ${l.productName}` : l.productName!) : `${l.name}: ${amount(l.need, l.unit)}`);
 
-export default function ListView({ state, update, record, week, basket, offerTotal, approvedHints, syncText, kit }: Props) {
+export default function ListView({ state, update, record, week, basket, offerTotal, approvedHints, syncText, kit, houseMatches = [] }: Props) {
   // Detaljen holder bare varen; linja slås opp i gjeldende kurv ved hver gjengivelse, så et valg eller en synk mens
   // detaljen er åpen aldri gir kjøp på en gammel kopi av linja (f.eks. et utsolgt produkt).
   const [detailKey, setDetailKey] = useState<string | null>(null);
@@ -124,12 +133,37 @@ export default function ListView({ state, update, record, week, basket, offerTot
       </ul>
     </section>
   );
+  // «Andre varer» (engine/household.ts): egen sum, aldri med i «Anslått handel», butikksammenligningen eller budsjettet.
+  const houseDay = kit?.ctx.shopDate ?? shopDate();
+  const houseLines = useMemo(() => householdListFacts(state.list).lines, [state.list]);
+  const house = useMemo(() => householdTotal(houseLines, houseMatches, houseDay, state.settings.offerChains), [houseLines, houseMatches, houseDay, state.settings.offerChains]);
+  const houseSection = house.count > 0 && (
+    <section aria-labelledby="andre-varer">
+      <div className="deptbar"><strong id="andre-varer">🧴 Andre varer</strong></div>
+      <ul className={`list ${shop ? 'shop' : ''}`}>
+        {house.lines.map((l) => (
+          <li key={l.id} className={manualChecked(l.id) ? 'done' : ''}>
+            <input type="checkbox" aria-label={manualLabel(l.name, l.id)} checked={manualChecked(l.id)} onChange={() => toggleManual(l.id)} />
+            <span className="main"><b>{l.name}</b>
+              <small>{l.note} · {l.priceOre !== null ? `${kr(l.priceOre)}, ${LINE_STATE.pris}` : LINE_STATE[l.state]}</small>
+              {l.priceOre !== null && l.match && <small>{validityText(l.match.offer)} · {seenText(l.match.offer.observed)}</small>}
+              {manualWho(l.id)}</span>
+            <button className="x" aria-label={`Fjern ${l.name}`} onClick={() => recordL({ type: 'manuell-fjern', ...stamp(), lineId: l.id })}>✕</button>
+          </li>
+        ))}
+      </ul>
+      <div className="card total2 housetotal"><span>Andre varer, anslått{house.complete ? '' : ` (delsum: ${house.priced} av ${house.count} med pris)`}</span><strong>{kr(house.totalOre)}</strong></div>
+      <p className="fine">Egen sum for husholdningsvarer: ikke med i «Anslått handel», butikksammenligningen eller budsjettet. Prisen er tilbudets egen
+        hos Tjek, én pakke per vare, bare når tilbudet gjelder på handledagen; prisen i butikken kan avvike. Varer uten gyldig tilbud vises uten pris.</p>
+    </section>
+  );
   const manualSection = (
     <>
+      {houseSection}
       {stapleSection}
       {manualGroup('🧂 Basisvarer (ikke kontrollert)', manual.filter((m) => m.id.startsWith(STAPLE_PREFIX)))}
       {manualGroup('🍳 Fra «Lag nå» (ikke kontrollert)', manual.filter((m) => m.id.startsWith(COOK_NOW_PREFIX)))}
-      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX) && !m.id.startsWith(STAPLE_PREFIX)))}
+      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX) && !m.id.startsWith(STAPLE_PREFIX) && !m.id.startsWith(HOUSEHOLD_PREFIX)))}
     </>
   );
   if (state.slots.length === 0) {

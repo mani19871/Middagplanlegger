@@ -1,5 +1,5 @@
 import type { LiveOffer } from './service';
-import type { Catalog, CatalogPage } from './types';
+import type { Catalog, CatalogPage, NormalizedOffer } from './types';
 export interface LiveResponse {
   status: 'ok' | 'loading' | 'error'; error: string | null; source: string;
   /** Når tilbudene sist ble hentet fra kilden (ikke når de ble lest). */
@@ -10,6 +10,11 @@ export interface LiveResponse {
   oldestObserved?: string | null;
   /** Flere tilbud enn svaret har plass til. */
   truncated?: boolean;
+  /**
+   * Husholdningstilbud (utvidelse C): tilbud fra søk på husholdningsord som serverens klassifisering kjenner igjen.
+   * Appen klassifiserer på nytt med sine egne regler (engine/household.ts). Lagres aldri i appens tilstand eller synkdata.
+   */
+  other?: NormalizedOffer[];
 }
 
 async function get(url: string, signal?: AbortSignal): Promise<LiveResponse> {

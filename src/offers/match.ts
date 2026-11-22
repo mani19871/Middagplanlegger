@@ -1,6 +1,7 @@
 // Kobler et tilbud til en ingrediens og regner pris per standardenhet. Ren funksjon, ingen nettverk.
 import type { Ingredient } from '../engine/types';
 import type { NormalizedOffer } from './types';
+import { hasConditionText } from '../engine/conditions';
 import { normText, OFFER_RULES, patternMatches, type OfferRule } from './rules';
 
 /** Norske søkeord per ingrediens. Redaktøren utvider listen; tvetydige treff går til kontroll. */
@@ -47,12 +48,8 @@ const hasWord = (text: string, term: string) =>
 /** Gyldig på handledatoen (ISO-datoer), ikke ved lesetidspunktet. */
 export const validOn = (o: NormalizedOffer, shopDate: string) => o.validFrom.slice(0, 10) <= shopDate && o.validUntil.slice(0, 10) >= shopDate;
 
-/** Ord som tyder på kampanjevilkår vi ikke kan regne med (medlemspris, «3 for 2», kupong, mengdetak …). */
-const CONDITIONS = [/medlem/, /trumf/, /kupong/, /ved kjøp av/, /\d+\s*for\s*\d+/, /\d+\s*%/, /maks\.?\s*\d/, /(per|pr\.?)\s*kunde/, /app-?pris/, /i appen/, /æ-?pris/];
-export const hasConditions = (o: NormalizedOffer) => {
-  const text = norm(`${o.heading} ${o.description ?? ''}`);
-  return CONDITIONS.some((r) => r.test(text));
-};
+/** Ord som tyder på kampanjevilkår vi ikke kan regne med (medlemspris, «3 for 2», kupong, mengdetak …); se engine/conditions.ts. */
+export const hasConditions = (o: NormalizedOffer) => hasConditionText(`${o.heading} ${o.description ?? ''}`);
 
 /** Avvisningsregelen som stopper hele tilbudet (regel uten ingrediens), eller null. */
 export const rejectedBy = (heading: string, rules: OfferRule[] = OFFER_RULES) =>

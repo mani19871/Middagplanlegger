@@ -93,6 +93,9 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
         <li>Matskapet: kjøp, tellinger, rester, hva som er laget og «bruk noe vi har hjemme».</li>
         <li>Basisvarer: hvilke varer dere alltid vil ha hjemme (fra en fast liste, eller et eget varenavn på høyst 30 tegn),
           minstemengder og markeringene «har», «snart tom» og «tom». Forslag dere godkjenner eller avviser, lagres som linjer i handlelista.</li>
+        <li>Husholdningsvarer («Andre varer»): hvilke varegrupper dere følger (fra en fast, generell liste uten helse- og barneprodukter)
+          og varene dere legger på lista, med varenavn, kjede og en henvisning til tilbudet hos Tjek. Tilbudstekst, pris og gyldighet fra Tjek
+          lagres ikke i husstandens data; de vises fra tilbudene når lista åpnes.</li>
         <li>Valg ved utsolgt eller fant ikke, og godkjente lister (planversjoner).</li>
         <li>Medlemmer: enhets-id, etiketten du velger, rolle, når enheten ble med og sist var i kontakt med serveren (avrundet til
           minutt). Nøkkelen og invitasjonskoder lagres bare i uleselig form.</li>

@@ -713,3 +713,30 @@ describe('basisvarer (innstillinger og strøm beholdning)', () => {
     expect(events[0].event).toEqual({ type: 'nivå', id: 'n1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', staple: 'kaffe', level: 'snart-tom' });
   });
 });
+
+describe('husholdningsvarer (utvidelse C): varegrupper i innstillingene og «Andre varer» i strømmen liste', () => {
+  const settings = { eaters: [], days: Array.from({ length: 7 }, () => ({ enabled: true, maxMinutes: 30 })), budgetOre: 90_000, storeIds: ['demoA'], regularStoreId: 'demoA', maxStops: 1, extraStoreThresholdOre: 0 };
+  const line = (id: string, by: string, extra: Record<string, unknown> = {}): Envelope =>
+    ({ stream: 'liste', event: { type: 'manuell', id, at: '2026-11-23T10:00:00.000Z', by, line: { id: 'hus:tjek:abc#0', text: 'Toalettpapir', note: 'tilbud hos Kiwi', ...extra } } as never });
+
+  it('gyldige varegrupper lagres; ukjente, doble eller fritekst avvises (strengt skjema)', async () => {
+    const { A } = await household();
+    expect(await code(A.putDoc('innstillinger', 0, { ...settings, householdGroups: ['papir', 'kjaeledyr'] } as never))).toBe('ok');
+    for (const householdGroups of [['bleier'], ['papir', 'papir'], 'papir', [1], ['Papir']]) {
+      expect(await code(A.putDoc('innstillinger', 1, { ...settings, householdGroups } as never)), JSON.stringify(householdGroups)).toBe('400 ugyldig_dokument');
+    }
+    expect((await A.pull(0)).docs.find((d) => d.name === 'innstillinger')!.body).toMatchObject({ householdGroups: ['papir', 'kjaeledyr'] });
+  });
+
+  it('samme linje fra to enheter og to ganger fra samme enhet: lagres per hendelse, én linje i lista; Tjek-pris og overskrift fjernes', async () => {
+    const { A, B } = await household();
+    expect(await A.push([line('l1', 'enhet-aaaa1111', { priceOre: 8990, heading: 'Lambi Toalettpapir 8 rull' })])).toEqual({ accepted: ['l1'], rejected: [] });
+    expect(await A.push([line('l1', 'enhet-aaaa1111')])).toEqual({ accepted: ['l1'], rejected: [] });
+    expect(await B.push([line('l2', 'enhet-bbbb2222')])).toEqual({ accepted: ['l2'], rejected: [] });
+    const events = (await B.pull(0)).events.filter((e) => e.stream === 'liste');
+    expect(events.map((e) => e.event.id)).toEqual(['l1', 'l2']);
+    expect((events[0].event as { line: unknown }).line).toEqual({ id: 'hus:tjek:abc#0', text: 'Toalettpapir', note: 'tilbud hos Kiwi' });
+    const { applyListEvents, householdListFacts } = await import('../../src/sync/list');
+    expect(householdListFacts(applyListEvents([], events.map((e) => e.event as never))).lines).toHaveLength(1);
+  });
+});

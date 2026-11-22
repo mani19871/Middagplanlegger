@@ -5,6 +5,8 @@
 //  - hele appen kan nås med tastatur (Tab når alle faner)
 //  - ingen horisontal scrolling på 360 og 420 px
 //  - Matskap → Lag nå og Basisvarer (forslag i handlelista én gang), handleliste (også handlemodus), Husstand og Kontroll: navn, 44 px trykkflater i handlemodus, dialog for «Slett», ingen overflyt
+//  - Kundeaviser → Husholdning (utvidelse C): uten kjede, med kjede, navn, 44 px, varegrupper med tastatur, «Legg på lista» én gang, «Andre varer» i handlelista
+//    Tilbudene her er oppdiktede testdata som bare finnes i denne sjekken (ruting i Playwright), aldri i appen.
 // Bruk: node scripts/checks/a11y.cjs
 const { chromium } = require('playwright');
 const url = process.env.APP_URL || 'http://localhost:5173/';
@@ -25,6 +27,13 @@ const unnamed = (p) => p.evaluate(() => {
   const b = await chromium.launch();
   for (const w of [420, 360]) {
     const ctx = await b.newContext({ viewport: { width: w, height: 800 } }); const p = await ctx.newPage();
+    // Oppdiktede husholdningstilbud (testdata, bare i denne sjekken): gyldige fra i dag i seks dager.
+    const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    const fake = (id, heading, dealerName, priceOre) => ({ id, source: 'tjek', heading, description: null, priceOre, prePriceOre: null, amount: null, unit: null, pieces: null,
+      dealerId: 'd', dealerName, validFrom: day(-1), validUntil: day(8), observed: new Date().toISOString(), image: null });
+    await p.route('**/api/offers/lagret', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', error: null, source: 'tjek', stored: true,
+      observed: new Date().toISOString(), oldestObserved: null, offers: [], truncated: false,
+      other: [fake('t1', 'Testtilbud Toalettpapir 8 rull med et ganske langt navn', 'Kiwi', 8990), fake('t2', 'Testtilbud Oppvaskmiddel', 'REMA 1000', 2990), fake('t3', 'Testtilbud bleier', 'Kiwi', 9990)] }) }));
     const scrollOk = async (n) => { const o = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(o <= 0, `${w}px ${n}: ingen horisontal scrolling`); };
     await p.goto(url); await p.waitForSelector('text=Lag ukeplan');
     let bad = await unnamed(p); ok(bad.length === 0, `${w}px skjema: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('skjema');
@@ -111,7 +120,34 @@ const unnamed = (p) => p.evaluate(() => {
     await p.getByRole('tab', { name: 'Matskap' }).click();
     for (const n of ['Kaffe', 'Ris', 'Knekkebrød']) await p.getByRole('button', { name: `Fjern basisvare ${n}` }).click();
     await p.getByRole('button', { name: /Matskapet/ }).first().click();
+    // Kundeaviser → Husholdning (utvidelse C)
+    const openHouse = async () => { await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Husholdning', exact: true }).click(); };
+    await openHouse();
+    ok(await p.getByText('Ingen kjede valgt').count() === 1, `${w}px Husholdning: uten valgt kjede vises ingen tilbud og appen ber om kjede`);
+    ok(await p.getByText(/Testtilbud/).count() === 0, 'Husholdning: ingen tilbud uten kjede');
+    await p.evaluate(() => { const k = 'middag-state-v1'; const st = JSON.parse(localStorage.getItem(k)); st.settings.offerChains = ['KIWI']; localStorage.setItem(k, JSON.stringify(st)); });
+    await p.reload(); await p.waitForSelector('[role=tablist]'); await openHouse();
+    await p.getByRole('heading', { name: /Trenger kontroll/ }).waitFor();
+    ok(await p.getByText(/Testtilbud Oppvaskmiddel/).count() === 0 && await p.getByText(/Testtilbud bleier/).count() === 0, 'Husholdning: bare valgt kjede, og aldri sensitive varer');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Husholdning: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Husholdning');
+    const smallH = await p.evaluate(() => [...document.querySelectorAll('.housecard .ghost.sm, .housegroups label')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { c: e.className || e.tagName, h: r.height }; }).filter((r) => r.h < 43.5));
+    ok(smallH.length === 0, `${w}px Husholdning: trykkflater minst 44 px høye ${JSON.stringify(smallH.slice(0, 3))}`);
+    const grp = p.getByRole('checkbox', { name: /Kjæledyr/ }); await grp.focus(); await p.keyboard.press('Space');
+    ok(!(await grp.isChecked()), 'Husholdning: varegruppe kan slås av med tastatur'); await p.keyboard.press('Space'); ok(await grp.isChecked(), 'Husholdning: og på igjen');
+    const addH = p.getByRole('button', { name: 'Legg Toalettpapir fra Kiwi på handlelista' }); await addH.focus(); await p.keyboard.press('Enter');
+    ok(await p.getByRole('button', { name: 'Toalettpapir fra Kiwi ligger på handlelista' }).isDisabled(), 'Husholdning: samme tilbud kan ikke legges på lista to ganger');
+    ok(await p.getByRole('status').filter({ hasText: 'er lagt på handlelista' }).count() === 1, 'Husholdning: bekreftelse i et status-område');
+    await p.getByRole('tab', { name: 'Handleliste' }).click();
+    ok(await p.getByText(/Andre varer, anslått/).count() === 1, `${w}px handleliste: egen sum «Andre varer»`);
+    ok(await p.getByRole('checkbox', { name: 'Kryss av Toalettpapir' }).count() === 1, 'handleliste: husholdningsvaren ligger én gang på lista med navn');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px handleliste med andre varer: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('handleliste med andre varer');
+    await p.getByRole('button', { name: 'Fjern Toalettpapir' }).click();
+    ok(await p.getByText(/Andre varer, anslått/).count() === 0, 'handleliste: «Andre varer» forsvinner når siste vare er fjernet');
     await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Kontroll' }).click();
+    await p.getByRole('button', { name: 'Husholdningstreff', exact: true }).click();
+    ok(await p.getByRole('heading', { name: 'Kontroll av husholdningstreff' }).count() === 1, `${w}px Kontroll → Husholdning: overskrift`);
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Kontroll (husholdning): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Kontroll (husholdning)');
+    await p.getByRole('button', { name: 'Mattreff', exact: true }).click();
     bad = await unnamed(p); ok(bad.length === 0, `${w}px Kontroll: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Kontroll');
     // Handleliste: avkrysning med tastatur og tilgjengelig navn, handlemodus med 44 px trykkflater
     await p.getByRole('tab', { name: 'Handleliste' }).click();

@@ -69,6 +69,20 @@ describe('GET /api/offers/lagret', () => {
     expect(body.offers.map((l) => l.offer.id)).toEqual(['ok']);
   });
 
+  it('husholdningstilbud (utvidelse C) i et eget felt «other»: ikke mat, ikke sensitive varer, ikke utløpte eller gamle priser', async () => {
+    const t = await start({ imageHosts: ['bilder.example.test'] });
+    await t.store.record([
+      offer('mat'), offer('hus', { heading: 'Lambi Toalettpapir 8 rull', amount: null, unit: null, image: 'https://annen.example.test/x.jpg' }),
+      offer('bleie', { heading: 'Libero bleier str 4' }), offer('utlopt', { heading: 'Oppvaskmiddel', validFrom: '2026-11-10', validUntil: '2026-11-16' }),
+      offer('gammel', { heading: 'Bakepapir', validFrom: '2026-11-01', validUntil: '2026-12-31', observed: '2026-11-05T08:00:00.000Z' }),
+    ], 'NO', '2026-11-23T08:00:05.000Z');
+    await t.store.setLastFetch('2026-11-23T08:00:05.000Z');
+    const body = (await (await fetch(`${t.base}/api/offers/lagret`)).json()) as LiveResponse;
+    expect(body.offers.map((l) => l.offer.id)).toEqual(['mat']);
+    expect(body.other!.map((o) => [o.id, o.heading, o.observed, o.image])).toEqual([['hus', 'Lambi Toalettpapir 8 rull', '2026-11-23T08:00:00.000Z', null]]);
+    expect(Object.keys(body.other![0]).sort()).toEqual(Object.keys(offer('x')).sort());
+  });
+
   it('uten vellykket henting: «loading», eller «error» etter feil, med fast feiltekst', async () => {
     let failures = 0;
     const t = await start({ collector: () => ({ failures }) });
