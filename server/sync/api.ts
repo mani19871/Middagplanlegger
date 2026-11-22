@@ -11,6 +11,7 @@
 //  DELETE /api/household/members/:id    (eier; id = offentlig id)    → 204
 //  POST   /api/household/leave                                       → 204
 //  DELETE /api/household                (eier; sletter alt)          → 204
+//  GET    /api/household/export         (medlem; innsyn/portabilitet)→ ServerExport (JSON-fil)
 //  POST   /api/sync/events              {events: Envelope[]}         → {accepted, rejected}
 //  GET    /api/sync?after=<cursor>                                   → SyncResponse
 //  PUT    /api/sync/docs/:name          {baseVersion, body}          → {version} | 409 {error:'konflikt', current}
@@ -18,7 +19,8 @@ import { createHash, createHmac, randomBytes as nodeRandomBytes, randomUUID } fr
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { DOC_NAMES, isValidDoc, stable, type DocName } from '../../src/sync/docs';
 import {
-  checkEnvelope, cleanEvent, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type StoredEnvelope, type Stream,
+  checkEnvelope, cleanEvent, cleanLabel, DEVICE_ID, LIMITS, type DocVersion, type ErrorCode, type MemberInfo, type ServerExport, type StoredEnvelope,
+  type Stream,
 } from '../../src/sync/protocol';
 import { QuotaExceededError, type DeviceRow, type DocOut, type SyncStorage } from '../storage/types';
 import { ipKey, RateLimiter } from './rateLimit';
@@ -44,6 +46,8 @@ export interface SyncApiOptions {
   maxFutureSkewMs?: number;
   /** Feillogg. Får bare feilens navn, aldri token, kode, etikett, kropp eller URL. */
   log?: (msg: string) => void;
+  /** Oppbevaringstid i dager (server/retention.ts), vises til medlemmene og i eksporten. 0 = av. Selve slettingen gjøres ikke her. */
+  retentionDays?: number;
 }
 const DEFAULT_RATES = {
   /** Per IP: alle kall. */ ipPerMin: 600,
@@ -52,6 +56,7 @@ const DEFAULT_RATES = {
   /** Alle IP-er samlet: nye husstander per time (mot å fylle disken med mange husstander). */ createGlobalPerHour: 200,
   /** Per IP: forsøk på å bli med per 10 min (mot gjetting av koder). */ joinPer10Min: 20,
   /** Alle IP-er samlet: feilede forsøk på å bli med per 10 min (mot gjetting fra mange adresser). */ joinFailGlobalPer10Min: 1000,
+  /** Per enhet: eksporter per time (en eksport kan være flere MB). */ exportPerHour: 10,
 };
 /** Kvoter per husstand. En familie bruker en brøkdel; de stopper et medlem eller et stjålet token fra å fylle disken. */
 export const DEFAULT_QUOTAS = {
@@ -76,6 +81,13 @@ const MESSAGES: Record<ErrorCode, string> = {
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 class HttpError extends Error { constructor(public status: number, public code: ErrorCode) { super(code); } }
+/** Svaret er allerede skrevet (strømmet eksport). */
+const STREAMED = Symbol('strømmet');
+/** Hendelser per side i eksporten (holder minnebruken nede for store husstander). */
+const EXPORT_PAGE = 2000;
+const EXPORT_TEXT = 'Alt serveren har lagret om husstanden din i Middagsplanlegger, slik det ligger i databasen. Enheter vises med '
+  + 'offentlig enhets-id og etikett. Nøkler (token), invitasjonskoder og interne id-er er ikke med. Postnummer, kostkrav og '
+  + 'allergier lagres aldri på serveren og finnes bare på enhetene.';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 export const normalizeCode = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -195,7 +207,16 @@ export function createSyncApi(opts: SyncApiOptions) {
 
     if (path === '/api/household' && method === 'GET') {
       const members = await storage.members(hh);
-      return [200, { members: members.filter((m) => !m.revokedAt).map((m) => memberInfo(m, me)), invites: await storage.activeInvites(hh, now()) }];
+      return [200, {
+        members: members.filter((m) => !m.revokedAt).map((m) => memberInfo(m, me)), invites: await storage.activeInvites(hh, now()),
+        retentionDays: opts.retentionDays ?? 0,
+      }];
+    }
+    if (path === '/api/household/export' && method === 'GET') {
+      // Innsyn og dataportabilitet: bare egen husstand (gitt av tokenet; ingen id i stien), ratebegrenset, aldri logget.
+      limit(`export:${me.id}`, rates.exportPerHour, 3_600_000);
+      await exportHousehold(res, me);
+      return [200, STREAMED];
     }
     if (path === '/api/household/me' && method === 'PATCH') {
       const body = await readJson(req);
@@ -312,6 +333,49 @@ export function createSyncApi(opts: SyncApiOptions) {
     throw new HttpError(404, 'ikke_funnet');
   }
 
+  /**
+   * Skriver eksporten som én JSON-fil, hendelsene side for side (en husstand kan ha 100 000). Hendelser som kommer
+   * mens eksporten skrives, er ikke med (alt til og med `seq` ved start).
+   */
+  async function exportHousehold(res: ServerResponse, me: DeviceRow) {
+    const dump = await storage.exportHousehold(me.householdId);
+    if (!dump) throw new HttpError(401, 'ikke_autentisert'); // slettet i mellomtiden
+    const pub = new Map(dump.devices.map((d) => [d.id, d.publicId]));
+    const head: Omit<ServerExport, 'hendelser'> = {
+      format: 'middagsplanlegger-servereksport', versjon: 1, eksportert: now(), forklaring: EXPORT_TEXT,
+      husstand: { opprettet: dump.createdAt, antallLagringer: dump.seq, oppbevaringDager: opts.retentionDays ?? 0 },
+      medlemmer: dump.devices.map((d) => ({
+        enhetsId: d.publicId, etikett: d.label, rolle: d.role, bleMed: d.createdAt, sistSett: d.lastSeen, fjernet: d.revokedAt, denneEnheten: d.id === me.id,
+      })),
+      invitasjoner: dump.invites.map((i) => ({
+        laget: i.createdAt, utløper: i.expiresAt, brukt: i.usedAt, lagetAv: pub.get(i.createdBy) ?? null, bruktAv: i.usedBy ? pub.get(i.usedBy) ?? null : null,
+      })),
+      dokumenter: dump.docs.map((d) => ({ navn: d.name, versjon: d.version, endretAv: d.updatedBy, endret: d.updatedAt, innhold: JSON.parse(d.body) })),
+    };
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="middagsplanlegger-server-${now().slice(0, 10)}.json"`);
+    const write = (chunk: string) => new Promise<void>((resolve, reject) => {
+      if (res.destroyed) { reject(new Error('avbrutt')); return; }
+      if (res.write(chunk)) { resolve(); return; }
+      const done = () => { res.off('close', fail); resolve(); };
+      const fail = () => { res.off('drain', done); reject(new Error('avbrutt')); };
+      res.once('drain', done); res.once('close', fail);
+    });
+    const text = JSON.stringify(head);
+    await write(`${text.slice(0, -1)},"hendelser":[`);
+    let after = 0, first = true;
+    for (;;) {
+      const page = await storage.exportEvents(me.householdId, after, dump.seq, EXPORT_PAGE);
+      if (page.length === 0) break;
+      const rows = page.map((e) => JSON.stringify({ nr: e.seq, strøm: e.stream, mottatt: e.receivedAt, levertAv: pub.get(e.deviceId) ?? null, hendelse: JSON.parse(e.body) }));
+      await write((first ? '' : ',') + rows.join(','));
+      first = false;
+      after = page[page.length - 1].seq;
+    }
+    res.end(']}');
+  }
+
   /** Håndterer /api/household* og /api/sync*. Returnerer false for andre stier. */
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     let url: URL;
@@ -334,7 +398,13 @@ export function createSyncApi(opts: SyncApiOptions) {
     let payload: unknown;
     try {
       [status, payload] = await route(req, res, url);
+      if (payload === STREAMED) return true;
     } catch (e) {
+      // Feil midt i en strømmet eksport (f.eks. klienten koblet fra): svaret er påbegynt og kan bare avbrytes.
+      if (res.headersSent) {
+        if (!(e instanceof Error && e.message === 'avbrutt')) log(`eksport-feil: ${e instanceof Error ? e.name : typeof e}`);
+        res.destroy(); return true;
+      }
       if (e instanceof HttpError) { status = e.status; payload = { error: e.code, message: MESSAGES[e.code] }; }
       else {
         // Bare navnet på feilen: meldinger kan inneholde verdier fra forespørselen.

@@ -4,6 +4,7 @@
 // og ulike «fant ikke»-valg på samme vare (én enhet uten nett) blir en synlig konflikt som én voksen løser.
 // Til slutt: tilbudskjeder (offerChains) valgt på A vises på B, og serveren gjenopprettes fra en eldre kopi
 // (databasefil byttes, serveren startes på nytt): enhetene sender det som manglet på nytt, uten doble rader.
+// Så laster B (ikke eier) ned sine data: filen har alle hendelsene, begge medlemmene og ingen token.
 // Kjør: npm run e2e:sync   (bygger appen først). Krever Playwright med Chromium.
 // Mot produksjonsbygget av serveren: npm run build && npm run build:server && BUILT_SERVER=1 node scripts/e2e-sync.mjs
 // (node dist-server/index.mjs i stedet for tsx).
@@ -244,6 +245,25 @@ try {
   }
   if (!(await state(B)).settings.offerChains?.includes('KIWI')) throw new Error('Kjedevalget forsvant etter gjenoppretting');
   step(`OK: alle ${afterRestore.length} hendelser er tilbake, ingen doble, kjedevalget står`);
+
+  // ---------- «Last ned mine data» (innsyn og portabilitet) ----------
+  step('B (ikke eier) laster ned sine data fra Husstand-skjermen');
+  await B.getByRole('button', { name: /Husstand og deling/ }).click();
+  await B.getByText(/Enhets-id/).first().waitFor(T);
+  const [dl] = await Promise.all([B.waitForEvent('download', T), B.getByRole('button', { name: /Last ned mine data/ }).click()]);
+  const { readFileSync } = await import('node:fs');
+  const text = readFileSync(await dl.path(), 'utf8');
+  const file = JSON.parse(text);
+  const tokens = await Promise.all([A, B].map((p) => p.evaluate(() => JSON.parse(localStorage.getItem('middag-state-v1')).sync.token)));
+  if (file.format !== 'middagsplanlegger-eksport' || file.versjon !== 1 || !file.eksportert) throw new Error('Eksporten mangler format, versjon eller tidspunkt');
+  if (tokens.some((t) => text.includes(t)) || /"token"/.test(text)) throw new Error('Eksporten inneholder et token');
+  const ids = file.server?.hendelser?.map((h) => h.hendelse.id).sort() ?? [];
+  if (JSON.stringify(ids) !== JSON.stringify(afterRestore)) throw new Error(`Eksporten har ${ids.length} av ${afterRestore.length} hendelser`);
+  if (file.server.medlemmer.length !== 2 || !file.server.medlemmer.some((m) => m.denneEnheten && m.rolle === 'voksen')) throw new Error('Eksporten har feil medlemmer');
+  if (file.enhet.enhetsId !== file.server.medlemmer.find((m) => m.denneEnheten).enhetsId) throw new Error('Enhets-id i eksporten stemmer ikke');
+  await B.getByText(/Filen er lastet ned/).waitFor(T);
+  await B.getByRole('tab', { name: 'Handleliste' }).click();
+  step(`OK: eksporten har ${ids.length} hendelser, ${file.server.dokumenter.length} dokumenter, 2 medlemmer og ingen token (${dl.suggestedFilename()})`);
   if (process.env.E2E_SCREENSHOT_DIR) {
     await A.screenshot({ path: join(process.env.E2E_SCREENSHOT_DIR, 'enhet-a.png') });
     await B.screenshot({ path: join(process.env.E2E_SCREENSHOT_DIR, 'enhet-b.png') });

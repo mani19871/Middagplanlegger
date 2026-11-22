@@ -9,6 +9,9 @@ import { whoLabel } from '../sync/labels';
 import type { SyncRuntime } from '../sync/useSync';
 import type { SyncStatus } from '../sync/engine';
 import { Sheet } from './Sheet';
+import PrivacySheet from './PrivacySheet';
+import { buildExport, exportFileName, exportText } from '../sync/export';
+import type { ServerExport } from '../sync/protocol';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; runtime: SyncRuntime; status: SyncStatus;
@@ -17,6 +20,15 @@ interface Props {
 const DOC_TEXT: Record<DocName, string> = { plan: 'Ukeplanen', innstillinger: 'Innstillingene' };
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'aldri');
 const errText = (e: unknown) => (e instanceof SyncError ? e.message : 'Noe gikk galt. Prøv igjen.');
+
+/** Lagrer teksten som fil via en blob-lenke (ingen inline-skript eller HTML; virker med CSP og Trusted Types). */
+function saveFile(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.style.display = 'none';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
 
 export default function HouseholdView({ state, update, runtime, status, statusText, purchaseConflicts, initialCode, openList }: Props) {
   const sync = state.sync;
@@ -31,7 +43,49 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
   const [wipeLocal, setWipeLocal] = useState(false);
   const [copied, setCopied] = useState('');
   const [confirmWipe, setConfirmWipe] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
+  const [exported, setExported] = useState('');
+  const [confirmLocal, setConfirmLocal] = useState(false);
   const api = sync ? defaultApi.withToken(sync.token) : defaultApi;
+
+  /** «Last ned mine data»: alt på enheten og, i en husstand, alt serveren har om husstanden. Uten nett: bare enheten. */
+  const downloadMine = () => act(async () => {
+    setExported('');
+    let server: ServerExport | null = null;
+    let note: string | undefined;
+    if (sync) {
+      try { server = await api.exportData(); } catch (e) {
+        if (e instanceof SyncError && e.unauthorized) throw e;
+        note = `Serverdelen kunne ikke hentes: ${errText(e)}`;
+      }
+    }
+    const now = new Date().toISOString();
+    saveFile(exportFileName(now), exportText(buildExport(state, deviceId(), now, server, note)));
+    setExported(note ? `Filen er lastet ned, men bare med det som er på denne enheten. ${note} Prøv igjen når enheten er på nett.` : 'Filen er lastet ned.');
+  });
+  const privacyCard = (
+    <>
+      <h3>Personvern og dine data</h3>
+      <div className="card">
+        <div className="drow"><span>Enhets-id</span><b><code>{deviceId()}</code></b></div>
+        <p className="fine">Tilfeldig id for denne enheten. Oppgi den hvis du kontakter oss om personvern.</p>
+        <button className="ghost" disabled={busy} onClick={downloadMine}>⬇ Last ned mine data</button>
+        <p className="fine">En fil (JSON) med alt som er lagret på denne enheten{sync ? ' og alt serveren har om husstanden' : ''}. Nøkkelen til husstanden er ikke med.</p>
+        <p className="fine" role="status" aria-live="polite">{exported && `✓ ${exported}`}</p>
+        <button className="link" onClick={() => setPrivacy(true)}>Les om personvern: hva lagres hvor, og hvor lenge</button>
+        {!confirmLocal ? <button className="link" onClick={() => setConfirmLocal(true)}>Slett alt på denne enheten …</button> : (
+          <div className="banner warn" role="alert">
+            Alt som er lagret i appen på denne enheten slettes: plan, innstillinger, postnummer, allergier og kostkrav, handleliste,
+            matskap{sync ? ' og nøkkelen til husstanden' : ''}. Kan ikke angres.
+            {sync ? ' Enheten står fortsatt som medlem på serveren: forlat husstanden først hvis du ikke skal bruke den mer. Husstandens data på serveren slettes ikke.' : ''}
+            <div><button className="ghost sm danger" onClick={() => { try { localStorage.clear(); } catch { /* lagring kan mangle */ } location.reload(); }}>Ja, slett alt her</button>
+              <button className="ghost sm" onClick={() => setConfirmLocal(false)}>Avbryt</button></div>
+          </div>
+        )}
+      </div>
+      {privacy && <PrivacySheet state={state} retentionDays={info?.retentionDays} onClose={() => setPrivacy(false)} />}
+    </>
+  );
 
   const act = async (f: () => Promise<void>) => {
     setBusy(true); setError(null);
@@ -64,6 +118,7 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
           plan, innstillinger (etiketter som «Barn 1», porsjoner, dager, budsjett, butikker), avkrysninger og matskap. Postnummer,
           kostkrav og allergier blir på denne enheten.
           Bruk etiketter, ikke barns navn. Barn og gjester trenger ingen konto.</p>
+        <button className="link" onClick={() => setPrivacy(true)}>Les om personvern før du deler</button>
         <label className="big" htmlFor="lbl">Hva skal denne enheten hete i husstanden? (valgfritt)</label>
         <input id="lbl" maxLength={24} placeholder="F.eks. Voksen 1" value={label} onChange={(e) => setLabel(e.target.value)} />
         {error && <div className="banner warn" role="alert">{error}</div>}
@@ -83,6 +138,7 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
             Matskap og avkrysninger herfra legges til husstanden, uten doble rader.</p>
           <button className="cta" disabled={busy || code.replace(/[^a-z0-9]/gi, '').length !== 10} aria-describedby="codehelp" onClick={join}>Bli med</button>
         </div>
+        {privacyCard}
       </>
     );
   }
@@ -190,6 +246,7 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
           </>
         )}
       </div>
+      {privacyCard}
       {confirmWipe && (
         <Sheet label="Slett husstanden og alle data" onClose={() => setConfirmWipe(false)}>
           <div className="pagehead"><h2>Slett husstanden?</h2><button className="x" aria-label="Lukk" onClick={() => setConfirmWipe(false)}>✕</button></div>

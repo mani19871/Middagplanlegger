@@ -4,6 +4,7 @@ import { generatePlan } from './engine/planner';
 import { hasDietFilter, recordEvent, usePersistentState } from './store';
 import { conflicts, deriveStock, type InventoryEvent } from './engine/inventory';
 import HouseholdView from './views/HouseholdView';
+import PrivacySheet from './views/PrivacySheet';
 import { useSync } from './sync/useSync';
 import { syncErrorText } from './sync/api';
 import { pendingCount, syncStatus, type SyncStatus } from './sync/engine';
@@ -50,6 +51,7 @@ export default function App() {
   const otherMembers = state.sync ? state.sync.members.filter((m) => !m.removed && !m.me).length : 0;
   const filterBanner = otherMembers > 0 && !hasDietFilter(state.settings) && !state.filterBannerDismissed;
   const [mode, setMode] = useState<Mode>('home');
+  const [privacy, setPrivacy] = useState(false);
   const [papersReset, setPapersReset] = useState(0); // trykk på aktiv fane nullstiller åpen utgave/detalj
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
   const kids = state.settings.eaters.length - adults;
@@ -132,7 +134,9 @@ export default function App() {
         {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
           purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
         {tab === 'Matskap' && <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} />}
+        <footer className="foot"><button className="link" onClick={() => setPrivacy(true)}>Personvern</button></footer>
       </main>
+      {privacy && <PrivacySheet state={state} onClose={() => setPrivacy(false)} />}
       <nav role="tablist" aria-label="Hovedmeny" onKeyDown={(e) => {
         // Piltaster flytter mellom faner (roving tabindex), Home/End til første/siste.
         const i = TABS.indexOf(tab as (typeof TABS)[number]);

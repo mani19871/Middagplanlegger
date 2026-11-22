@@ -28,6 +28,16 @@ export class QuotaExceededError extends Error { constructor() { super('kvote_ful
 /** Etiketten en fjernet eller utløpt enhet får (dataminimering: egen etikett og «sist sett» fjernes). */
 export const REMOVED_LABEL = 'Tidligere medlem';
 export type PutDocResult = { ok: true; version: number } | { ok: false; current: DocOut | null };
+/** Alt som er lagret om en husstand utenom hendelsene (til eksport, GDPR art. 15 og 20). Interne id-er er med; API-et oversetter. */
+export interface HouseholdDump {
+  createdAt: string; seq: number;
+  devices: DeviceRow[];
+  /** Invitasjoner uten kodens HMAC. `createdBy` og `usedBy` er interne enhets-id-er. */
+  invites: { createdAt: string; expiresAt: string; usedAt: string | null; createdBy: string; usedBy: string | null }[];
+  docs: DocOut[];
+}
+/** En lagret hendelse slik den ligger i databasen (til eksport). `deviceId` er den interne id-en til enheten som leverte. */
+export interface EventDump { seq: number; stream: Stream; body: string; receivedAt: string; deviceId: string }
 
 export interface SyncStorage {
   createHousehold(householdId: string, device: NewDevice, now: string): Promise<DeviceRow>;
@@ -61,6 +71,16 @@ export interface SyncStorage {
   readSince(householdId: string, after: number, limit: number): Promise<ReadResult>;
   /** Id-en til hendelsen med denne `seq` i husstanden, eller null (finnes ikke, f.eks. etter gjenoppretting fra eldre kopi). */
   eventIdAt(householdId: string, seq: number): Promise<string | null>;
+  /** Alt om husstanden utenom hendelsene, eller null hvis den ikke finnes. */
+  exportHousehold(householdId: string): Promise<HouseholdDump | null>;
+  /** Lagrede hendelser med `after < seq <= upTo`, sortert på seq, høyst `limit`. */
+  exportEvents(householdId: string, after: number, upTo: number, limit: number): Promise<EventDump[]>;
+  /**
+   * Oppbevaringstid: sletter (som `deleteHousehold`) husstander der siste aktivitet er før `before`. Siste aktivitet er
+   * seneste «sist sett» for en enhet i husstanden (oppdateres ved hvert autentiserte kall), ellers når husstanden ble
+   * opprettet. Høyst `limit` per kall. Returnerer antall slettede (aldri hvilke).
+   */
+  deleteInactive(before: string, limit: number): Promise<number>;
   /** Helsesjekk: databasen svarer (SELECT 1). Kaster ved feil. */
   ping(): Promise<void>;
   /** Skriver dokumentet hvis baseVersion er gjeldende versjon (0 = finnes ikke). Ellers returneres gjeldende versjon. */

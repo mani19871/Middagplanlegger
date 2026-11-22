@@ -6,7 +6,7 @@ import type { DocName } from '../../src/sync/docs';
 import type { Role, Stream } from '../../src/sync/protocol';
 import {
   QuotaExceededError, REMOVED_LABEL,
-  type DeviceRow, type DocOut, type EventIn, type EventQuota, type JoinResult, type MemberQuota, type NewDevice, type PutDocResult,
+  type DeviceRow, type DocOut, type EventDump, type EventIn, type HouseholdDump, type EventQuota, type JoinResult, type MemberQuota, type NewDevice, type PutDocResult,
   type ReadResult, type SyncStorage,
 } from './types';
 
@@ -254,6 +254,43 @@ export class SqliteStorage implements SyncStorage {
   }
 
   async ping(): Promise<void> { this.db.prepare('SELECT 1').get(); }
+
+  async exportHousehold(householdId: string): Promise<HouseholdDump | null> {
+    // Én lesetransaksjon: medlemmer, invitasjoner og dokumenter hører sammen. Ingen await inne i den (samme tilkobling).
+    this.db.exec('BEGIN');
+    try {
+      const h = this.db.prepare('SELECT created_at, seq FROM households WHERE id = ?').get(householdId) as { created_at: string; seq: number } | undefined;
+      if (!h) return null;
+      const invites = (this.db.prepare('SELECT created_at, expires_at, used_at, created_by, used_by FROM invites WHERE household_id = ? ORDER BY created_at, rowid')
+        .all(householdId) as { created_at: string; expires_at: string; used_at: string | null; created_by: string; used_by: string | null }[])
+        .map((r) => ({ createdAt: r.created_at, expiresAt: r.expires_at, usedAt: r.used_at, createdBy: r.created_by, usedBy: r.used_by }));
+      const docs = (this.db.prepare('SELECT name, version, body, updated_by, updated_at FROM docs WHERE household_id = ? ORDER BY name')
+        .all(householdId) as { name: DocName; version: number; body: string; updated_by: string; updated_at: string }[])
+        .map((r): DocOut => ({ name: r.name, version: r.version, body: r.body, updatedBy: r.updated_by, updatedAt: r.updated_at }));
+      const devices = (this.db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE household_id = ? ORDER BY created_at, rowid`).all(householdId) as unknown as DeviceDb[]).map(toDevice);
+      return { createdAt: h.created_at, seq: h.seq, devices, invites, docs };
+    } finally { this.db.exec('COMMIT'); }
+  }
+
+  async exportEvents(householdId: string, after: number, upTo: number, limit: number): Promise<EventDump[]> {
+    return (this.db.prepare('SELECT seq, stream, body, received_at, device_id FROM events WHERE household_id = ? AND seq > ? AND seq <= ? ORDER BY seq LIMIT ?')
+      .all(householdId, after, upTo, limit) as { seq: number; stream: Stream; body: string; received_at: string; device_id: string }[])
+      .map((r) => ({ seq: r.seq, stream: r.stream, body: r.body, receivedAt: r.received_at, deviceId: r.device_id }));
+  }
+
+  async deleteInactive(before: string, limit: number): Promise<number> {
+    const n = this.tx(() => {
+      // Siste aktivitet: seneste «sist sett» blant enhetene (fjernede har ingen), ellers opprettet. ISO-tekst sorterer som tid.
+      const ids = this.db.prepare(`SELECT h.id FROM households h
+        WHERE MAX(h.created_at, COALESCE((SELECT MAX(d.last_seen) FROM devices d WHERE d.household_id = h.id), '')) < ? LIMIT ?`)
+        .all(before, limit) as { id: string }[];
+      const del = this.db.prepare('DELETE FROM households WHERE id = ?');
+      for (const r of ids) del.run(r.id);
+      return ids.length;
+    });
+    if (n > 0) this.scrub();
+    return n;
+  }
 
   /** Konsistent kopi mens serveren kjører (VACUUM INTO). Filen må ikke finnes fra før. */
   backupTo(path: string): void { this.db.prepare('VACUUM INTO ?').run(path); }

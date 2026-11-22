@@ -1,5 +1,5 @@
 > **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse før bruk.**
-> Tekst i [hakeparenteser] må fylles ut eller avgjøres. **Avstemt 2026-11-22 mot synk-løsningen** (`docs/synk.md`, koden): erklæringen beskriver nå hva appen faktisk lagrer (kostkrav og postnummer synkes ikke). Den må likevel ikke publiseres før en fagperson har lest den, og den må oppdateres hvis noe i appen endres. Appen har i dag ingen lenke til erklæringen; den må legges inn før piloten.
+> Tekst i [hakeparenteser] må fylles ut eller avgjøres. **Avstemt 2026-11-22 mot synk-løsningen** (`docs/synk.md`, koden): erklæringen beskriver nå hva appen faktisk lagrer (kostkrav og postnummer synkes ikke). Den må likevel ikke publiseres før en fagperson har lest den, og den må oppdateres hvis noe i appen endres. Appen har et ark «Personvern» (Husstand-skjermen og bunnen av hver side) med en kortere tekst bygget på dette utkastet, merket UTKAST og «ikke ferdig vurdert av fagperson»; den må byttes når erklæringen er godkjent.
 
 # Personvernerklæring for Middagsplanlegger (pilot)
 
@@ -26,7 +26,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 
 | Hva | Hvorfor | Hvor lenge |
 | --- | --- | --- |
-| Valgte butikker, budsjett, antall butikkstopp, hvilke dager dere lager middag og hvor lang tid, om tilbud brukes og hvilke kjeder | Regne ut ukeplan og anslått pris | Til husstanden slettes [eller [12] måneder etter siste bruk; bygges ikke ennå] |
+| Valgte butikker, budsjett, antall butikkstopp, hvilke dager dere lager middag og hvor lang tid, om tilbud brukes og hvilke kjeder | Regne ut ukeplan og anslått pris | Til husstanden slettes, og senest når ingen enhet i husstanden har vært i kontakt med serveren på [12 måneder] (automatisk; fristen er konfigurerbar og ikke avgjort) |
 | Etiketter for personer («Voksen 1», «Barn 1»), porsjonsstørrelse, dager hjemme. Etiketten er fritekst: skriv ikke navn eller helseopplysninger der | Regne ut hvor mye mat dere trenger | Samme |
 | Plan (hvilke middager), handleliste med avkrysninger og egne linjer du skriver inn, kjøp, det dere har hjemme, hva som er laget, og valg ved utsolgt vare | Gi dere samme plan og liste på alle enhetene | Samme |
 | Hvilke enheter som er med: en tilfeldig enhets-id, en etikett du velger («Voksen 2»), når enheten ble med og sist var i bruk (avrundet til minutt), og en kode som bare lagres i uleselig form (sha256) | Koble enhetene til samme husstand og vite hvem som har krysset av | Til husstanden slettes. Fjernes en enhet, blir en tom «rad» med id og etikett liggende til husstanden slettes [dette skal endres] |
@@ -41,7 +41,7 @@ Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Ap
 | Teknisk logg: i vårt oppsett lagres ikke IP-adresse eller innhold i tilgangslogg [må bekreftes for valgt leverandør]. IP-adressen din brukes kort i serverens minne for å stoppe misbruk og glemmes når serveren starter på nytt | Sikkerhet og feilretting | [14] dager hvis noe logges |
 | Henvendelser du sender oss | Svare deg | [12] måneder etter at saken er avsluttet |
 
-Hvis en husstand ikke har vært brukt på [12] måneder, sletter vi den. [Dette er ikke bygget ennå: stryk setningen eller bygg rutinen før piloten.]
+Hvis ingen enhet i en husstand har vært i kontakt med serveren på [12] måneder, sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. Det som er lagret på enhetene dine, slettes ikke. [Bygget, `SYNC_RETENTION_DAYS`; fristen må avgjøres.]
 
 Merk: selv om vi ikke lagrer allergier og kostkrav som egne opplysninger, kan planen og handlelisten din si noe om hva dere spiser og kjøper. Skriv ikke helseopplysninger eller navn i etiketter og egne handlelinjer.
 
@@ -87,7 +87,7 @@ Send e-post til [adresse]. Vi svarer innen en måned. Vi kan be deg bekrefte at 
 
 **Sletting:** når eieren sletter husstanden i appen (bekreftes ved å skrive SLETT), fjernes dataene fra systemet vårt med en gang, og de andre enhetene i husstanden kobles fra. Spor i serverens databasefil overskrives i løpet av kort tid. Sikkerhetskopier overskrives innen [30] dager, og kopiene brukes bare til gjenoppretting etter feil. Det som ligger på enhetene dine, sletter du selv (valget «Slett også alt som er lagret på denne enheten», eller «Slett lokale data»).
 
-**Innsyn og kopi:** appen har ingen knapp for å laste ned dataene. Send e-post, så henter vi en kopi manuelt. [Eier avgjør om en eksportfunksjon skal bygges før piloten.]
+**Innsyn og kopi:** velg «Last ned mine data» på Husstand-skjermen. Du får én fil (JSON) med alt som er lagret på enheten din og alt vi har om husstanden på serveren. Nøkkelen til husstanden er ikke med. Kan du ikke bruke appen, send e-post. Oppgi gjerne enhets-id-en som står på Husstand-skjermen.
 
 ## Klage
 

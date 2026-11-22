@@ -10,6 +10,7 @@ import { buildBasket } from '../../src/engine/planner';
 import { catalog } from '../../src/data/catalog';
 import { defaultSettings } from '../../src/data/defaults';
 import { startTestServer } from './testkit';
+import { DEFAULT_RETENTION_DAYS, retentionDaysFrom, runRetention, startRetention } from '../retention';
 
 type Srv = Awaited<ReturnType<typeof startTestServer>>;
 let srv: Srv;
@@ -388,5 +389,158 @@ describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () =>
     // Også i databasen: feltene er aldri lagret.
     const hh = (await srv.storage.authenticate(sha((A as unknown as { token: string }).token), srv.now()))!.householdId;
     expect((await srv.storage.readSince(hh, 0, 10)).events.map((e) => e.body).join('')).not.toMatch(/Kari|gluten|skjult|ekstra|posisjon/);
+  });
+});
+
+describe('eksport (innsyn og dataportabilitet)', () => {
+  const plan = { slots: [{ day: 1, recipeId: 'taco', locked: false }], approved: false, option: 'regular' as const };
+  it('et medlem (også ikke-eier) får alt om husstanden: medlemmer, invitasjoner, dokumenter og hendelser', async () => {
+    const { A, B, a } = await household();
+    await A.putDoc('plan', 0, plan);
+    await A.push([telling('t1', 'enhet-aaaa1111')]);
+    await B.push([kjop('k1', 'enhet-bbbb2222', 2)]);
+    for (const X of [A, B]) {
+      const x = await X.exportData();
+      expect(x).toMatchObject({ format: 'middagsplanlegger-servereksport', versjon: 1, eksportert: srv.now() });
+      expect(x.medlemmer.map((m) => [m.enhetsId, m.etikett, m.rolle])).toEqual([['enhet-aaaa1111', 'Voksen 1', 'eier'], ['enhet-bbbb2222', 'Voksen 2', 'voksen']]);
+      expect(x.medlemmer.filter((m) => m.denneEnheten)).toHaveLength(1);
+      // Brukte og utløpte invitasjoner ryddes når en ny lages; her finnes den B brukte.
+      expect(x.invitasjoner).toEqual([{ laget: srv.now(), utløper: '2026-11-24T10:00:00.000Z', brukt: srv.now(), lagetAv: 'enhet-aaaa1111', bruktAv: 'enhet-bbbb2222' }]);
+      expect(x.dokumenter).toEqual([{ navn: 'plan', versjon: 1, endretAv: 'enhet-aaaa1111', endret: srv.now(), innhold: plan }]);
+      expect(x.hendelser.map((h) => [h.strøm, (h.hendelse as { id: string }).id, h.levertAv])).toEqual([
+        ['beholdning', 't1', 'enhet-aaaa1111'], ['beholdning', 'k1', 'enhet-bbbb2222']]);
+      expect(x.husstand.antallLagringer).toBe(3);
+    }
+    // Rå HTTP: lastes ned som fil, aldri lagret i mellomlager.
+    const r = await raw('/api/household/export', { headers: { Authorization: `Bearer ${a.token}` } });
+    expect(r.headers.get('content-disposition')).toBe('attachment; filename="middagsplanlegger-server-2026-11-23.json"');
+    expect(r.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('aldri token, tokenhash, invitasjonskode, kodens HMAC eller interne id-er', async () => {
+    const { A, a, b } = await household();
+    const inv = await A.invite();
+    await A.push([telling('t1', 'enhet-aaaa1111')]);
+    const text = JSON.stringify(await A.exportData());
+    const hh = (await srv.storage.authenticate(sha(a.token), srv.now()))!.householdId;
+    const internal = (await srv.storage.members(hh)).map((m) => m.id);
+    const { createHmac } = await import('node:crypto');
+    const hmac = (c: string) => createHmac('sha256', 'testhemmelighet').update(c.replace(/[^A-Z0-9]/gi, '').toUpperCase()).digest('hex');
+    for (const secret of [a.token, b.token, sha(a.token), sha(b.token), inv.code, inv.code.replace('-', ''), hmac(inv.code), hh, ...internal]) {
+      expect(text).not.toContain(secret);
+    }
+    expect(text).not.toMatch(/"(token|tokenHash|token_hash|codeHash|code_hash|householdId|household_id|deviceId|device_id)"/);
+  });
+
+  it('bare egen husstand: tokenet bestemmer husstanden, og en annen husstands data er aldri med', async () => {
+    const one = await household();
+    await one.A.push([telling('hemmelig-hendelse', 'enhet-aaaa1111')]);
+    await one.A.putDoc('plan', 0, plan);
+    const c = await anon().createHousehold('enhet-cccc3333', 'Annen');
+    const C = anon().withToken(c.token);
+    const x = await C.exportData();
+    expect(x.medlemmer.map((m) => m.enhetsId)).toEqual(['enhet-cccc3333']);
+    expect(x.hendelser).toEqual([]);
+    expect(x.dokumenter).toEqual([]);
+    expect(JSON.stringify(x)).not.toMatch(/hemmelig-hendelse|enhet-aaaa1111|enhet-bbbb2222|Voksen/);
+    // Ingen id i stien kan peke på en annen husstand: ekstra stidel eller spørring gir 404 eller samme svar.
+    expect((await raw('/api/household/export/annen', { headers: { Authorization: `Bearer ${c.token}` } })).status).toBe(404);
+    const q = await (await raw('/api/household/export?husstand=1&id=enhet-aaaa1111', { headers: { Authorization: `Bearer ${c.token}` } })).json();
+    expect(q.hendelser).toEqual([]);
+  });
+
+  it('fjernet medlem og slettet husstand: 401; uten token: 401', async () => {
+    const { A, B } = await household();
+    await A.removeMember('enhet-bbbb2222');
+    expect(await code(B.exportData())).toBe('401 ikke_autentisert');
+    expect(await code(anon().exportData())).toBe('401 ikke_autentisert');
+    await A.deleteHousehold();
+    expect(await code(A.exportData())).toBe('401 ikke_autentisert');
+  });
+
+  it('mange hendelser strømmes side for side og blir én gyldig JSON-fil', async () => {
+    const { A } = await household();
+    for (let i = 0; i < 5; i++) await A.push(Array.from({ length: 500 }, (_, j) => telling(`t${i}-${j}`, 'enhet-aaaa1111')));
+    const x = await A.exportData();
+    expect(x.hendelser).toHaveLength(2500);
+    expect(x.hendelser.map((h) => h.nr)).toEqual(Array.from({ length: 2500 }, (_, i) => i + 1));
+  });
+
+  it('ratebegrenset per enhet (10 per time)', async () => {
+    await srv.close();
+    srv = await startTestServer({ limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, createGlobalPerHour: 100_000, joinPer10Min: 1000 } });
+    const { A, B } = await household();
+    for (let i = 0; i < 10; i++) expect(await code(A.exportData())).toBe('ok');
+    expect(await code(A.exportData())).toBe('429 for_mange_forespørsler');
+    expect(await code(B.exportData())).toBe('ok'); // egen teller per enhet
+    srv.advance(3_600_001);
+    expect(await code(A.exportData())).toBe('ok');
+  });
+});
+
+describe('oppbevaringstid (automatisk sletting etter inaktivitet)', () => {
+  const DAY = 86_400_000;
+  it('sletter husstander uten aktivitet i N dager, med alt innhold; aktive husstander står', async () => {
+    const one = await household(); // aktiv
+    const two = await household(); // inaktiv
+    await two.A.invite();
+    await two.A.putDoc('plan', 0, { slots: [], approved: false, option: 'regular' });
+    await two.B.push([telling('gammel', 'enhet-bbbb2222')]);
+    const before = srv.storage.counts();
+    srv.advance(200 * DAY);
+    await one.B.household(); // én autentisert synk fra hvilket som helst medlem holder husstanden i live
+    srv.advance(200 * DAY);
+    expect(await runRetention(srv.storage, 365, srv.now())).toBe(1);
+    expect(await code(one.A.pull(0))).toBe('ok');
+    expect(await code(two.A.pull(0))).toBe('401 ikke_autentisert');
+    expect(await code(two.B.exportData())).toBe('401 ikke_autentisert');
+    const after = srv.storage.counts();
+    expect(after).toEqual({ households: 1, devices: 2, invites: 1, events: 0, docs: 0 });
+    expect(before.events).toBe(1);
+    // Grensen: aktiv for nøyaktig N dager siden står; ett minutt over slettes.
+    srv.advance(365 * DAY); // one ble sist sett ved pull(0) over
+    expect(await runRetention(srv.storage, 365, srv.now())).toBe(0);
+    srv.advance(60_001);
+    expect(await runRetention(srv.storage, 365, srv.now())).toBe(1);
+    expect(srv.storage.counts().households).toBe(0);
+  });
+
+  it('0 = av; standard 365; ugyldig verdi gir standard (aldri av ved en skrivefeil)', async () => {
+    await household();
+    srv.advance(10_000 * DAY);
+    expect(await runRetention(srv.storage, 0, srv.now())).toBe(0);
+    expect(srv.storage.counts().households).toBe(1);
+    const warn: string[] = [];
+    expect(retentionDaysFrom(undefined)).toBe(DEFAULT_RETENTION_DAYS);
+    expect(DEFAULT_RETENTION_DAYS).toBe(365);
+    expect(retentionDaysFrom('0')).toBe(0);
+    expect(retentionDaysFrom(' 90 ')).toBe(90);
+    for (const v of ['-1', 'av', '1.5', 'NaN']) expect(retentionDaysFrom(v, (m) => warn.push(m))).toBe(365);
+    expect(warn).toHaveLength(4);
+  });
+
+  it('jobben kjører ved oppstart og periodisk med injisert klokke; loggen får bare antall', async () => {
+    const { A } = await household();
+    await A.setLabel('UnikEtikett');
+    let clock = Date.parse(srv.now());
+    const logs: string[] = [];
+    const job = startRetention({ storage: srv.storage, days: 30, now: () => new Date(clock).toISOString(), log: (m) => logs.push(m), intervalMs: 20 });
+    expect(await job.first).toBe(0);
+    clock += 31 * DAY;
+    for (let i = 0; i < 50 && srv.storage.counts().households > 0; i++) await new Promise((r) => setTimeout(r, 10));
+    job.stop();
+    expect(srv.storage.counts().households).toBe(0);
+    expect(logs).toEqual(['Oppbevaring: slettet 1 husstand uten aktivitet på 30 dager.']);
+    const off: string[] = [];
+    expect(await startRetention({ storage: srv.storage, days: 0, now: () => '', log: (m) => off.push(m) }).first).toBe(0);
+    expect(off[0]).toMatch(/er av/);
+  });
+
+  it('oppbevaringstiden vises til medlemmene', async () => {
+    await srv.close();
+    srv = await startTestServer({ retentionDays: 365 });
+    const { B } = await household();
+    expect((await B.household()).retentionDays).toBe(365);
+    expect((await B.exportData()).husstand.oppbevaringDager).toBe(365);
   });
 });

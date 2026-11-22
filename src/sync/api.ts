@@ -1,7 +1,7 @@
 // HTTP-klient for synk-API-et (server/sync/api.ts). `fetch` settes inn, så den kan testes mot en ekte server.
 import type { DocBody, DocName } from './docs';
 import type {
-  DocVersion, Envelope, HouseholdResponse, InviteResponse, JoinResponse, MemberInfo, PushResponse, SyncResponse,
+  DocVersion, Envelope, HouseholdResponse, InviteResponse, JoinResponse, MemberInfo, PushResponse, ServerExport, SyncResponse,
 } from './protocol';
 import type { EventTransport } from './queue';
 
@@ -74,6 +74,8 @@ export class SyncApi {
   removeMember(id: string) { return this.call<void>('DELETE', `/api/household/members/${encodeURIComponent(id)}`); }
   leave() { return this.call<void>('POST', '/api/household/leave', {}); }
   deleteHousehold() { return this.call<void>('DELETE', '/api/household'); }
+  /** Alt serveren har lagret om husstanden (innsyn og dataportabilitet). */
+  exportData() { return this.call<ServerExport>('GET', '/api/household/export'); }
   push(events: Envelope[]) { return this.call<PushResponse>('POST', '/api/sync/events', { events }); }
   pull(after: number, anchor?: string) {
     return this.call<SyncResponse>('GET', `/api/sync?after=${after}${anchor ? `&anchor=${encodeURIComponent(anchor)}` : ''}`);

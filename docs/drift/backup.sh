@@ -48,6 +48,7 @@ else
 fi
 "${COMPOSE[@]}" exec -T app rm -f "$TMP_IN_CONTAINER"
 
-# 3) Rydd lokale kopier eldre enn KEEP_DAYS. Kopier som er lastet opp andre steder må ha egen slettefrist.
+# 3) Rydd lokale kopier eldre enn KEEP_DAYS. Kopier som er lastet opp andre steder må ha samme slettefrist der
+#    (docs/hosting.md, «Slettefrist for sikkerhetskopier»): slettede husstander ligger i kopiene til de er ryddet.
 find "$DEST" -maxdepth 1 -type f \( -name 'middag-*.sqlite.age' -o -name 'middag-*.sqlite.gpg' \) -mtime "+${KEEP_DAYS}" -print -delete
 echo "Sikkerhetskopi: $OUT"

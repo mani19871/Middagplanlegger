@@ -34,6 +34,15 @@ let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`)
       await p.getByRole('button', { name: /Opprett husstand/ }).click();
       await p.getByText(/Synket|Synker|Inviter/).first().waitFor({ timeout: 10_000 }).catch(() => {});
       ok(await p.evaluate(() => !!JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => localStorage.getItem(k).includes('"sync"')) || 'null') || 'null')?.sync), 'husstand opprettet og synket');
+      // «Last ned mine data» (blob-lenke) og personvern-arket under CSP og Trusted Types.
+      const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 10_000 }), p.getByRole('button', { name: /Last ned mine data/ }).click()]);
+      const file = JSON.parse(require('fs').readFileSync(await dl.path(), 'utf8'));
+      ok(file.format === 'middagsplanlegger-eksport' && file.server?.format === 'middagsplanlegger-servereksport' && !JSON.stringify(file).includes('"token"'),
+        `«Last ned mine data» gir fil med server- og enhetsdel uten nøkkel (${dl.suggestedFilename()})`);
+      await p.getByRole('button', { name: 'Personvern', exact: true }).click();
+      await p.getByRole('dialog', { name: 'Personvern' }).getByText('UTKAST.').waitFor({ timeout: 5000 });
+      ok(await p.getByRole('dialog', { name: 'Personvern' }).getByText(/sletter en husstand automatisk .* 12 måneder/).count() === 1, 'personvern-arket viser serverens oppbevaringstid');
+      await p.keyboard.press('Escape');
     } else ok(false, 'fant ikke knappen «Husstand og deling»');
     const sw = await p.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((r) => setTimeout(() => r(false), 8000))]));
     ok(sw, 'service worker registrert');

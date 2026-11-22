@@ -58,7 +58,7 @@ Alle svar er JSON med `Cache-Control: no-store`. Feil har formen `{ "error": "<k
 | --- | --- | --- |
 | `POST /api/household` `{deviceId, label?}` | åpen, 20/t per IP | Ny husstand; svarer `201 {token, member}` |
 | `POST /api/household/join` `{code, deviceId, label?}` | åpen, 20/10 min per IP | Bli med; koden brukes opp i samme transaksjon |
-| `GET /api/household` | medlem | Aktive medlemmer og invitasjoner |
+| `GET /api/household` | medlem | Aktive medlemmer, invitasjoner og serverens oppbevaringstid (`retentionDays`, 0 = av) |
 | `PATCH /api/household/me` `{label}` | medlem | Endre egen etikett (høyst 24 tegn, kontrolltegn fjernes) |
 | `POST /api/household/invites` | eier | Ny kode, 10 tegn (50 bit), utløper etter 24 t. Andre medlemmer får `403 bare_eier` (pilotbeslutning) |
 | `DELETE /api/household/invites/:id` | eier | Trekk tilbake |
@@ -67,6 +67,7 @@ Alle svar er JSON med `Cache-Control: no-store`. Feil har formen `{ "error": "<k
 | `DELETE /api/household` | eier | Slett husstanden og alle data |
 | `POST /api/sync/events` `{events: [{stream, event}]}` | medlem | Høyst 500 per kall. Svar `{accepted, rejected:[{id, code}]}` |
 | `GET /api/sync?after=<cursor>&anchor=<seq:id>` | medlem | Hendelser og dokumentversjoner etter cursor (sider på 1000), medlemsliste og `head` (siste `seq`). `reset: true` når cursor er etter `head` eller ankeret (siste hendelse enheten har sett) ikke finnes: databasen er gjenopprettet fra en eldre kopi |
+| `GET /api/household/export` | medlem, 10/t per enhet | Innsyn og dataportabilitet: alt serveren har om husstanden som én JSON-fil (`ServerExport` i `protocol.ts`, versjon 1): medlemmer (offentlig enhets-id, etikett, rolle, tider, også fjernede), invitasjoner (uten kode og HMAC), dokumenter og alle hendelser slik de er lagret, med mottakstid og hvem som leverte. Aldri token, tokenhash, kode eller interne id-er. Husstanden gis av tokenet; ingen id i stien. Strømmes side for side; logges ikke |
 | `GET /healthz` | åpen | `SELECT 1` mot databasen: `200 {"status":"ok"}` eller `503`. Ingen innhold, ingen autentisering (Docker-helsesjekk, oppetidsovervåking) |
 | `PUT /api/sync/docs/:navn` `{baseVersion, body}` | medlem | Skriver hvis `baseVersion` er gjeldende; ellers `409 {error:"konflikt", current}` |
 
@@ -130,6 +131,22 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 - Service workeren cacher aldri `/api/`.
 - Full gjennomgang med funn og hva som gjenstår: `docs/sikkerhet.md`.
 
+## Personvern i appen
+
+- **«Last ned mine data»** (Husstand-skjermen, med og uten husstand): én JSON-fil (`src/sync/export.ts`, `format: middagsplanlegger-eksport`, `versjon: 1`, `eksportert`) med `enhet` (enhets-id, det som bare er lokalt: postnummer, vegetar, allergener, matvarer som unngås, og hele den lokale tilstanden uten token) og `server` (svaret fra `GET /api/household/export`). Uten nett lastes bare enhetsdelen ned, med `serverMerknad` og melding i appen.
+- **«Personvern»** (`src/views/PrivacySheet.tsx`): ark fra Husstand-skjermen og bunnen av hver side. Merket UTKAST og «ikke ferdig vurdert av fagperson». Sier hva som lagres lokalt og hva som synkes, at allergier og kostkrav bare er lokale, og serverens oppbevaringstid slik serveren oppgir den (ellers at den ikke er bestemt). Bygger på `docs/personvern/02-personvernerklaering.md`, men lover ikke mer enn koden gjør. Ingen HTML-strenger (CSP og Trusted Types; sjekket i `npm run check:csp`).
+- **Enhets-id** vises på Husstand-skjermen og i arket, så brukeren kan oppgi den ved en henvendelse.
+- **«Slett alt på denne enheten …»** på Husstand-skjermen (også før første plan), med bekreftelse og varsel om at enheten fortsatt er medlem på serveren til den forlater husstanden.
+
+## Oppbevaringstid
+
+`server/retention.ts` kjøres ved oppstart og hver 6. time (`startRetention` i `server/index.ts`). Den sletter husstander der **siste aktivitet** er eldre enn `SYNC_RETENTION_DAYS` dager (standard 365, `0` = av), med samme sletting som «Slett husstanden»: kaskade til medlemmer, invitasjoner, hendelser og dokumenter, `secure_delete` og WAL-checkpoint (`SqliteStorage.deleteInactive`). Høyst 500 per transaksjon. Loggen får bare antall («slettet 2 husstander uten aktivitet på 365 dager»), aldri id-er eller innhold. Klokken settes inn (testet med injisert klokke i `server/sync/api.test.ts`).
+
+- **Siste aktivitet** er seneste «sist sett» blant husstandens enheter, ellers når husstanden ble opprettet. «Sist sett» oppdateres ved hvert autentiserte kall (synk, Husstand-skjermen), med minutt-oppløsning. En enhet som har appen åpen med nett, synker hvert 10. sekund og holder husstanden i live. Inaktivitet er **eneste** kriterium.
+- **Ingen varsel før sletting:** vi har ingen kontaktinformasjon. Personvern-arket sier hva som gjelder, og en enhet som kommer tilbake etter slettingen får `401`, kobles fra og beholder sine lokale data.
+- **Samspill med tokenutløp:** med standardverdiene slutter et token å virke etter 180 dager uten bruk (`SYNC_TOKEN_IDLE_DAYS`), så en husstand der ingen har vært aktive på 180 dager er i praksis ubrukelig før den slettes ved 365 dager. Er `SYNC_RETENTION_DAYS` kortere enn tokenutløpet, er det oppbevaringstiden som gjelder.
+- **Sikkerhetskopier:** se `docs/hosting.md`, avsnitt 8 («Slettefrist for sikkerhetskopier»). Gjenopprettes en eldre kopi, sletter jobben ved oppstart de husstandene som fortsatt er inaktive, så sletting for inaktivitet gjentas av seg selv; sletting gjort av eieren gjør ikke det.
+
 ## Drift
 
 | Miljøvariabel | Standard | Hva |
@@ -140,6 +157,7 @@ Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage e
 | `TRUST_PROXY` | av | `1` bak nøyaktig én kjent reverse proxy |
 | `SYNC_TOKEN_IDLE_DAYS` | 180 | Dager uten bruk før et enhetstoken slutter å virke (`0` = aldri) |
 | `SYNC_MAX_TOTAL_MB` | 4096 | Tak for alle husstanders hendelser samlet |
+| `SYNC_RETENTION_DAYS` | 365 | Husstander uten aktivitet i så mange dager slettes automatisk (`0` = av; ugyldig verdi gir 365). Forslag fra driftsdokumentet, ikke avgjort. Se «Oppbevaringstid» |
 | `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
 
 `node:sqlite` er innebygd i Node 22 og er eksperimentell (skriver en «ExperimentalWarning» ved start; versjonen er festet i `Dockerfile`, se `docs/hosting.md`, «node:sqlite»). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører, aldri `cp` av bare hovedfilen (WAL); krypter kopien. Ferdig skript (`VACUUM INTO` + age-kryptering), Docker Compose med Caddy og gjenopprettingsprosedyre: `docs/drift/` og `docs/hosting.md`, avsnitt 8.
@@ -163,20 +181,22 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 - `src/sync/engine.test.ts` (godkjent liste og utsolgt / fant ikke): godkjent liste deles med samme fastholdte produkter etter prisendring; samtidig «Bruk nye priser» og «Behold» uten nett gir samme konflikt hos begge og løses av ett valg; ulike valg på samme linje blir konflikt hos begge og løses (registrering i matskapet angres); frakoblet erstatning flettes med den andres valg og dobbel levering gir ingen doble rader; rettebytte opphever godkjenningen.
 - `server/sync/api.test.ts` (helse, invitasjoner, gjenoppretting, feltlister): `/healthz` uten autentisering og `503` uten database; bare eier inviterer; `head`, `reset` og anker; ukjente felt fjernes før lagring.
 - `src/sync/engine.test.ts` (gjenoppretting): kopi tas, begge skriver videre, kopien legges tilbake; enhetene sender sitt på nytt, ingen doble rader, dokumentet (budsjett) beholder siste verdi, en ny enhet ser alt; også når en annen enhet har skrevet forbi cursoren før enheten synker (anker). Status «feil» med norsk tekst.
+- `server/sync/api.test.ts` (eksport og oppbevaringstid): medlem og ikke-eier får alt; aldri token, hash, kode, HMAC eller interne id-er; bare egen husstand; fjernet/slettet gir 401; 2 500 hendelser strømmes som én gyldig fil; 10 per time per enhet. Inaktive husstander slettes med alt innhold, aktivitet fra ett medlem holder husstanden, grensen på minuttet, `0` = av, ugyldig verdi gir 365, jobben med injisert klokke logger bare antall. `server/sync/security.test.ts`: eksport i lista over samme 401, ingen lekkasje mellom husstander, ingen logg, avbrutt nedlasting krasjer ikke, API-CSP; automatisk sletting fjerner innhold fra databasefil og `-wal`. `src/sync/export.test.ts`: filen har format, versjon og tid, aldri token.
 - `server/sync/api.test.ts` (planversjoner): lagres én gang og deles; ukjente felt, helseopplysninger, feil identitet, egen forelder og for store versjoner avvises; `hjemme` og `prev` godtas.
 - `src/engine/substitution.test.ts`: konflikt på linje og versjoner uavhengig av rekkefølge, ingen duplikat ved ny godkjenning, samme sum i alle visninger etter en erstatning og basiskurven uendret.
 - `src/sync/list.test.ts`: handlelistemodellen er uavhengig av rekkefølge.
-- `npm run e2e:sync` (`scripts/e2e-sync.mjs`): Playwright med to nettleserkontekster mot ekte server: A oppretter, B blir med via lenke, A krysser av og B ser det («Avkrysset av Voksen 1»), B krysser av uten nett mens A krysser av noe annet, og etter gjenoppkobling har begge alle tre og tom utboks. Deretter godkjenner A lista (B får samme versjon), A erstatter en utsolgt vare (begge viser «Erstatter» og samme sum, B ser samme sum i ukeplanen og på handletur-kortet), og B uten nett og A velger ulikt på samme vare: konflikten vises hos begge og løses av A. Så velger A tilbudskjeden Kiwi (B får samme `offerChains`), det tas en kopi av databasen, begge krysser av noe nytt, serveren stoppes og kopien legges tilbake, og enhetene sender det som manglet til serveren har alle hendelsene igjen (ingen doble). Krever Playwright med Chromium; ikke en del av `vitest run`.
+- `npm run e2e:sync` (`scripts/e2e-sync.mjs`): Playwright med to nettleserkontekster mot ekte server: A oppretter, B blir med via lenke, A krysser av og B ser det («Avkrysset av Voksen 1»), B krysser av uten nett mens A krysser av noe annet, og etter gjenoppkobling har begge alle tre og tom utboks. Deretter godkjenner A lista (B får samme versjon), A erstatter en utsolgt vare (begge viser «Erstatter» og samme sum, B ser samme sum i ukeplanen og på handletur-kortet), og B uten nett og A velger ulikt på samme vare: konflikten vises hos begge og løses av A. Så velger A tilbudskjeden Kiwi (B får samme `offerChains`), det tas en kopi av databasen, begge krysser av noe nytt, serveren stoppes og kopien legges tilbake, og enhetene sender det som manglet til serveren har alle hendelsene igjen (ingen doble). Til slutt laster B (ikke eier) ned sine data: filen har alle hendelsene, begge medlemmene, riktig enhets-id og ingen token. Krever Playwright med Chromium; ikke en del av `vitest run`.
 
 ## Kjente svakheter
 
 - **Token i localStorage.** XSS i appen gir full tilgang til husstanden (dempet av streng CSP og Trusted Types). Glidende utløp etter 180 dager uten bruk, men ingen rotasjon; tap av enheten krever at eieren fjerner den. Se `docs/sikkerhet.md` (S2, S7).
-- **Invitasjon uten godkjenning.** Bare eieren kan lage og trekke tilbake koder (pilotbeslutning; andre medlemmer får `403 bare_eier`, og Husstand-skjermen forklarer det). Den som har en gyldig kode innen 24 t blir likevel medlem uten at eieren bekrefter, og de andre varsles ikke. «Eier godkjenner nye medlemmer» er en senere beslutning (`docs/sikkerhet.md`, S6).
+- **Invitasjon uten godkjenning.** Bare eieren kan lage og trekke tilbake koder (pilotbeslutning; andre medlemmer får `403 bare_eier`, og Husstand-skjermen forklarer det). Den som har en gyldig kode innen 24 t blir likevel medlem uten at eieren bekrefter, og de andre varsles ikke. «Eier godkjenner nye medlemmer» (ventestatus) er **utsatt**: den krever ny medlemsstatus i lagringen, at autentisering skiller ventende enheter, at klientens synk tåler å vente (ny feilkode og tilstand i `src/sync/engine.ts`) og eget UI for eieren, og ble ikke bygget sammen med eksport og oppbevaringstid for ikke å endre synkmotoren uten egen gjennomgang (`docs/sikkerhet.md`, S6).
 - **Alle voksne kan alt med data.** Et medlem kan angre andres kjøp, fjerne avkrysninger og endre planen. Det er tilsiktet for en familie, men det finnes ingen historikk i UI over hvem som endret plan og innstillinger (serveren lagrer bare siste `updatedBy`).
 - **Klientens klokke** bestemmer rekkefølgen i loggen. Tid langt fram klippes til mottakstid, men en enhet (eller et medlem som vil) kan tilbakedatere hendelser, og enheten som sendte en klippet hendelse beholder sin egen tid lokalt (`docs/sikkerhet.md`, S5).
 - **Mistet eierenhet.** Er eierens enhet borte, kan ingen fjerne medlemmer eller slette husstanden; de andre kan bare forlate (siste som går sletter alt). Overføring av eierskap mangler.
 - **Allergier deles ikke** (se «Kostkrav og allergier» over). En enhet uten filter kan lage en plan med allergener for hele husstanden; avbøtet med synlig allergentekst og banner, ikke fjernet.
-- **Ingen oppbevaringstid.** Kvoter stopper et medlem fra å fylle databasen, men loggen komprimeres ikke og gamle uker slettes ikke. Oppbevaringstid er ikke bestemt.
+- **Oppbevaringstid bare for hele husstanden.** Inaktive husstander slettes (se «Oppbevaringstid»), men i en aktiv husstand komprimeres ikke loggen og gamle uker slettes ikke. Fristen (365 dager) er et forslag, ikke avgjort.
+- **Eksporten** er en ren kopi av det som er lagret (hendelser i rå form med engelske feltnavn fra protokollen), ikke en forklart rapport. Den inneholder også andre medlemmers etiketter og hendelser (husstandens felles data); om det er riktig ved innsyn for én person, må fagperson vurdere.
 - **Fjernede medlemmer** beholdes som rad (offentlig id, etiketten «Tidligere medlem», uten token og «sist sett») og hendelsene deres blir i husstanden til den slettes.
 - **Planversjoner og allergifilter.** Versjonene deles, men kostkrav og allergier gjør ikke. En enhet med aktivt allergifilter bruker ikke et fastholdt produkt med allergentreff eller uavklart status (motorens valg brukes i stedet), så den kan vise et annet produkt enn de andre på den linja, og kjøp på de to linjene telles hver for seg.
 - **Konflikter løses av handling, ikke bare av knappen.** En ny godkjenning eller «Bruk nye priser»/«Behold» på en enhet bygger på alle gjeldende versjoner og avslutter dermed en konflikt (bevisst valg, men uten eget spørsmål). Et nytt valg på en linje i konflikt bygger på begge og løser den.
@@ -193,7 +213,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 1. **Hosting med TLS** (HTTPS foran serveren, f.eks. Caddy), varig volum for databasen, `SYNC_SECRET` som hemmelighet, `TRUST_PROXY=1` bak proxyen. Se `docs/hosting.md`.
 2. **Sikkerhetskopi og gjenoppretting**, kryptert, med slettefrist som følger GDPR-sletting, og en prøvd gjenoppretting.
 3. **Personvernerklæring, behandlingsprotokoll og DPIA-vurdering** oppdatert mot denne løsningen (`docs/personvern/`), behandlingsansvarlig avklart, **databehandleravtaler** med hosting- og backupleverandør.
-4. **Oppbevaringstid** for hendelser og dokumenter, og en rutine som sletter eldre data.
+4. **Oppbevaringstid** avgjort (`SYNC_RETENTION_DAYS`, bygget for hele husstanden) og slettefrist for sikkerhetskopier; eventuelt sletting av gamle uker i aktive husstander (ikke bygget).
 5. **Overvåking** av feilrater og databasestørrelse uten å logge innhold, token eller invitasjonskoder.
 6. **Sikkerhet:** gjennomgang gjort (`docs/sikkerhet.md`); punktene under «Må på plass før ekte familier» der gjelder.
 7. **Test på to ekte telefoner** over mobilnett, med appen installert, gjennom en hel handleuke.

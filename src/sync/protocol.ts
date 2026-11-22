@@ -32,7 +32,24 @@ export interface SyncResponse {
 export interface PushResponse { accepted: string[]; rejected: { id: string; code: string }[] }
 export interface JoinResponse { token: string; member: MemberInfo }
 export interface InviteResponse { code: string; expiresAt: string }
-export interface HouseholdResponse { members: MemberInfo[]; invites: { id: string; expiresAt: string }[] }
+export interface HouseholdResponse {
+  members: MemberInfo[]; invites: { id: string; expiresAt: string }[];
+  /** Serverens oppbevaringstid: husstanden slettes etter så mange dager uten aktivitet. 0 = ingen automatisk sletting. */
+  retentionDays?: number;
+}
+/**
+ * Alt serveren har lagret om husstanden (GET /api/household/export, innsyn og dataportabilitet). Aldri token, tokenhash,
+ * invitasjonskode, kodens HMAC eller interne id-er: enheter vises med offentlig enhets-id. Versjon 1.
+ */
+export interface ServerExport {
+  format: 'middagsplanlegger-servereksport'; versjon: 1; eksportert: string; forklaring: string;
+  husstand: { opprettet: string; antallLagringer: number; oppbevaringDager: number };
+  medlemmer: { enhetsId: string; etikett: string; rolle: Role; bleMed: string; sistSett: string | null; fjernet: string | null; denneEnheten: boolean }[];
+  invitasjoner: { laget: string; utløper: string; brukt: string | null; lagetAv: string | null; bruktAv: string | null }[];
+  dokumenter: { navn: DocName; versjon: number; endretAv: string; endret: string; innhold: unknown }[];
+  /** Hendelser slik de er lagret, i rekkefølgen serveren mottok dem (`nr`). */
+  hendelser: { nr: number; strøm: Stream; mottatt: string; levertAv: string | null; hendelse: unknown }[];
+}
 
 /** Feilkoder fra serveren. Klienten viser norsk tekst for dem. */
 export type ErrorCode =

@@ -11,6 +11,7 @@ import { cleanLabel, type Envelope } from '../../src/sync/protocol';
 import { APP_CSP, createApp } from '../app';
 import { SqliteStorage } from '../storage/sqlite';
 import { createSyncApi, type SyncApiOptions } from './api';
+import { runRetention } from '../retention';
 import { ipKey } from './rateLimit';
 
 const SECRET = 'HEMMELIG INNHOLD UTENFOR DIST';
@@ -274,7 +275,7 @@ describe('autentisering og lekkasje', () => {
     const paths: [string, string][] = [
       ['GET', '/api/household'], ['DELETE', `/api/household/invites/${invId}`], ['DELETE', '/api/household/invites/finnes-ikke'],
       ['DELETE', '/api/household/members/enhet-bbbb2222'], ['DELETE', '/api/household/members/enhet-zzzz9999'], ['GET', '/api/sync?after=0'],
-      ['GET', '/api/household/hva-som-helst'],
+      ['GET', '/api/household/hva-som-helst'], ['GET', '/api/household/export'], ['GET', '/api/household/export?id=1'],
     ];
     const bodies = new Set<string>();
     for (const auth of [undefined, 'Bearer feil', 'Bearer ' + 'A'.repeat(43), 'Basic abc', `bearer ${'A'.repeat(43)}`, 'Bearer ' + 'A'.repeat(43) + ' x']) {
@@ -313,6 +314,46 @@ describe('autentisering og lekkasje', () => {
     srv.advance(31 * 86_400_000);
     expect(await code(A.household())).toBe('401 ikke_autentisert');
     expect(srv.storage.counts().households).toBe(0); // siste aktive enhet utløp: husstanden er slettet
+  });
+});
+
+describe('eksport', () => {
+  it('ingen lekkasje mellom husstander, og loggen får aldri innhold', async () => {
+    const one = await household();
+    await one.A.setLabel('UnikEierEtikett');
+    await one.A.push([telling('UnikHendelse', 'enhet-aaaa1111')]);
+    const c = await anon().createHousehold('enhet-cccc3333', 'Annen');
+    const x = await anon().withToken(c.token).exportData();
+    expect(JSON.stringify(x)).not.toMatch(/UnikEierEtikett|UnikHendelse|enhet-aaaa1111|enhet-bbbb2222/);
+    expect(JSON.stringify(await one.B.exportData())).toMatch(/UnikEierEtikett[\s\S]*UnikHendelse/);
+    expect(logs).toEqual([]);
+  });
+
+  it('bare GET; samme 404 for andre metoder og ekstra stidel', async () => {
+    const { a } = await household();
+    const h = { Authorization: `Bearer ${a.token}` };
+    for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) expect((await req('/api/household/export', { method, headers: h })).status).toBe(404);
+    expect((await req('/api/household/export/x', { headers: h })).status).toBe(404);
+  });
+
+  it('en klient som kobler fra midt i en stor eksport, krasjer ikke serveren og gir ingen logg', async () => {
+    const { A, a } = await household();
+    for (let i = 0; i < 6; i++) await A.push(Array.from({ length: 500 }, (_, j) => telling(`t${i}-${j}-${'x'.repeat(60)}`, 'enhet-aaaa1111')));
+    const ctl = new AbortController();
+    const r = await req('/api/household/export', { headers: { Authorization: `Bearer ${a.token}` }, signal: ctl.signal });
+    expect(r.status).toBe(200);
+    ctl.abort();
+    await new Promise((res) => setTimeout(res, 50));
+    expect((await A.exportData()).hendelser).toHaveLength(3000);
+    expect(logs).toEqual([]);
+  });
+
+  it('API-svaret har API-CSP og nosniff, så filen aldri tolkes som et dokument', async () => {
+    const { a } = await household();
+    const r = await req('/api/household/export', { headers: { Authorization: `Bearer ${a.token}` } });
+    expect(r.headers.get('content-security-policy')).toMatch(/^default-src 'none'/);
+    expect(r.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(r.headers.get('content-type')).toBe('application/json; charset=utf-8');
   });
 });
 
@@ -475,6 +516,24 @@ describe('sletting på disk (WAL)', () => {
     expect(onDisk()).toContain('HendelseInnholdUnik');
     await storage.deleteHousehold('hh1');
     expect(onDisk()).not.toMatch(/EierEtikettUnik|HendelseInnholdUnik/);
+    await storage.close();
+  });
+});
+
+describe('oppbevaringstid på disk', () => {
+  it('automatisk sletting fjerner etiketter og hendelser fra både databasefilen og -wal', async () => {
+    const file = join(root, 'oppbevaring.sqlite');
+    const storage = new SqliteStorage(file);
+    const now = '2026-11-23T10:00:00.000Z';
+    await storage.createHousehold('hh1', { id: 'd1', publicId: 'enhet-aaaa1111', label: 'GammelEtikettUnik', tokenHash: 'h1' }, now);
+    await storage.appendEvents('hh1', 'd1', [{ stream: 'liste', id: 'e1', by: 'enhet-aaaa1111', body: '{"tekst":"GammelHendelseUnik"}' }], now);
+    await storage.createHousehold('hh2', { id: 'd2', publicId: 'enhet-bbbb2222', label: 'NyEtikettUnik', tokenHash: 'h2' }, '2027-11-01T10:00:00.000Z');
+    const onDisk = () => ['', '-wal'].map((s) => { try { return readFileSync(file + s).toString('latin1'); } catch { return ''; } }).join('');
+    expect(onDisk()).toContain('GammelHendelseUnik');
+    expect(await runRetention(storage, 365, '2027-11-24T10:00:00.000Z')).toBe(1);
+    expect(onDisk()).not.toMatch(/GammelEtikettUnik|GammelHendelseUnik/);
+    expect(onDisk()).toContain('NyEtikettUnik');
+    expect(storage.counts()).toMatchObject({ households: 1, devices: 1, events: 0 });
     await storage.close();
   });
 });

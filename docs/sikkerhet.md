@@ -10,7 +10,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 
 - **Én kritisk feil er rettet:** én HTTP-forespørsel med ugyldig URL (f.eks. `GET http://[/x`) krasjet hele serverprosessen.
 - **Rettet:** streng Content-Security-Policy med Trusted Types og øvrige sikkerhetshoder; kvoter per husstand og samlet; tidspunkt fram i tid klippes; glidende utløp av token; anonymisering av fjernede medlemmer; ratebegrensning som ikke kan lures med `X-Forwarded-For` eller IPv6; samlet grense mot gjetting av koder; logger og feilsvar uten detaljer; tryggere statisk filtjener.
-- **Gjenstår og må avgjøres:** godkjenning av nye medlemmer (i dag kan alle medlemmer invitere, og koden gir medlemskap direkte), tokenrotasjon/HttpOnly-cookie, streng feltliste for hendelser, ratebegrensning ved flere prosesser, oppbevaringstid.
+- **Gjenstår og må avgjøres:** godkjenning av nye medlemmer (i dag kan alle medlemmer invitere, og koden gir medlemskap direkte), tokenrotasjon/HttpOnly-cookie, streng feltliste for hendelser, ratebegrensning ved flere prosesser. Oppbevaringstid for hele husstanden er bygget (`SYNC_RETENTION_DAYS`); eksport (`GET /api/household/export`) er autentisert, avgrenset til husstanden, ratebegrenset (10/t per enhet) og logges ikke.
 - **Må på plass før ekte familier:** TLS med HSTS, kryptert sikkerhetskopi med prøvd gjenoppretting, varig volum, overvåking av disk og feilrate, logg uten IP lenger enn nødvendig, fast Node-versjon i imaget. Se siste avsnitt.
 - Testes av `server/sync/security.test.ts` (28 tester) og `npm run check:csp` (Playwright).
 
@@ -93,7 +93,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 
 ### S7 Middels: token utløp og rotasjon
 
-- **Rettet:** glidende utløp. Et token som ikke er brukt på `SYNC_TOKEN_IDLE_DAYS` dager (standard 180, `0` = av), slutter å virke; enheten forlater husstanden (eierskap går videre, siste som går sletter husstanden) og beholder dataene lokalt (klienten får `401` og kobler fra med melding). Hver bruk forlenger. Sjekkes når tokenet brukes; en periodisk opprydding som også fjerner husstander ingen bruker, hører til oppbevaringstiden (gjenstår).
+- **Rettet:** glidende utløp. Et token som ikke er brukt på `SYNC_TOKEN_IDLE_DAYS` dager (standard 180, `0` = av), slutter å virke; enheten forlater husstanden (eierskap går videre, siste som går sletter husstanden) og beholder dataene lokalt (klienten får `401` og kobler fra med melding). Hver bruk forlenger. Sjekkes når tokenet brukes. Husstander ingen bruker, fjernes av oppbevaringsjobben (`server/retention.ts`, `SYNC_RETENTION_DAYS`, standard 365 dager; docs/synk.md).
 - **Ikke bygget:** en rute for å rotere token. Rotasjon gir lite her: et token stjålet ved XSS kan roteres av angriperen først, og et brutt svar under rotasjon låser en ekte enhet ute uten en overgangsperiode med to gyldige token (krever ny kolonne og klientlogikk i `src/sync/`). Tap av en enhet håndteres ved at eieren fjerner den. Vurder rotasjon sammen med HttpOnly-cookie (S2).
 
 ### S8 Lav: fjernede medlemmer

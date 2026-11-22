@@ -9,6 +9,7 @@ import { ingredients } from '../src/data/catalog';
 import { collectOffers, type LiveOffer } from '../src/offers/service';
 import { TjekSource } from '../src/offers/tjek';
 import { createApp } from './app';
+import { retentionDaysFrom, startRetention } from './retention';
 import { SqliteStorage } from './storage/sqlite';
 import { createSyncApi } from './sync/api';
 
@@ -24,6 +25,8 @@ if (!process.env.SYNC_SECRET) console.warn('SYNC_SECRET mangler: invitasjonskode
 const dbExisted = DB !== ':memory:' && existsSync(DB);
 const idleDays = Number(process.env.SYNC_TOKEN_IDLE_DAYS ?? 180);
 const totalMb = Number(process.env.SYNC_MAX_TOTAL_MB ?? 0);
+// Husstander uten aktivitet i SYNC_RETENTION_DAYS dager slettes automatisk (standard 365, 0 = av). Se server/retention.ts.
+const retentionDays = retentionDaysFrom(process.env.SYNC_RETENTION_DAYS);
 const storage = new SqliteStorage(DB);
 // Oppstartskontroll uten innhold: feil eller manglende volum gir ellers en stille, tom database.
 if (DB === ':memory:') console.warn('Synk-databasen ligger bare i minnet (SYNC_DB=:memory:): alt forsvinner ved omstart.');
@@ -33,7 +36,9 @@ const syncApi = createSyncApi({
   storage, secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
   tokenIdleMs: Number.isFinite(idleDays) && idleDays > 0 ? idleDays * 86_400_000 : undefined,
   quotas: Number.isFinite(totalMb) && totalMb > 0 ? { totalEventBytes: totalMb * 1024 * 1024 } : undefined,
+  retentionDays,
 });
+startRetention({ storage, days: retentionDays, now: () => new Date().toISOString() });
 const TTL_MS = 6 * 60 * 60 * 1000;
 /** Etter en feil mot Tjek venter vi før neste forsøk, så anonyme kall til /api/offers ikke kan hamre på Tjek. */
 const RETRY_MS = 5 * 60 * 1000;

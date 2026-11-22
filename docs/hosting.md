@@ -250,7 +250,7 @@ Bare Caddy publiserer porter; appen er nåbar bare gjennom Caddy, som `TRUST_PRO
 
 **Ikke kopier `middag.sqlite` med `cp` mens serveren kjører.** Nyere endringer ligger i `-wal`-filen, så en kopi av bare hovedfilen kan mangle dem eller være ufullstendig. (I en test manglet en kopi av bare hovedfilen hele husstanden som var opprettet like før.) To brukbare måter:
 
-1. **`backup.sh` i `docs/drift/`** (prøvd): kjører SQLite sin `VACUUM INTO` inne i app-containeren, som gir én konsistent, fullstendig fil mens serveren kjører; kontrollerer den med `PRAGMA integrity_check`; krypterer den med `age` (offentlig nøkkel) eller `gpg` **før** den forlater containeren (ukryptert kopi skrives aldri til verten); og sletter lokale kopier eldre enn 30 dager (`BACKUP_KEEP_DAYS`, forslag fra personvernutkastet). Kjør det daglig, f.eks. fra cron:
+1. **`backup.sh` i `docs/drift/`** (prøvd): kjører SQLite sin `VACUUM INTO` inne i app-containeren, som gir én konsistent, fullstendig fil mens serveren kjører; kontrollerer den med `PRAGMA integrity_check`; krypterer den med `age` (offentlig nøkkel) eller `gpg` **før** den forlater containeren (ukryptert kopi skrives aldri til verten); og sletter lokale kopier eldre enn 30 dager (`BACKUP_KEEP_DAYS`, forslag fra personvernutkastet; se «Slettefrist for sikkerhetskopier» under). Kjør det daglig, f.eks. fra cron:
    ```
    17 3 * * *  cd /srv/middagsplanlegger/docs/drift && BACKUP_AGE_RECIPIENT=age1… ./backup.sh >> /var/log/middag-backup.log 2>&1
    ```
@@ -284,6 +284,12 @@ docker compose --env-file .env.drift exec app node --no-warnings -e \
 ```
 
 Sikkerhetskopier og volumkopier tatt før slettingen inneholder fortsatt dataene til de roterer ut.
+
+### Slettefrist for sikkerhetskopier
+
+- **Frist:** kopier slettes etter `BACKUP_KEEP_DAYS` dager (standard 30, forslag fra personvernutkastet; må avgjøres av eier). `backup.sh` sletter bare kopiene i `./backup`. **Kopier som er flyttet til ekstern lagring, må ha samme frist der** (livssyklusregel hos lagringsleverandøren, eller et eget ryddeskript). Ellers holder ikke fristen i personvernerklæringen.
+- **Hva fristen betyr:** en husstand som er slettet (av eieren eller automatisk etter `SYNC_RETENTION_DAYS`), finnes i kopiene i høyst `BACKUP_KEEP_DAYS` dager etter slettingen. Lengste tid data om en inaktiv husstand ligger hos oss er altså `SYNC_RETENTION_DAYS + BACKUP_KEEP_DAYS` (med standardverdiene 365 + 30 dager).
+- **Etter gjenoppretting:** oppbevaringsjobben kjører ved oppstart og sletter husstander som fortsatt er inaktive, så sletting for inaktivitet gjentas av seg selv. Husstander som **eieren** slettet etter kopitidspunktet, kommer derimot tilbake og må slettes igjen for hånd (se «slett igjen» i `docs/personvern/05-innsyn-retting-sletting.md`).
 
 ### Hva som er testet (2026-11-22, sandkasse med Docker 29.10 og Compose 5.7)
 
