@@ -85,6 +85,19 @@ En dokumentkonflikt holder egen verdi lokalt og sender ikke dokumentet før bruk
 
 Rekkefølge: serverens `seq` brukes bare som cursor. Tilstanden avledes av klientens `at` og id, så hendelser fra en enhet som har vært frakoblet sorteres inn der de hører hjemme.
 
+## Kostkrav og allergier: bevisst pilotavgrensning
+
+**Valgt (A):** `avoid`, `avoidFoods` og `vegetarian` blir på hver enhet og synkes ikke. Serveren avviser dem i innstillingsdokumentet. Grunnen er at de kan avsløre helse eller livssyn (GDPR art. 9), og at uttrykkelig samtykke fra hver voksen ikke er avklart (`docs/personvern/06-samtykke-helsekost.md`).
+
+Det gir en sikkerhetsrisiko (CLAUDE.md regel 4): en enhet uten filter kan lage eller endre en plan med allergener for hele husstanden. Avbøtende tiltak:
+
+1. Alle retter i ukeplanen, bytt-arket og kundeavisenes rettforslag viser alltid «Inneholder: gluten, melk …» (eller «Ingen av de 14 allergenene er oppgitt»), pluss hva varene kan inneholde og om noe er uavklart, med «Sjekk pakningen». Hver handlelinje viser varens allergener eller at innholdet er ukjent/ikke avklart. Teksten vises uansett filter (`src/views/allergenText.ts`).
+2. En enhet i en husstand med flere medlemmer og uten noe filter får banneret «Ingen allergi- eller kostfilter er satt på denne enheten. Planen kan inneholde allergener. Sjekk innholdet, eller legg inn filter», med knapp til innstillingene (som da åpner kost og allergier) og «Ikke vis igjen på denne enheten» (lokalt). Banneret vises også rett etter «Bli med», når medlemslisten er hentet.
+3. En plan eller innstillinger fra en annen enhet endrer aldri filteret på denne (`withDoc` i `src/sync/engine.ts`; testet i `engine.test.ts`).
+4. Plan-skjemaet sier at filtre ikke deles og må legges inn på hver voksen enhet.
+
+**Ikke valgt nå (B):** synk av kostkrav etter uttrykkelig samtykke fra hver voksen. Det er en senere beslutning som krever personvernvurdering (hvem kan samtykke for hvem, DPIA, tilbaketrekking og sletting av synkede krav) og er ikke bygget.
+
 ## Klient
 
 - **Utboks:** `outbox` (beholdning), `listOutbox` (handleliste) og `changeOutbox` (utsolgt / fant ikke). Levert betyr at serveren har bekreftet id-en (også hvis den fantes fra før), så et brutt svar og ny levering gir ingen doble rader. Avviste hendelser fjernes fra utboksen og telles (`sync.rejected`).
@@ -140,7 +153,7 @@ Implementer `SyncStorage` (`server/storage/types.ts`) i `server/storage/postgres
 - **Alle voksne kan alt med data.** Et medlem kan angre andres kjøp, fjerne avkrysninger og endre planen. Det er tilsiktet for en familie, men det finnes ingen historikk i UI over hvem som endret plan og innstillinger (serveren lagrer bare siste `updatedBy`).
 - **Klientens klokke** bestemmer rekkefølgen i loggen. En enhet med feil klokke (eller et medlem som vil) kan tilbakedatere hendelser. Serveren sjekker bare formatet.
 - **Mistet eierenhet.** Er eierens enhet borte, kan ingen fjerne medlemmer eller slette husstanden; de andre kan bare forlate (siste som går sletter alt). Overføring av eierskap mangler.
-- **Allergier deles ikke.** Siden kostkrav blir på hver enhet, kan en enhet uten allergifilter lage en plan med allergener for hele husstanden. Varsel vises i plan-skjemaet. Samtykkeløsning for å dele dem er ikke bygget.
+- **Allergier deles ikke** (se «Kostkrav og allergier» over). En enhet uten filter kan lage en plan med allergener for hele husstanden; avbøtet med synlig allergentekst og banner, ikke fjernet.
 - **Ingen kvoter eller oppbevaringstid.** Hendelsesloggen vokser uten tak og komprimeres ikke; et medlem kan fylle databasen innenfor ratebegrensningen. Oppbevaringstid for gamle uker er ikke bestemt.
 - **Fjernede medlemmer** beholdes som rad (offentlig id, etikett, uten token) og hendelsene deres blir i husstanden til den slettes.
 - **Planversjoner synkes ikke.** `planHistory` (godkjente versjoner og fastholdte produkter, `activePin`) er lokal. Har én enhet en godkjent liste med fastholdte produkter og en annen ikke, kan de etter en prisendring vise ulike produkter på samme vare, og kjøp på de to linjene telles da hver for seg. Krever en egen modell (versjoner som hendelser) før det kan deles.

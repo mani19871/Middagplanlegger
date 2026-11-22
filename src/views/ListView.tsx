@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { recordList, stamp, type AppState } from '../store';
 import { checks, manualLines, toggleEvent, type ListEvent } from '../sync/list';
 import { whoList } from '../sync/labels';
+import { productAllergenText } from './allergenText';
 import { lineStates, purchaseLineId, type InventoryEvent, type PurchaseState } from '../engine/inventory';
 import type { Basket, BasketLine } from '../engine/types';
 import { amount, kr } from '../engine/format';
@@ -129,6 +130,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
                       <button className="main" onClick={() => setDetail(l)}>
                         <b>{lineText(l)}</b>
                         <small>{l.productId ? `${amount(l.packs * l.packSize, l.unit)} · ${kr(l.costOre ?? 0)} · ${statusText[l.status].toLowerCase()}` : 'ukjent pris'}</small>
+                        <small className="allergen">{productAllergenText(l.productId, catalog)}</small>
                         {who(key)}
                         {boughtPill(purchaseOf(l), l)}
                         {'change' in l && <ChangePill line={l as AdjustedLine} />}

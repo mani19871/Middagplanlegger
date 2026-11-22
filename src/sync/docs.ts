@@ -79,12 +79,22 @@ const DAY_NAMES = ['mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'
 const FIELD_TEXT: Record<string, string> = {
   approved: 'godkjenning', option: 'valg av handletur', eaters: 'hvem som spiser', days: 'dager og tid', budgetOre: 'budsjett',
   storeIds: 'butikker', regularStoreId: 'vanlig butikk', maxStops: 'antall stopp', extraStoreThresholdOre: 'grense for ekstra butikk',
-  useOffers: 'tilbud',
+  useOffers: 'tilbud', offerChains: 'tilbudskjeder',
 };
 /** Lesbar tekst for et felt, til konfliktvisningen. */
 export const fieldText = (k: string) => (k.startsWith('slot:') ? `middagen ${DAY_NAMES[Number(k.slice(5))] ?? k}` : FIELD_TEXT[k] ?? k);
 
 // ---------- Validering (server og klient) ----------
+
+/**
+ * Feltene i innstillingsdokumentet. `Record<keyof SettingsDoc, true>` gjør at et nytt felt i `Settings` gir
+ * kompileringsfeil her til det er tatt stilling til: synkes (legg til her og i valideringen) eller bare lokalt
+ * (legg det i LOCAL_ONLY_SETTINGS). Ellers ville serveren avvise innstillingene og synken stoppe stille.
+ */
+const SETTINGS_KEYS: Record<keyof SettingsDoc, true> = {
+  eaters: true, days: true, budgetOre: true, storeIds: true, regularStoreId: true, maxStops: true,
+  extraStoreThresholdOre: true, useOffers: true, offerChains: true,
+};
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const onlyKeys = (o: Record<string, unknown>, allowed: string[]) => Object.keys(o).every((k) => allowed.includes(k));
@@ -115,8 +125,7 @@ export function isValidDoc(name: string, body: unknown): body is DocBody {
   }
   if (name === 'innstillinger') {
     // Ingen kostkrav eller allergier (LOCAL_ONLY_SETTINGS) og ingen matskap: de lagres aldri på serveren.
-    const keys = ['eaters', 'days', 'budgetOre', 'storeIds', 'regularStoreId', 'maxStops', 'extraStoreThresholdOre', 'useOffers', 'offerChains'];
-    if (!onlyKeys(body, keys)) return false;
+    if (!onlyKeys(body, Object.keys(SETTINGS_KEYS))) return false;
     const eaters = body.eaters, days = body.days, stores = body.storeIds;
     return Array.isArray(eaters) && eaters.length <= 12 && eaters.every((e) => isObj(e) && onlyKeys(e, ['id', 'label', 'portion', 'daysHome'])
         && str(e.id, 40) && str(e.label, 40) && num(e.portion, 0, 5)

@@ -9,6 +9,7 @@ import { DAYS, kr } from '../engine/format';
 import { ING_EMOJI } from './art';
 import { dayDate, editionInPeriod, isoDate, weekStart } from './dates';
 import ReviewView from './ReviewView';
+import { recipeAllergenText } from './allergenText';
 import LiveOffers from './papers/LiveOffers';
 import { hasManualLine, manualLineId, offerKey } from './papers/offerList';
 import { manualLines } from '../sync/list';
@@ -88,7 +89,8 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
         {matches.map((r) => (
           <label key={r.id} className={`row inner opt ${rid === r.id ? 'sel' : ''}`}>
             <input type="radio" name="m" checked={rid === r.id} onChange={() => setRecipeId(r.id)} />
-            <span className="rinfo"><strong>{r.name}</strong><small>{r.minutes} min</small></span></label>
+            <span className="rinfo"><strong>{r.name}</strong><small>{r.minutes} min</small>
+              <small className="allergen">{recipeAllergenText(r, ctx.catalog)}</small></span></label>
         ))}
         <h3>Velg dag</h3>
         {days.length === 0 ? <p className="fine">Lag ukeplanen først for å bruke tilbudet i planen.</p> : (

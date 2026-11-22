@@ -4,7 +4,7 @@ import { initialState, migrateState, recordEvent, recordList, type AppState } fr
 import { conflicts, deriveStock, lineStates, purchaseLineId, type InventoryEvent } from '../engine/inventory';
 import { checks, manualLines, toggleEvent } from './list';
 import { SyncApi } from './api';
-import { connect, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
+import { connect, isDirty, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { merge3 } from './docs';
 import { activeChanges, applyChange, changeLineId, type ListChange } from '../engine/substitution';
 import { startTestServer } from '../../server/sync/testkit';
@@ -275,6 +275,22 @@ describe('plan og innstillinger', () => {
     const stored = await srv.storage.readSince(household, 0, 100);
     expect(stored.docs.map((d) => d.name).sort()).toEqual(['innstillinger', 'plan']);
     expect(stored.docs.map((d) => d.body).join('')).not.toMatch(/melk|svin|peanotter|vegetarian|avoid/);
+  });
+  it('en plan fra en annen enhet endrer aldri filteret på denne enheten', async () => {
+    const { a, b } = await pair();
+    b.state = { ...b.state, settings: { ...b.state.settings, avoid: ['gluten'], avoidFoods: ['svin'] } };
+    a.state = { ...a.state, slots: [slot(0, 'bolognese'), slot(1, 'taco')], approved: true };
+    await b.sync(); await a.sync(); await b.sync();
+    expect(b.state.slots.map((s) => s.recipeId)).toEqual(['bolognese', 'taco']);
+    expect(b.state.settings).toMatchObject({ avoid: ['gluten'], avoidFoods: ['svin'], vegetarian: false });
+    expect(a.state.settings).toMatchObject({ avoid: [], vegetarian: false });
+  });
+  it('alle synkede innstillingsfelt godtas av serveren (også valgfrie som tilbudskjeder)', async () => {
+    const { a, b } = await pair();
+    a.state = { ...a.state, settings: { ...a.state.settings, useOffers: false, offerChains: ['KIWI', 'MENY'] } };
+    await a.sync(); await b.sync();
+    expect(isDirty(a.state, 'innstillinger')).toBe(false);
+    expect(b.state.settings).toMatchObject({ useOffers: false, offerChains: ['KIWI', 'MENY'] });
   });
   it('ignorerer ugyldige eller eldre dokumentversjoner', async () => {
     const { b } = await withPlan();

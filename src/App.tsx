@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { catalog } from './data/catalog';
 import { alternatives, generatePlan } from './engine/planner';
-import { recordEvent, usePersistentState } from './store';
+import { hasDietFilter, recordEvent, usePersistentState } from './store';
 import { conflicts, deriveStock, type InventoryEvent } from './engine/inventory';
 import HouseholdView from './views/HouseholdView';
 import { useSync } from './sync/useSync';
@@ -47,6 +47,9 @@ export default function App() {
   const pending = pendingCount(state);
   const statusText = status === 'venter' && pending > 0 ? `${STATUS_TEXT.venter} (${pending} endring${pending === 1 ? '' : 'er'} lagret her)` : STATUS_TEXT[status];
   const docConflicts = state.sync ? Object.keys(state.sync.conflicts).length : 0;
+  // Kostkrav og allergier synkes ikke. I en husstand med flere enheter varsles en enhet uten filter (kan avvises her).
+  const otherMembers = state.sync ? state.sync.members.filter((m) => !m.removed && !m.me).length : 0;
+  const filterBanner = otherMembers > 0 && !hasDietFilter(state.settings) && !state.filterBannerDismissed;
   const [mode, setMode] = useState<Mode>('home');
   const [papersReset, setPapersReset] = useState(0); // trykk på aktiv fane nullstiller åpen utgave/detalj
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
@@ -101,6 +104,13 @@ export default function App() {
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>
       <main id="panel" role="tabpanel" {...(tab === 'Husstand' ? { 'aria-label': 'Husstand' } : { 'aria-labelledby': `tab-${tab}` })} tabIndex={-1}>
+        {filterBanner && (
+          <div className="banner warn" role="status">Ingen allergi- eller kostfilter er satt på denne enheten. Planen kan inneholde
+            allergener. Sjekk innholdet, eller legg inn filter. (Filtre deles ikke mellom enhetene i husstanden.)
+            <div><button className="ghost sm" onClick={() => { setTab('Uka'); setMode('edit'); }}>Legg inn filter</button>
+              <button className="ghost sm" onClick={() => update((s) => ({ ...s, filterBannerDismissed: true }))}>Ikke vis igjen på denne enheten</button></div>
+          </div>
+        )}
         {docConflicts > 0 && tab !== 'Husstand' && (
           <div className="banner warn" role="alert">⚠ Planen eller innstillingene ble endret på to enheter samtidig.{' '}
             <button className="ghost sm" onClick={() => setTab('Husstand')}>Velg hva som skal gjelde</button></div>

@@ -77,3 +77,5 @@ Vises første gang noen legger inn allergi eller kostkrav, og igjen ved endring 
 7. Hva gjelder om alder 13 eller 15 for barns eget samtykke hvis ungdom senere får egne profiler?
 
 **Alternativ som unngår mesteparten av problemet:** i piloten lagres kostkrav **ikke** på serveren i det hele tatt (bare lokalt). Da trengs ikke samtykkeløsningen for serverlagring, men synk av kostkrav mellom enheter virker ikke. Det er en produktavveining for eier.
+
+**Valgt for piloten (2026-11-22, koordinator):** alternativet over. `avoid`, `avoidFoods` og `vegetarian` synkes ikke og avvises av serveren (`src/sync/docs.ts`, `docs/synk.md`); filteret virker på hver enhet der det er lagt inn. Avbøtende tiltak for allergisikkerheten: alle retter og handlelinjer viser alltid «Inneholder: …» (eller at innholdet ikke er avklart), og en enhet uten filter i en husstand med flere enheter får et banner om at planen kan inneholde allergener. Synk av kostkrav etter samtykke (punkt 3 og tabellen over) er ikke bygget og er en senere beslutning som krever personvernvurdering. Spørsmål 6 over er dermed besvart for piloten: kostkrav bare lokalt.

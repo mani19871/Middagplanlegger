@@ -11,6 +11,7 @@ import { hintChain } from '../engine/deals';
 import { DAYS, kr, num } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
+import { recipeAllergenText } from './allergenText';
 import PlanForm from './PlanForm';
 import OfferTotalNote from './OfferTotalNote';
 import { Sheet } from './Sheet';
@@ -76,6 +77,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const start = weekStart();
   const recipe = (id: string) => ctx.catalog.recipes.find((r) => r.id === id)!;
   const portions = (day: number) => settings.eaters.filter((e) => e.daysHome[day]).reduce((a, e) => a + e.portion, 0);
+  const allergens = (id: string) => recipeAllergenText(recipe(id), ctx.catalog);
   const nutr = (id: string) => recipeNutrition(recipe(id), ctx.catalog.ingredients, NUTRITION);
   const dealText = (id: string, day: number) => {
     const d = dealsFor(recipe(id), day, ctx);
@@ -144,7 +146,8 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         <h1 className="page">Denne uka</h1>
         <div className="hero">
           <div className="heroart"><Thumb id={hr.id} size={120} /></div>
-          <div className="herocap"><strong>{DAYS[hero.day]} · {hr.name}</strong><span>{hr.minutes} min · {fmtP(portions(hero.day))} porsjoner</span></div>
+          <div className="herocap"><strong>{DAYS[hero.day]} · {hr.name}</strong><span>{hr.minutes} min · {fmtP(portions(hero.day))} porsjoner</span>
+            <small className="allergen">{allergens(hr.id)}</small></div>
         </div>
         {warnings}
         {summary}
@@ -216,6 +219,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
             <Thumb id={r.id} />
             <span className="rinfo"><strong>{r.name}{s.locked && ' 🔒'}</strong>
               <small>⏱ {r.minutes} min · 👥 {fmtP(portions(s.day) + (s.extra ?? 0))} porsjoner</small>
+              <small className="allergen">{allergens(r.id)}</small>
               {dealText(r.id, s.day) && <small className="dealtxt">{dealText(r.id, s.day)}</small>}</span>
             <span aria-hidden>›</span>
           </button>
@@ -257,7 +261,8 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
             <div className="pagehead"><h2>Bytt {DAYS[sheetSlot.day].toLowerCase()}s middag</h2><button className="x" data-autofocus aria-label="Lukk" onClick={closeSheet}>✕</button></div>
             <small className="lab">Dagens rett</small>
             <div className="row inner"><Thumb id={sheetSlot.recipeId} /><span className="rinfo"><strong>{recipe(sheetSlot.recipeId).name}</strong>
-              <small>⏱ {recipe(sheetSlot.recipeId).minutes} min</small></span></div>
+              <small>⏱ {recipe(sheetSlot.recipeId).minutes} min</small>
+              <small className="allergen">{allergens(sheetSlot.recipeId)}</small></span></div>
             <details className="steps"><summary>Fremgangsmåte</summary><ol>{recipe(sheetSlot.recipeId).steps.map((t) => <li key={t}>{t}</li>)}</ol></details>
             {(() => { const n = nutr(sheetSlot.recipeId); return (
               <div className="fine">Næring per porsjonstype, ca. (veiledende):
@@ -284,6 +289,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                     <Thumb id={o.recipe.id} size={48} />
                     <span className="rinfo"><strong>{o.recipe.name}</strong>
                       <small>ca. {num(nutr(o.recipe.id).kcal, 0)} kcal · {fmtP(nutr(o.recipe.id).protein)} g protein</small>
+                      <small className="allergen">{allergens(o.recipe.id)}</small>
                       {dealText(o.recipe.id, sheetSlot.day) && <small className="dealtxt">{dealText(o.recipe.id, sheetSlot.day)}</small>}
                       {o.complete ? <span className={p.c}>{p.t}</span> : <span className="pill warnp">ufullstendig pris</span>}</span>
                   </label>

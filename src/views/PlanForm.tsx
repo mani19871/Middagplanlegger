@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AppState } from '../store';
+import { hasDietFilter, type AppState } from '../store';
 import type { Eater, FoodTag } from '../engine/types';
 import { ALLERGENS, ALLERGEN_LABEL } from '../engine/allergens';
 import { DAYS, kr } from '../engine/format';
@@ -19,7 +19,8 @@ const ALL = [true, true, true, true, true, true, true];
 export default function PlanForm({ state, update, onDone, hasPlan, chains = [], lockWarnings = [] }: Props) {
   const s = state.settings;
   const [timeDay, setTimeDay] = useState(() => Math.max(0, s.days.findIndex((d) => d.enabled)));
-  const [more, setMore] = useState(false);
+  // I en delt husstand uten filter på enheten åpnes kost og allergier med en gang (se banneret i App).
+  const [more, setMore] = useState(() => !!state.sync && !hasDietFilter(state.settings));
   const picked = new Set((s.offerChains ?? []).map(normalizeChain));
   const toggleChain = (c: string) => set({ offerChains: (picked.has(c) ? [...picked].filter((x) => x !== c) : [...picked, c]).sort() });
   const set = (patch: Partial<typeof s>) => update((st) => ({ ...st, settings: { ...st.settings, ...patch }, approved: false }));

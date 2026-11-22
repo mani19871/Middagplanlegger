@@ -39,6 +39,8 @@ export interface AppState {
   listChanges?: ListChange[]; planHistory?: PlanVersion[];
   /** «Utsolgt / fant ikke»-valg som ikke er levert til husstanden ennå. Planversjonene (`planHistory`) synkes ikke. */
   changeOutbox?: ListChange[];
+  /** Banneret «ingen allergi- eller kostfilter på denne enheten» er avvist her. Lokalt, synkes ikke. */
+  filterBannerDismissed?: boolean;
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
@@ -108,6 +110,9 @@ export function recordEvent(s: AppState, e: InventoryEvent): AppState {
   if (inventory === s.inventory) return s;
   return { ...s, inventory, outbox: enqueue(s.outbox, e) };
 }
+
+/** Har enheten et absolutt kost- eller allergikrav? (Synkes ikke; se docs/synk.md.) */
+export const hasDietFilter = (s: Settings) => s.vegetarian || s.avoid.length > 0 || (s.avoidFoods ?? []).length > 0;
 
 /** Legger hendelser i handlelista og utboksen. En id som finnes fra før gir ingen endring. */
 export function recordList(s: AppState, ...events: ListEvent[]): AppState {
