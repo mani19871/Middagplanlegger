@@ -11,6 +11,8 @@ import { dayDate, editionInPeriod, isoDate, weekStart } from './dates';
 import ReviewView from './ReviewView';
 import { recipeAllergenText } from './allergenText';
 import LiveOffers from './papers/LiveOffers';
+import TjekPapers from './papers/TjekPapers';
+import { credit } from './papers/paperText';
 import { hasManualLine, manualLineId, offerKey, offerRecipes } from './papers/offerList';
 import { manualLines } from '../sync/list';
 
@@ -31,10 +33,12 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
   const [offer, setOffer] = useState<Offer | null>(null);
   const [recipeId, setRecipeId] = useState<string>('');
   const [day, setDay] = useState<number>(-1);
-  const [mode, setMode] = useState<'live' | 'aviser' | 'kontroll'>('live');
+  const [mode, setMode] = useState<'live' | 'tjek' | 'aviser' | 'kontroll'>('live');
   const [live, setLive] = useState<LiveResponse | null>(null);
   const [liveErr, setLiveErr] = useState(false);
   const [liveId, setLiveId] = useState<string | undefined>();
+  /** Produktbilde og observasjonstid for et åpnet tilbud fra Tjek (bare visning; lagres ikke). */
+  const [liveImage, setLiveImage] = useState<{ src: string | null; observed: string } | null>(null);
   const [justAdded, setJustAdded] = useState(false);
   useEffect(() => { if (resetKey > 0) { setEdition(null); setOffer(null); setRecipeId(''); setDay(-1); setLiveId(undefined); setJustAdded(false); } }, [resetKey]);
 
@@ -55,9 +59,9 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
   }, [mode]);
   const pickLive = (l: LiveOffer) => {
     const o = l.offer;
-    setLiveId(o.id); setJustAdded(false);
+    setLiveId(o.id); setJustAdded(false); setLiveImage({ src: o.image ?? null, observed: o.observed });
     const pack = o.amount ? amount(o.amount, o.unit ?? 'g') : o.pieces ? `${o.pieces} stk` : 'mengde ukjent';
-    const seen = Number.isFinite(Date.parse(o.observed)) ? ` Pris sett hos Tjek ${new Date(o.observed).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit' })}.` : '';
+    const seen = Number.isFinite(Date.parse(o.observed)) ? ` Pris sett hos Tjek ${new Date(o.observed).toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Oslo' })}.` : '';
     const terms = `Gyldig ${o.validFrom.slice(8, 10)}.${o.validFrom.slice(5, 7)}.–${o.validUntil.slice(8, 10)}.${o.validUntil.slice(5, 7)}.${o.prePriceOre ? ` Før ${kr(o.prePriceOre)}.` : ''}${seen}`;
     setEdition({ id: o.dealerId, sender: o.dealerName, title: 'Tilbud', scope: 'nasjonal', validFrom: o.validFrom.slice(0, 10), validUntil: o.validUntil.slice(0, 10), validTo: o.validUntil.slice(0, 10), branch: 'dagligvare', rights: 'lenke' } as unknown as Edition);
     setOffer({ editionId: 'live', text: o.heading, ingredient: l.ingredient, priceOre: o.priceOre, pack, terms });
@@ -91,6 +95,12 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
     return (
       <>
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={back}>←</button><h2>Bruk tilbudet</h2><span /></div>
+        {liveId && liveImage?.src && (
+          <figure className="offerimg">
+            <img src={liveImage.src} alt={offer.text} referrerPolicy="no-referrer" decoding="async" />
+            <figcaption className="fine">Produktbilde. {credit(liveImage.observed)}.</figcaption>
+          </figure>
+        )}
         <div className="card row"><span className="bigemoji" aria-hidden>{ING_EMOJI[ing.id] ?? '🛒'}</span>
           <span className="rinfo"><strong className="big">{offer.text}</strong><span><b className="price">{priceText}</b> · {offer.pack}</span><small>{offer.terms}</small></span></div>
         <h3>Velg en middag</h3>
@@ -153,11 +163,13 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
       <h1 className="page">Kundeaviser</h1>
       <div className="chips tabs">
         <button className={mode === 'live' ? 'chip on' : 'chip'} onClick={() => setMode('live')}>Tilbud nå</button>
+        <button className={mode === 'tjek' ? 'chip on' : 'chip'} onClick={() => setMode('tjek')}>Aviser fra Tjek</button>
         <button className={mode === 'aviser' ? 'chip on' : 'chip'} onClick={() => setMode('aviser')}>Aviser (demo)</button>
         <button className={mode === 'kontroll' ? 'chip on' : 'chip'} onClick={() => setMode('kontroll')}>Kontroll</button>
       </div>
       {mode === 'kontroll' && <ReviewView ingredients={ctx.catalog.ingredients} />}
       {mode === 'live' && <LiveOffers live={live} err={liveErr} ingName={ingName} onPick={pickLive} />}
+      {mode === 'tjek' && <TjekPapers resetKey={resetKey} />}
       {mode === 'aviser' && (<>
       <div className="row-field"><input style={{ flex: 1, width: 'auto' }} placeholder="🔍 Søk etter kjede eller sted" value={q} onChange={(e) => setQ(e.target.value)} /></div>
       <div className="chips tabs">

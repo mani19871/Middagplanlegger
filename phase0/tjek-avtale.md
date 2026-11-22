@@ -106,7 +106,7 @@ Kolonnen «Offentlige vilkår» gjengir bare det tjek.com/terms og /apis-and-sdk
 ## Hva dette betyr for status (uten juridisk tolkning)
 
 - De offentlige vilkårene beskriver API-tilgang som noe som gis til **kunder med avtale**, og at bruksomfanget står i avtalen. At API-et svarer uten nøkkel, sier ikke noe om hva som er tillatt.
-- Brukerens svar (2026-11-22) kan ikke kontrolleres her, fordi avtalen er fortrolig og ikke deles. På brukerens opplysning bygger vi nå lagring av priser på serveren og bilder og avissider fra Tjek (arbeidsregelen over), men holder oss konservative der avtalen kan avvike fra de offentlige vilkårene.
+- Brukerens svar (2026-11-22) kan ikke kontrolleres her, fordi avtalen er fortrolig og ikke deles. På brukerens opplysning er nå lagring av priser på serveren og produktbilder og avissider fra Tjek bygget (arbeidsregelen over; `docs/synk.md`, «Tilbud fra Tjek»), men vi holder oss konservative der avtalen kan avvike fra de offentlige vilkårene. Hver åpnet avis gir ett kall mot Tjek (hurtigbuffer i 6 t), i tråd med § 8.5 («1 publication open equals 1 API call»).
 - Kreditering, kallgrense, varighet og pris er ikke kjent for oss og må bekreftes med Tjek.
 
 ## Tekniske observasjoner (ikke avtale)

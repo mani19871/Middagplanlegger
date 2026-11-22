@@ -130,3 +130,4 @@ main:focus { outline:none; }
 /* Personvern-arket og bunnlenken (src/views/PrivacySheet.tsx). */
 .plain { padding-left:20px; margin:6px 0; } .plain li { margin:6px 0; } code { overflow-wrap:anywhere; }
 .foot { display:flex; justify-content:center; margin:28px 0 0; } .foot .link { padding:12px; min-height:44px; }
+.cvr.tjek { background:#1f5a46; } .paperpage { margin:10px 0; } .paperpage img, .offerimg img { display:block; width:100%; height:auto; border-radius:12px; border:1px solid var(--line); background:#fff; } .offerimg { margin:8px 0; max-width:240px; } .paperpage figcaption, .offerimg figcaption { margin-top:4px; }

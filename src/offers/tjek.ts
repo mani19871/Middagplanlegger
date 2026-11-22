@@ -2,7 +2,7 @@
 // tilbudstrolden-mcp (MIT, © 2026 Olga Safonova), se THIRD_PARTY.md.
 // Bruk forutsetter skriftlig avtale/vilkår fra Tjek om visnings- og viderebruksrett.
 import type { Unit } from '../engine/types';
-import type { Dealer, NormalizedOffer, OfferQuery, OfferSource } from './types';
+import type { Catalog, CatalogPage, Dealer, NormalizedOffer, OfferQuery, OfferSource } from './types';
 
 export interface RawTjekOffer {
   id: string;
@@ -19,6 +19,14 @@ export interface RawTjekOffer {
   dealer?: { name: string; country?: { id: string } } | null;
   run_from: string;
   run_till: string;
+  /** Produktbilde i flere størrelser (tilbudstrolden-mcp bruker `images.view`). */
+  images?: { thumb?: string | null; view?: string | null; zoom?: string | null } | null;
+}
+
+/** En https-adresse (høyst 500 tegn), ellers null. Hvilke verter som vises, avgjør serveren (TJEK_IMAGE_HOSTS). */
+export function httpsUrl(v: unknown): string | null {
+  if (typeof v !== 'string' || v.length > 500) return null;
+  try { const u = new URL(v); return u.protocol === 'https:' && !u.username && !u.password ? u.href : null; } catch { return null; }
 }
 
 const toOre = (kr: number | null | undefined) => (typeof kr !== 'number' || !Number.isFinite(kr) ? null : Math.round(kr * 100));
@@ -67,7 +75,42 @@ export function parseTjekOffer(raw: RawTjekOffer, observed: string): NormalizedO
     amount, unit, pieces: pieces !== null && pieces > 0 ? pieces : null,
     dealerId: raw.dealer_id, dealerName: raw.branding?.name ?? raw.dealer?.name ?? 'Ukjent',
     validFrom: osloDate(raw.run_from), validUntil: osloDate(raw.run_till, true), observed,
+    image: httpsUrl(raw.images?.view) ?? httpsUrl(raw.images?.zoom) ?? httpsUrl(raw.images?.thumb),
   };
+}
+
+// Kundeaviser (kataloger) og sider. MERK: formen under (`/v2/catalogs`, `/v2/catalogs/:id/pages`, feltene) er ikke prøvd mot
+// ekte svar fra Tjek i dette prosjektet (docs/synk.md, «Kundeaviser fra Tjek»). Tolkningen er derfor forsiktig: ukjent form
+// gir ingen katalog eller tomme bildeadresser, aldri en feil i appen.
+const CATALOG_ID = /^[A-Za-z0-9_-]{1,64}$/;
+type Rec = Record<string, unknown>;
+const rec = (v: unknown): Rec | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Rec) : null);
+const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? [...v.trim()].slice(0, max).join('') : null);
+
+export function parseTjekCatalog(raw: unknown, country: string, observed: string): Catalog | null {
+  const r = rec(raw);
+  if (!r || typeof r.id !== 'string' || !CATALOG_ID.test(r.id)) return null;
+  const c = rec(rec(r.dealer)?.country)?.id;
+  if (typeof c === 'string' && c !== country) return null;
+  if (typeof r.run_from !== 'string' || typeof r.run_till !== 'string' || !Number.isFinite(Date.parse(r.run_from)) || !Number.isFinite(Date.parse(r.run_till))) return null;
+  const validFrom = osloDate(r.run_from), validUntil = osloDate(r.run_till, true);
+  if (validUntil < validFrom) return null;
+  const pc = typeof r.page_count === 'number' && Number.isInteger(r.page_count) && r.page_count > 0 && r.page_count < 1000 ? r.page_count : null;
+  return {
+    id: r.id, source: 'tjek', dealerId: str(r.dealer_id, 100) ?? '', dealerName: str(rec(r.branding)?.name, 100) ?? str(rec(r.dealer)?.name, 100) ?? 'Ukjent',
+    label: str(r.label, 120), validFrom, validUntil, pageCount: pc, observed,
+  };
+}
+
+export function parseTjekPages(raw: unknown): CatalogPage[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CatalogPage[] = [];
+  for (const p of raw.slice(0, 500)) {
+    const r = rec(p);
+    if (!r) continue;
+    out.push({ number: out.length + 1, thumb: httpsUrl(r.thumb), view: httpsUrl(r.view), zoom: httpsUrl(r.zoom) });
+  }
+  return out;
 }
 
 type Fetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
@@ -109,5 +152,26 @@ export class TjekSource implements OfferSource {
       .filter((o) => !o.dealer?.country?.id || o.dealer.country.id === q.country)
       .map((o) => parseTjekOffer(o, observed))
       .slice(0, limit);
+  }
+
+  /** Gjeldende kundeaviser i landet, høyst fem sider à 100. */
+  async listCatalogs(country: string): Promise<Catalog[]> {
+    const byId = new Map<string, Catalog>();
+    for (let page = 0; page < 5; page++) {
+      const raw = await this.get<unknown>('/catalogs', { country_id: country, limit: '100', offset: String(page * 100) });
+      const list = Array.isArray(raw) ? raw : [];
+      const observed = this.now();
+      for (const r of list) { const c = parseTjekCatalog(r, country, observed); if (c && !byId.has(c.id)) byId.set(c.id, c); }
+      if (list.length < 100) break;
+    }
+    return [...byId.values()];
+  }
+
+  /** Sidene i en kundeavis (bildeadresser hos Tjek). Ett kall per avis («1 publication open equals 1 API call», § 8.5). */
+  async catalogPages(catalogId: string): Promise<CatalogPage[]> {
+    if (!CATALOG_ID.test(catalogId)) throw new Error('ugyldig katalog-id');
+    const res = await this.fetchImpl(`${this.baseUrl}/catalogs/${encodeURIComponent(catalogId)}/pages`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Tjek svarte ${res.status} på /catalogs/:id/pages`);
+    return parseTjekPages(await res.json());
   }
 }

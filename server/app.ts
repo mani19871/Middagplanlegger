@@ -7,14 +7,21 @@ import { extname, resolve, sep } from 'node:path';
 
 /**
  * Streng CSP for appen. Vite-bygget har ingen inline-skript eller -stiler (React setter stiler via CSSOM, som CSP ikke
- * stopper). Alt lastes fra samme opprinnelse; ingen tredjepart. Trusted Types hindrer at strenger blir HTML/skript
- * (DOM-XSS) i nettlesere som støtter det. Testet med Playwright: scripts/checks/csp.cjs.
+ * stopper). Alt lastes fra samme opprinnelse; eneste mulige tredjepart er bilder (produktbilder og avissider) fra Tjeks
+ * verter i `imageHosts` (TJEK_IMAGE_HOSTS, server/offers/images.ts), bare i img-src og bare over https. Trusted Types
+ * hindrer at strenger blir HTML/skript (DOM-XSS) i nettlesere som støtter det. Testet med Playwright: scripts/checks/csp.cjs.
  */
-export const APP_CSP = [
-  "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data:", "font-src 'self'",
-  "connect-src 'self'", "manifest-src 'self'", "worker-src 'self'", "object-src 'none'", "base-uri 'none'",
-  "form-action 'self'", "frame-ancestors 'none'", "require-trusted-types-for 'script'", 'trusted-types sw',
-].join('; ');
+export function appCsp(imageHosts: string[] = []): string {
+  // Bare eksakte vertsnavn: en verdi med mellomrom, semikolon eller jokertegn ville kunnet utvide andre direktiver.
+  for (const h of imageHosts) if (!/^[a-z0-9.-]+\.[a-z]{2,63}$/.test(h)) throw new Error('ugyldig bildevert i CSP');
+  const img = ["img-src 'self' data:", ...imageHosts.map((h) => `https://${h}`)].join(' ');
+  return [
+    "default-src 'self'", "script-src 'self'", "style-src 'self'", img, "font-src 'self'",
+    "connect-src 'self'", "manifest-src 'self'", "worker-src 'self'", "object-src 'none'", "base-uri 'none'",
+    "form-action 'self'", "frame-ancestors 'none'", "require-trusted-types-for 'script'", 'trusted-types sw',
+  ].join('; ');
+}
+export const APP_CSP = appCsp();
 /** API-svar er bare JSON og skal aldri tolkes som et dokument. */
 export const API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
 
@@ -45,6 +52,8 @@ export interface AppOptions {
   hsts?: boolean;
   /** Feillogg. Får aldri URL, hoder, kropp, token eller koder; bare navnet på feilen. */
   log?: (msg: string) => void;
+  /** Tillatte bildeverter hos Tjek (img-src). Tom: bare egne bilder. */
+  imageHosts?: string[];
 }
 
 function json(res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}) {
@@ -71,6 +80,7 @@ export function createApp(opts: AppOptions) {
   const log = opts.log ?? ((m: string) => console.error(m));
   const handlers = opts.handlers ?? [];
   const dist = resolve(opts.dist);
+  const csp = appCsp(opts.imageHosts ?? []);
 
   function serveStatic(req: IncomingMessage, res: ServerResponse, url: URL) {
     const method = req.method ?? 'GET';
@@ -106,7 +116,7 @@ export function createApp(opts: AppOptions) {
       // req.url kan være hva som helst (f.eks. «http://[»). new URL kaster da; uten denne sjekken krasjet hele prosessen.
       try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { json(res, 400, { error: 'ugyldig_forespørsel', message: 'Ugyldig forespørsel.' }); return; }
       const isApi = url.pathname === '/api' || url.pathname.startsWith('/api/');
-      res.setHeader('Content-Security-Policy', isApi ? API_CSP : APP_CSP);
+      res.setHeader('Content-Security-Policy', isApi ? API_CSP : csp);
       for (const h of handlers) if (await h(req, res)) return;
       serveStatic(req, res, url);
     } catch (e) {

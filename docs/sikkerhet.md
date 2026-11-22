@@ -39,6 +39,7 @@ Alvorlighet: **Kritisk** (en anonym angriper kan ta ned tjenesten eller få tilg
 | S19 | Middels | Slettede data blir liggende i `-wal` til neste checkpoint | Rettet |
 | S20 | Lav | Feil eller manglende volum gir en stille, tom database | Rettet (varsel ved oppstart) |
 | S21 | Info | Ny lagring og nytt anonymt endepunkt for tilbud fra Tjek (`/api/offers/lagret`) | Bygget med grenser (2026-11-22); se under |
+| S22 | Lav | Bilder fra tredjepart (Tjek) i CSP og nye anonyme endepunkter for kundeaviser (`/api/aviser`) | Bygget med grenser (2026-11-22); se under |
 
 ### S1 Kritisk: ugyldig URL krasjet hele serveren
 
@@ -165,6 +166,13 @@ Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å s
 - **Mot Tjek:** kallbudsjett per norsk døgn (`OFFER_MAX_CALLS_PER_DAY`, standard 1000) for alle kall, bakoff ved feil (5 min doblet, høyst intervallet), tidsavbrudd 15 s per kall. Loggen får bare feilens navn, aldri sti eller statuskode fra Tjek. `TJEK_FETCH=0` slår av alle kall (brukt i røyktest, e2e og CSP-sjekk, så de ikke kaller eksterne tjenester).
 - **Gjenstår:** ratebegrensningen er i minnet (S16). Tilbudsfila tas ikke med i `docs/drift/backup.sh` (kan hentes på nytt, men prishistorikken går tapt ved tap av volumet); avgjøres sammen med oppbevaringstiden når avtalens grense er kjent.
 
+### S22 Lav: bilder fra Tjek og `GET /api/aviser`
+
+- **CSP:** `img-src 'self' data:` utvides med `https://<vert>` for hver vert i `TJEK_IMAGE_HOSTS` (`appCsp` i `server/app.ts`), og ingenting annet endres: `script-src`, `connect-src` og Trusted Types (`require-trusted-types-for 'script'; trusted-types sw`) er som før. Vertene må være eksakte vertsnavn (ingen jokertegn, skjema, port eller IP); ugyldige hoppes over, og `appCsp` kaster ved en verdi som kunne lagt til egne direktiver. Uten vertene er CSP uendret (testet i `server/offers/images.test.ts`). Et bilde kan ikke kjøre skript; risikoen er at tredjeparten ser forespørselen (IP, nettleser). `Referrer-Policy: no-referrer` og `referrerPolicy="no-referrer"` på `<img>` gjør at Tjek ikke ser hvilken side i appen bildet ble vist på.
+- **Bildeadresser i svarene:** bare https til en tillatt vert, uten brukernavn eller port, høyst 500 tegn (`allowedImage`); ellers `null`. Lagret adresse i tilbudsdatabasen er tekst; vi laster aldri ned bildet.
+- **Endepunkter:** `GET /api/aviser` og `GET /api/aviser/:id/sider`, anonyme, bare `GET`/`HEAD`, ingen parametre, 60 kall per minutt per IP (begge samlet), `no-store`, API-CSP. Katalog-id må være `[A-Za-z0-9_-]{1,64}` og stå i den gjeldende lista; ellers `404` uten kall til Tjek, så ingen kan bruke serveren til vilkårlige oppslag hos Tjek (og bruke opp kallbudsjettet). Lista og sidene holdes i minnet i 6 t (høyst 400 aviser, 200 sider per avis, 100 aviser i minnet); feil gir fast tekst, 5 minutters nedkjøling og bare feilens navn i loggen (testet i `server/offers/papers.test.ts`).
+- **Prøvd i nettleser:** appen bak `createApp` med en falsk Tjek-kilde og en falsk bildevert (Playwright fanget bildeforespørslene): produktbildet i tilbudsdetaljen og to avissider lastet under CSP uten brudd eller konsollfeil. Ikke prøvd mot Tjeks ekte verter.
+
 ### S18 Rettet: trege klienter
 
 `server.headersTimeout = 15 s`, `requestTimeout = 30 s`, `keepAliveTimeout = 5 s` (`server/index.ts`). Proxyen foran bør ha egne grenser.
@@ -188,6 +196,7 @@ Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å s
 | `HSTS` | av | `1` sender `Strict-Transport-Security` (bare når alt går over HTTPS) |
 | `TRUST_PROXY` | av | `1` bak nøyaktig én proxy; siste adresse i `X-Forwarded-For` brukes |
 | `OFFER_MAX_CALLS_PER_DAY` | 1000 | Kallbudsjett mot Tjek per norsk døgn (alle kall). Øvrige tilbudsinnstillinger: `docs/synk.md`, «Drift» |
+| `TJEK_IMAGE_HOSTS` | tom | Eksakte bildeverter hos Tjek i CSP-ens `img-src` (S22). Tom: ingen bilder |
 
 Kvoter og ratebegrensninger per husstand ligger i `DEFAULT_QUOTAS` og `DEFAULT_RATES` i `server/sync/api.ts`.
 
@@ -206,5 +215,6 @@ Kvoter og ratebegrensninger per husstand ligger i `DEFAULT_QUOTAS` og `DEFAULT_R
 
 - `server/sync/security.test.ts`: path traversal (16 varianter over rå socket), skjulte filer, metoder, ugyldig URL (krasj), ugyldig JSON og kropper, feil typer, injeksjon, `__proto__`, serverfeil uten lekkasje i svar og logg, sikkerhetshoder og CSP, CORS, hodeinjeksjon, lik `401` og `404`, glidende utløp og eierskap, `X-Forwarded-For`, IPv6 /64, samlet gjettegrense, kodeentropi, alle kvoter, klokkeklipp og idempotens, anonymisering, Unicode i etiketter.
 - `server/offers/api.test.ts`, `server/offers/store.test.ts`, `server/offers/collector.test.ts`: lese-endepunktet (metoder, parametre, ratebegrensning, størrelsesgrense, feil uten lekkasje), lagringens grenser og at den ikke har persondata, bakoff og kallbudsjett.
-- `npm run check:csp` (Playwright, krever bygg): appen under ekte CSP uten brudd eller konsollfeil.
+- `server/offers/images.test.ts`, `server/offers/papers.test.ts`: bildeverter i CSP og svar, kundeavis-endepunktene.
+- `npm run check:csp` (Playwright, krever bygg): appen under ekte CSP uten brudd eller konsollfeil (også med `TJEK_IMAGE_HOSTS` satt).
 - Eksisterende `server/sync/api.test.ts` og `src/sync/engine.test.ts` er uendret og grønne.

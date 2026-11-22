@@ -64,7 +64,7 @@ Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å la
 - **Vår leverandør av drift og lagring** ([navn, land for datasenter]). De behandler opplysningene på våre vegne og har ikke lov til å bruke dem til egne formål. Vi har [databehandleravtale]. [Underleverandører: liste eller lenke.]
 - **Vi** (driftsansvarlig, rollen «Admin» i AVVR AS; rollen navngis ikke her) har bare tilgang når det trengs for drift og feilretting.
 
-Tilbudsinformasjon hentes av vår server fra [Tjek]. Vi sender ikke opplysninger om deg eller husstanden din dit. Kilden ser bare serverens adresse.
+Tilbudsinformasjon hentes av vår server fra [Tjek]. Vi sender ikke opplysninger om deg eller husstanden din dit. **Unntak: bilder.** Når du åpner et tilbud med produktbilde eller blar i en kundeavis fra Tjek, henter enheten din bildene direkte fra Tjek. Tjek ser da IP-adressen til enheten din og når bildet ble hentet, men ingenting annet fra appen. [UTKAST: behandlingsgrunnlag og Tjeks rolle må vurderes av fagperson.]
 
 **Overføring utenfor EØS:** [Dataene lagres i EØS og leverandøren er i EØS: ingen overføring. ELLER: leverandøren er amerikansk; overføringsgrunnlag er … Fylles ut etter valg av hosting.]
 

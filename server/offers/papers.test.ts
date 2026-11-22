@@ -45,7 +45,7 @@ describe('GET /api/aviser', () => {
     expect(r.status).toBe(200);
     expect(r.headers.get('cache-control')).toBe('no-store');
     expect([r.body.status, r.body.source, r.body.observed, r.body.imagesAllowed]).toEqual(['ok', 'tjek', '2026-11-24T10:00:00.000Z', true]);
-    expect(r.body.catalogs.map((c: Catalog) => c.id)).toEqual(['c1', 'c2']);
+    expect(r.body.catalogs.map((c: Catalog) => c.id)).toEqual(['c2', 'c1']); // sortert på kjede (Bunnpris før KIWI)
     await t.get('/api/aviser');
     expect(t.calls).toEqual(['kataloger']);
     t.advance(7 * 3_600_000);

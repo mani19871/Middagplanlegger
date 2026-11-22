@@ -26,6 +26,8 @@ export interface OfferObservation {
   firstObserved: string;
   /** Siste gang kilden viste prisen. Aldri tidspunktet noen leste den fra lagringen. */
   lastObserved: string;
+  /** Adressen til produktbildet hos kilden (https), eller null. Bildet selv lagres ikke. */
+  image: string | null;
 }
 
 /** Hva `record` gjorde: nye rader, rader med nytt innhold, rader sett på nytt, og avviste (ugyldige, eldre eller over kvoten). */

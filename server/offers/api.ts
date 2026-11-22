@@ -9,6 +9,7 @@ import type { LiveResponse } from '../../src/offers/client';
 import { sortLive, toLiveOffer, type LiveOffer } from '../../src/offers/service';
 import type { NormalizedOffer } from '../../src/offers/types';
 import { ipKey, RateLimiter } from '../sync/rateLimit';
+import { allowedImage } from './images';
 import type { OfferObservation, OfferStore } from './types';
 
 export const STORED_PATH = '/api/offers/lagret';
@@ -22,16 +23,17 @@ export interface OffersApiOptions {
   trustProxy?: boolean;
   /** Kall per IP per minutt. */ perMinute?: number;
   /** Høyst så mange tilbud i ett svar. */ maxOffers?: number;
+  /** Tillatte bildeverter (TJEK_IMAGE_HOSTS). Andre bildeadresser fjernes fra svaret. Standard: ingen. */ imageHosts?: string[];
   log?: (m: string) => void;
 }
 
 const OSLO = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit' });
 const minusDays = (day: string, n: number) => { const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 /** Tilbake til kildens form: observasjonstiden er siste gang kilden viste prisen. Interne felt (status, første observasjon) holdes inne. */
-const toOffer = (r: OfferObservation): NormalizedOffer => ({
+const toOffer = (r: OfferObservation, hosts: string[]): NormalizedOffer => ({
   id: r.id, source: r.source, heading: r.heading, description: r.description, priceOre: r.priceOre, prePriceOre: r.prePriceOre,
   amount: r.amount, unit: r.unit, pieces: r.pieces, dealerId: r.dealerId, dealerName: r.dealerName,
-  validFrom: r.validFrom, validUntil: r.validUntil, observed: r.lastObserved,
+  validFrom: r.validFrom, validUntil: r.validUntil, observed: r.lastObserved, image: allowedImage(r.image, hosts),
 });
 
 export function createOffersApi(o: OffersApiOptions) {
@@ -62,7 +64,7 @@ export function createOffersApi(o: OffersApiOptions) {
     // Bare priser sett innenfor aldersgrensen (src/engine/prices.ts); en eldre pris er ikke et tilbud i dag.
     const rows = await o.store.current({ today, observedSince: minusDays(today, MAX_PRICE_AGE_DAYS), limit: maxOffers * 4 });
     const live: LiveOffer[] = [];
-    for (const r of rows) { const l = toLiveOffer(toOffer(r), o.ingredients, today); if (l) live.push(l); }
+    for (const r of rows) { const l = toLiveOffer(toOffer(r, o.imageHosts ?? []), o.ingredients, today); if (l) live.push(l); }
     sortLive(live);
     const shown = live.slice(0, maxOffers);
     const oldest = shown.reduce<string | null>((m, l) => (m === null || l.offer.observed < m ? l.offer.observed : m), null);

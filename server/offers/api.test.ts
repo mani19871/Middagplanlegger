@@ -14,7 +14,7 @@ import { SqliteOfferStore } from './sqlite';
 
 const offer = (id: string, over: Partial<NormalizedOffer> = {}): NormalizedOffer => ({
   id, source: 'tjek', heading: 'Torskefilet', description: null, priceOre: 7990, prePriceOre: 9990, amount: 400, unit: 'g', pieces: null,
-  dealerId: 'd1', dealerName: 'KIWI', validFrom: '2026-11-23', validUntil: '2026-11-29', observed: '2026-11-23T08:00:00.000Z', ...over,
+  dealerId: 'd1', dealerName: 'KIWI', validFrom: '2026-11-23', validUntil: '2026-11-29', observed: '2026-11-23T08:00:00.000Z', image: null, ...over,
 });
 
 let server: Server | null = null;
@@ -48,6 +48,14 @@ describe('GET /api/offers/lagret', () => {
     ]);
     // Samme felt som et normalisert tilbud: ingen interne felt (status, første observasjon) lekker ut.
     expect(Object.keys(body.offers[0].offer).sort()).toEqual(Object.keys(offer('x')).sort());
+  });
+
+  it('bildeadresser bare til tillatte verter (TJEK_IMAGE_HOSTS); andre fjernes', async () => {
+    const t = await start({ imageHosts: ['bilder.example.test'] });
+    await t.store.record([offer('a', { image: 'https://bilder.example.test/a.jpg' }), offer('b', { image: 'https://annen.example.test/b.jpg' })], 'NO', '2026-11-23T08:00:05.000Z');
+    await t.store.setLastFetch('2026-11-23T08:00:05.000Z');
+    const body = (await (await fetch(`${t.base}/api/offers/lagret`)).json()) as LiveResponse;
+    expect(body.offers.map((l) => [l.offer.id, l.offer.image])).toEqual([['a', 'https://bilder.example.test/a.jpg'], ['b', null]]);
   });
 
   it('tar ikke med tilbud som ikke kobles til en ingrediens, utløpte, eller priser eldre enn aldersgrensen', async () => {

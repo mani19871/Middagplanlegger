@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { normalizeChain } from '../../src/engine/chains';
 import type { Unit } from '../../src/engine/types';
+import { httpsUrl } from '../../src/offers/tjek';
 import type { NormalizedOffer } from '../../src/offers/types';
 import { OFFER_LIMITS, type CurrentQuery, type OfferObservation, type OfferStore, type RecordResult } from './types';
 
@@ -13,7 +14,7 @@ CREATE TABLE IF NOT EXISTS offer_observations (
   dealer_id TEXT NOT NULL, dealer_name TEXT NOT NULL, heading TEXT NOT NULL, description TEXT,
   price_ore INTEGER, pre_price_ore INTEGER, amount REAL, unit TEXT, pieces INTEGER,
   valid_from TEXT NOT NULL, valid_until TEXT NOT NULL, status TEXT NOT NULL,
-  content TEXT NOT NULL, first_observed TEXT NOT NULL, last_observed TEXT NOT NULL,
+  content TEXT NOT NULL, first_observed TEXT NOT NULL, last_observed TEXT NOT NULL, image TEXT,
   PRIMARY KEY (source, id));
 CREATE INDEX IF NOT EXISTS offer_observations_valid ON offer_observations (valid_until, valid_from);
 CREATE TABLE IF NOT EXISTS offer_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -34,12 +35,14 @@ interface Row {
   source: string; id: string; chain: string; country: string; dealer_id: string; dealer_name: string; heading: string; description: string | null;
   price_ore: number | null; pre_price_ore: number | null; amount: number | null; unit: string | null; pieces: number | null;
   valid_from: string; valid_until: string; status: string; content: string; first_observed: string; last_observed: string;
+  /** Adressen til produktbildet hos kilden (tekst; bildet lastes aldri ned eller lagres her). */
+  image: string | null;
 }
 const toObs = (r: Row): OfferObservation => ({
   source: r.source, id: r.id, chain: r.chain, country: r.country, dealerId: r.dealer_id, dealerName: r.dealer_name, heading: r.heading,
   description: r.description, priceOre: r.price_ore, prePriceOre: r.pre_price_ore, amount: r.amount, unit: (r.unit as Unit | null) ?? null,
   pieces: r.pieces, validFrom: r.valid_from, validUntil: r.valid_until, status: r.status === 'tilbud' ? 'tilbud' : 'ukjent',
-  firstObserved: r.first_observed, lastObserved: r.last_observed,
+  firstObserved: r.first_observed, lastObserved: r.last_observed, image: r.image ?? null,
 });
 
 /** Et tilbud som rad, eller null hvis det ikke kan lagres (ugyldig id, dato eller tall). Tekster kortes ned. */
@@ -58,10 +61,12 @@ function toRow(o: NormalizedOffer, country: string, receivedAt: string): Omit<Ro
     source: o.source, id: o.id, chain: normalizeChain(dealerName), country: cut(country, 2), dealer_id: cut(String(o.dealerId ?? ''), L.dealerId),
     dealer_name: dealerName, heading: cut(String(o.heading ?? ''), L.heading), description: o.description == null ? null : cut(String(o.description), L.description),
     price_ore: o.priceOre, pre_price_ore: o.prePriceOre, amount: o.amount, unit: o.unit, pieces: o.pieces === null ? null : Math.round(o.pieces),
-    valid_from: from, valid_until: until, status: o.priceOre === null ? 'ukjent' : 'tilbud',
+    valid_from: from, valid_until: until, status: o.priceOre === null ? 'ukjent' : 'tilbud', image: httpsUrl(o.image),
   };
-  // Innholdet som avgjør om det er «samme pris» (alt unntatt observasjonstidene).
-  const content = createHash('sha256').update(JSON.stringify(row)).digest('hex').slice(0, 16);
+  // Innholdet som avgjør om det er «samme pris»: alt unntatt observasjonstidene og bildeadressen (et nytt bilde er ikke en
+  // ny pris, og gir ikke ny første observasjon).
+  const { image: _image, ...priced } = row;
+  const content = createHash('sha256').update(JSON.stringify(priced)).digest('hex').slice(0, 16);
   return { ...row, content, observed };
 }
 
@@ -74,6 +79,9 @@ export class SqliteOfferStore implements OfferStore {
     this.db.exec('PRAGMA busy_timeout = 5000;');
     if (path !== ':memory:') this.db.exec('PRAGMA journal_mode = WAL;');
     this.db.exec(SCHEMA);
+    // Eldre tilbudsdatabase uten bildekolonne (før kundeaviser fra Tjek): legg den til.
+    const cols = (this.db.prepare('PRAGMA table_info(offer_observations)').all() as { name: string }[]).map((c) => c.name);
+    if (!cols.includes('image')) this.db.exec('ALTER TABLE offer_observations ADD COLUMN image TEXT');
   }
 
   private tx<T>(f: () => T): T {
@@ -86,12 +94,12 @@ export class SqliteOfferStore implements OfferStore {
     const get = this.db.prepare('SELECT content, last_observed FROM offer_observations WHERE source = ? AND id = ?');
     const count = this.db.prepare('SELECT COUNT(*) AS n FROM offer_observations');
     const ins = this.db.prepare(`INSERT INTO offer_observations (source, id, chain, country, dealer_id, dealer_name, heading, description,
-      price_ore, pre_price_ore, amount, unit, pieces, valid_from, valid_until, status, content, first_observed, last_observed)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+      price_ore, pre_price_ore, amount, unit, pieces, valid_from, valid_until, status, image, content, first_observed, last_observed)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     const upd = this.db.prepare(`UPDATE offer_observations SET chain = ?, country = ?, dealer_id = ?, dealer_name = ?, heading = ?, description = ?,
-      price_ore = ?, pre_price_ore = ?, amount = ?, unit = ?, pieces = ?, valid_from = ?, valid_until = ?, status = ?, content = ?,
+      price_ore = ?, pre_price_ore = ?, amount = ?, unit = ?, pieces = ?, valid_from = ?, valid_until = ?, status = ?, image = ?, content = ?,
       first_observed = ?, last_observed = ? WHERE source = ? AND id = ?`);
-    const seen = this.db.prepare('UPDATE offer_observations SET last_observed = ? WHERE source = ? AND id = ?');
+    const seen = this.db.prepare('UPDATE offer_observations SET last_observed = ?, image = ? WHERE source = ? AND id = ?');
     this.tx(() => {
       let rows = (count.get() as { n: number }).n;
       for (const o of offers.slice(0, OFFER_LIMITS.perRecord)) {
@@ -99,7 +107,7 @@ export class SqliteOfferStore implements OfferStore {
         if (!r) { out.skipped++; continue; }
         const cur = get.get(r.source, r.id) as { content: string; last_observed: string } | undefined;
         const vals = [r.chain, r.country, r.dealer_id, r.dealer_name, r.heading, r.description, r.price_ore, r.pre_price_ore, r.amount, r.unit, r.pieces,
-          r.valid_from, r.valid_until, r.status, r.content] as const;
+          r.valid_from, r.valid_until, r.status, r.image, r.content] as const;
         if (!cur) {
           if (rows >= this.maxRows) { out.skipped++; continue; }
           ins.run(r.source, r.id, ...vals, r.observed, r.observed);
@@ -107,7 +115,7 @@ export class SqliteOfferStore implements OfferStore {
         } else if (r.observed <= cur.last_observed) {
           if (r.content !== cur.content) out.skipped++; // eldre observasjon med annet innhold: den nyere står
         } else if (r.content === cur.content) {
-          seen.run(r.observed, r.source, r.id); out.seen++;
+          seen.run(r.observed, r.image, r.source, r.id); out.seen++;
         } else {
           upd.run(...vals, r.observed, r.observed, r.source, r.id); out.updated++;
         }

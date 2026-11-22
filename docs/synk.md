@@ -130,6 +130,15 @@ Brukeren opplyser (2026-11-22) at Tjek-avtalen tillater lagring av priser (`phas
 - **Lese-endepunkt:** `GET /api/offers/lagret` (anonymt, se `docs/sikkerhet.md`, S21) gir samme form som live (`LiveResponse`) med `stored: true`, `observed` (siste vellykkede henting), `oldestObserved` og `truncated`. Klienten (`fetchLiveOffers` i `src/offers/client.ts`) bruker det når svaret er `ok`, ellers live (`/api/offers`, i minnet). Med lagring på holdes live-visningen oppdatert av innsamleren og henter ikke selv. `OFFER_STORE=0` gir oppførselen fra før (bare minnet); `TJEK_FETCH=0` slår av alle kall til Tjek (tester og røyktest), men serverer det som er lagret.
 - **Synkes aldri:** tilbud ligger aldri i `AppState`, utboksen eller noen synkstrøm. En linje fra et tilbud i handlelista har bare varen og kjeden (`PapersView`).
 
+### Kundeaviser og bilder fra Tjek
+
+Brukeren opplyser (2026-11-22) at avtalen tillater bilder og avissider. Bygget slik, uten at vi laster ned eller lagrer bildefiler:
+
+- **Produktbilder:** `images.view` (ellers `zoom`, så `thumb`) fra Tjeks tilbudssvar blir `NormalizedOffer.image` (bare https). Adressen (tekst) lagres i `offer_observations.image`; bildet lastes av nettleseren direkte fra Tjek, og bare i tilbudsdetaljen («Bruk tilbudet»), med «Produktbilde. Kilde: Tjek, hentet …». Ikke i lista, så åpning av «Tilbud nå» sender ingen forespørsler til Tjek fra brukerens enhet.
+- **Kundeaviser:** fanen «Aviser fra Tjek» (`src/views/papers/TjekPapers.tsx`) lister gjeldende og kommende aviser som tekst (`GET /api/aviser`); sidene hentes først når brukeren åpner en avis (`GET /api/aviser/:id/sider`), én side om gangen med forrige/neste, «Kilde: Tjek, hentet …» og merknaden om at bildene lastes fra Tjek. Serveren holder lista og sidenes adresser i minnet (6 t, høyst 100 aviser), kaller Tjek bare for aviser i lista, og alle kall går gjennom kallbudsjettet. «Aviser (demo)» er uendret og fortsatt merket demodata.
+- **Ikke prøvd mot ekte svar:** formen på `/v2/catalogs` og `/v2/catalogs/:id/pages` (feltene `id`, `label`, `branding.name`/`dealer.name`, `run_from`, `run_till`, `page_count`, og `thumb`/`view`/`zoom` per side) er ikke kontrollert mot Tjek i dette prosjektet. Tolkningen er forsiktig (ukjent form gir ingen avis eller tomme sider), men må prøves før piloten.
+- **Bildeverter:** bare verter i `TJEK_IMAGE_HOSTS` (kommaseparerte eksakte vertsnavn) slippes inn i CSP-ens `img-src` og i svarene; andre bildeadresser blir `null`. Standard er tom: da vises ingen bilder, og appen sier at bildeverten ikke er satt opp. Hvilke verter Tjek bruker, er ikke bekreftet her; serveren logger vertsnavn den ser i tilbudssvarene som ikke er tillatt («bilder fra verter som ikke er i TJEK_IMAGE_HOSTS»), så driften kan legge dem til etter å ha sett dem.
+
 ## Sikkerhet
 
 - Enhetstoken: 32 tilfeldige byte (base64url). Bare sha256 lagres; oppslag på hash. Sendes i `Authorization: Bearer`, aldri i URL. Ingen informasjonskapsler, så CSRF er ikke relevant; serveren sender ingen CORS-hoder (bare samme opprinnelse).
@@ -178,6 +187,7 @@ Brukeren opplyser (2026-11-22) at Tjek-avtalen tillater lagring av priser (`phas
 | `OFFER_REFRESH_HOURS` | 6 | Timer mellom henting (minst 1) |
 | `OFFER_RETENTION_DAYS` | 180 | Utløpte tilbud som ikke er sett på så mange dager, slettes (`0` = aldri). Hvor lenge avtalen tillater, er ikke kjent for oss |
 | `OFFER_MAX_CALLS_PER_DAY` | 1000 | Kallbudsjett mot Tjek per norsk døgn |
+| `TJEK_IMAGE_HOSTS` | tom | Eksakte vertsnavn for bilder hos Tjek (kommaseparert). Kommer i CSP-ens `img-src`. Tom: ingen produktbilder eller avissider |
 
 `node:sqlite` er innebygd i Node 22 og er eksperimentell (skriver en «ExperimentalWarning» ved start; versjonen er festet i `Dockerfile`, se `docs/hosting.md`, «node:sqlite»). Databasen kjører i WAL-modus; skrivinger er `BEGIN IMMEDIATE`-transaksjoner. Sikkerhetskopi: `sqlite3 middag.sqlite ".backup kopi.sqlite"` eller `VACUUM INTO` mens serveren kjører, aldri `cp` av bare hovedfilen (WAL); krypter kopien. Ferdig skript (`VACUUM INTO` + age-kryptering), Docker Compose med Caddy og gjenopprettingsprosedyre: `docs/drift/` og `docs/hosting.md`, avsnitt 8.
 

@@ -1,4 +1,5 @@
 import type { LiveOffer } from './service';
+import type { Catalog, CatalogPage } from './types';
 export interface LiveResponse {
   status: 'ok' | 'loading' | 'error'; error: string | null; source: string;
   /** Når tilbudene sist ble hentet fra kilden (ikke når de ble lest). */
@@ -35,4 +36,18 @@ export async function fetchLiveOffers(signal?: AbortSignal): Promise<LiveRespons
     if (stored && !signal?.aborted) return stored;
     throw e;
   }
+}
+
+/** Kundeaviser fra Tjek (/api/aviser). Bildeadressene er hos Tjek; appen laster dem bare når brukeren åpner en avis. */
+export interface PapersResponse { status: 'ok' | 'loading' | 'error'; error: string | null; source: string; observed: string | null; imagesAllowed: boolean; catalogs: Catalog[] }
+export interface PagesResponse { status: 'ok' | 'error'; error: string | null; source: string; observed: string | null; imagesAllowed: boolean; catalog: Catalog | null; pages: CatalogPage[] }
+export async function fetchPapers(signal?: AbortSignal): Promise<PapersResponse> {
+  const res = await fetch('/api/aviser', { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as PapersResponse;
+}
+export async function fetchPages(id: string, signal?: AbortSignal): Promise<PagesResponse> {
+  const res = await fetch(`/api/aviser/${encodeURIComponent(id)}/sider`, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as PagesResponse;
 }

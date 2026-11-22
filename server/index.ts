@@ -13,6 +13,8 @@ import { createApp } from './app';
 import { createOffersApi } from './offers/api';
 import { CallBudget, startOfferCollector, type OfferCollector } from './offers/collector';
 import { offerConfigFrom } from './offers/config';
+import { allowedImage, foreignHost, imageHostsFrom } from './offers/images';
+import { createPapersApi } from './offers/papers';
 import { SqliteOfferStore } from './offers/sqlite';
 import { retentionDaysFrom, startRetention, tokenIdleMsFrom } from './retention';
 import { SqliteStorage } from './storage/sqlite';
@@ -58,6 +60,16 @@ const source = new TjekSource(
   () => new Date().toISOString(),
 );
 const collectNow = () => collectOffers(source, ingredients, { country: 'NO', today: oslo() });
+// Produktbilder og avissider lastes av nettleseren direkte fra Tjek, bare fra verter i TJEK_IMAGE_HOSTS (CSP img-src).
+// Tom liste: ingen bilder. Vertene er ikke bekreftet mot ekte svar her; serveren logger vertsnavn den ser som ikke er tillatt.
+const imageHosts = imageHostsFrom(process.env.TJEK_IMAGE_HOSTS);
+const withImages = (list: LiveOffer[]) => list.map((l) => ({ ...l, offer: { ...l.offer, image: allowedImage(l.offer.image, imageHosts) } }));
+const loggedHosts = new Set<string>();
+function logForeignHosts(list: LiveOffer[]) {
+  const fresh = new Set<string>();
+  for (const l of list) { const h = foreignHost(l.offer.image, imageHosts); if (h && !loggedHosts.has(h)) fresh.add(h); }
+  if (fresh.size) { for (const h of fresh) loggedHosts.add(h); console.log(`Tilbud: bilder fra verter som ikke er i TJEK_IMAGE_HOSTS (vises ikke): ${[...fresh].sort().join(', ')}`); }
+}
 
 interface Cache { offers: LiveOffer[]; observed: string; day: string }
 let cache: Cache | null = null;
@@ -74,7 +86,7 @@ if (offerStore) {
     collector = startOfferCollector({
       collect: collectNow, store: offerStore, country: 'NO', now: () => new Date().toISOString(),
       intervalMs: offerCfg.refreshMs, retryMs: RETRY_MS, retentionDays: offerCfg.retentionDays,
-      onCollected: (offers, at) => { cache = { offers, observed: at, day: oslo() }; },
+      onCollected: (offers, at) => { cache = { offers, observed: at, day: oslo() }; logForeignHosts(offers); },
     });
   }
 }
@@ -85,7 +97,7 @@ function refresh() {
   if (collector || !offerCfg.fetch || refreshing || Date.now() - failedAt < RETRY_MS) return;
   const day = oslo();
   refreshing = collectNow()
-    .then((offers) => { cache = { offers, observed: new Date().toISOString(), day }; failedAt = 0; })
+    .then((offers) => { cache = { offers, observed: new Date().toISOString(), day }; failedAt = 0; logForeignHosts(offers); })
     // Bare navnet på feilen logges (meldingen har statuskode og sti hos Tjek); ingenting av det sendes til appen.
     .catch((e: unknown) => { failedAt = Date.now(); console.error(`tilbud-feil: ${e instanceof Error ? e.name : typeof e}`); })
     .finally(() => { refreshing = null; });
@@ -104,7 +116,7 @@ function offers(req: IncomingMessage, res: ServerResponse): boolean {
   res.setHeader('Cache-Control', 'no-store');
   res.end(JSON.stringify({
     status: cache ? 'ok' : failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek',
-    observed: cache?.observed ?? null, offers: cache?.offers ?? [],
+    observed: cache?.observed ?? null, offers: withImages(cache?.offers ?? []),
   }));
   return true;
 }
@@ -112,10 +124,18 @@ function offers(req: IncomingMessage, res: ServerResponse): boolean {
 // Rekkefølge: synk-API, lagrede tilbud, live-tilbud (minnet), statiske filer. Tilbud når aldri synk-lagringen.
 const handlers = [
   syncApi,
-  ...(offerStore ? [createOffersApi({ store: offerStore, ingredients, collector: () => collector?.state() ?? { failures: offerCfg.fetch ? 0 : 1 }, trustProxy: process.env.TRUST_PROXY === '1' })] : []),
+  ...(offerStore ? [createOffersApi({ store: offerStore, ingredients, imageHosts, collector: () => collector?.state() ?? { failures: offerCfg.fetch ? 0 : 1 }, trustProxy: process.env.TRUST_PROXY === '1' })] : []),
   offers,
+  // Kundeaviser fra Tjek (lista og sidenes bildeadresser i minnet, ingen bildefiler hos oss). Med TJEK_FETCH=0: «error».
+  createPapersApi({
+    listCatalogs: () => (offerCfg.fetch ? source.listCatalogs('NO') : Promise.reject(new Error('av'))),
+    catalogPages: (id) => (offerCfg.fetch ? source.catalogPages(id) : Promise.reject(new Error('av'))),
+    imageHosts, trustProxy: process.env.TRUST_PROXY === '1',
+    // Henting av: «error» er ventet og logges ikke (oppstarten sier allerede fra).
+    log: offerCfg.fetch ? undefined : () => {},
+  }),
 ];
-const app = createApp({ dist: join(process.cwd(), 'dist'), handlers, hsts: process.env.HSTS === '1' });
+const app = createApp({ dist: join(process.cwd(), 'dist'), handlers, hsts: process.env.HSTS === '1', imageHosts });
 const server = createServer(app);
 // Korte tidsavbrudd mot trege klienter (slowloris). Proxyen foran bør ha egne grenser i tillegg.
 server.headersTimeout = 15_000;

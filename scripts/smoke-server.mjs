@@ -66,6 +66,10 @@ check((await api('/api/offers', { method: 'POST' })).status === 405, '/api/offer
   const l0 = await lagret0.json();
   check(lagret0.status === 200 && l0.stored === true && l0.status === 'error' && l0.offers.length === 0, '/api/offers/lagret svarer (tom lagring, henting av: «error»)');
   check(existsSync(OFFER_DB), 'tilbudslagringen er en egen fil ved siden av synk-databasen');
+  const av = await fetch(BASE + '/api/aviser');
+  const avb = await av.json();
+  check(av.status === 200 && avb.status === 'error' && avb.imagesAllowed === false && avb.catalogs.length === 0, '/api/aviser svarer (henting av, ingen bildeverter)');
+  check((await fetch(BASE + '/api/aviser/finnes-ikke/sider')).status === 404, 'ukjent avis gir 404 uten oppslag hos Tjek');
 
   const a = await (await api('/api/household', { method: 'POST', body: { deviceId: 'enhet-smoke-aaaa', label: 'Voksen 1' } })).json();
   check(typeof a.token === 'string', 'opprett husstand (A)');
