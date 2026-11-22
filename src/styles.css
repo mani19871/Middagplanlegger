@@ -1,9 +1,9 @@
-:root { --onG:#ffffff; --focus:#0b57d0; --cream:#f7f4ee; --card:#fffdf9; --ink:#14251d; --mut:#56645c; --g:#17503b; --gl:#dbe8d3; --line:#e4dfd2; --bad:#b3261e; --warn:#8a5a00; --upbg:#fbe3dc; --upfg:#9a3a22; }
+:root { --onG:#ffffff; --focus:#0b57d0; --cream:#FAF6EE; --card:#fffdf9; --ink:#14251d; --mut:#56645c; --g:#103E28; --gl:#dbe8d3; --line:#e4dfd2; --bad:#b3261e; --warn:#8a5a00; --upbg:#fbe3dc; --upfg:#9a3a22; }
 @media (prefers-color-scheme: dark) { :root { --onG:#0b1a13; --focus:#8ab4ff; --cream:#101b16; --card:#18271f; --ink:#eef3ef; --mut:#a3b2a9; --g:#4fb88f; --gl:#223a2e; --line:#2b4136; --bad:#ff8a80; --warn:#f0c36a; --upbg:#47241c; --upfg:#ffb59f; } }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--cream); color:var(--ink); font:16px/1.4 system-ui,-apple-system,sans-serif; }
 .app { max-width:520px; margin:0 auto; padding:0 16px 96px; }
-header { padding:14px 0 4px; } .logo { display:flex; align-items:center; gap:10px; } .logo b { font-size:1.5rem; display:block; line-height:1.1; } .logo small { color:var(--mut); }
+header { padding:14px 0 4px; } .logo { display:flex; align-items:center; gap:10px; } .logo b { font-size:1.5rem; display:block; line-height:1.1; } .logo small { color:var(--mut); } .logo .symbol { display:block; height:28px; width:auto; }
 .demo { margin:8px 0; padding:6px 10px; background:#fff3cd; color:#5c4600; border-radius:10px; font-size:.8rem; }
 h1.page { font-size:2.1rem; margin:14px 0 8px; letter-spacing:-.5px; } h2 { font-size:1.3rem; margin:4px 0; } h3 { font-size:1.1rem; margin:20px 0 8px; } h4 { margin:2px 0; }
 button { font:inherit; color:inherit; cursor:pointer; }

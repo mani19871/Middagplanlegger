@@ -2,6 +2,8 @@
 
 Norsk middagsplanlegger etter planen «Fullstendig plan: norsk middagsplanlegger». **Appen heter «Husvett»** (eierens beslutning 2026-11-22, domene `husvett.no`); «Middagsplanlegger» er prosjekt-, repo- og Docker-navnet og er uendret. Navnetilgjengelighet og varemerke er ikke sjekket (`docs/pilot-sjekkliste.md`, E5).
 
+**Logo (logopakke A 1.0, fra eieren):** originalene ligger uendret i `brand/husvett/` (ikke rediger; `LES-MEG.txt`). Appen bruker kopier: ikonene i `public/icons/` og `public/favicon.ico` (fra `Nett/`, listet i `public/manifest.webmanifest`) og symbolet i toppfeltet (`src/assets/symbol-*.svg`, kopier av `SVG/`). Ikonene lages ikke lenger av et skript (`make-icons.cjs` er fjernet); et nytt ikon betyr nye filer i `brand/` og ny kopi. Farger: skoggrønn `#103E28`, krem `#FAF6EE`. `src/brand.test.ts` sjekker at kopiene er identiske med originalene.
+
 - `src/engine/planner.ts`: deterministisk planmotor (øre, hele pakninger, delte pakninger, beholdning, én vs. to butikker, budsjettsvar, bytteforskjell på hele kurven).
 - `src/data/`: **demodata** (oppdiktede butikker, priser, aviser). Ekte prisdata avklares i fase 0.
 - Handlelisten og avkrysninger lagres lokalt og virker uten nett (service worker).

@@ -11,11 +11,6 @@ export function Thumb({ id, size = 56 }: { id: string; size?: number }) {
   const tint = TINT[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % TINT.length];
   return <span className="thumb" style={{ width: size, height: size, background: tint, fontSize: size * 0.55 }} aria-hidden>{EMOJI[id] ?? '🍽️'}</span>;
 }
-export const Leaf = () => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
-    <path d="M4 20c0-9 5-15 16-16 0 11-6 16-14 16" fill="var(--g)" /><path d="M4 20c3-5 6-8 11-11" stroke="var(--cream)" strokeWidth="1.4" />
-  </svg>
-);
 const I = (d: string) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d={d} /></svg>
 );

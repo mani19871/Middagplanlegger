@@ -16,7 +16,7 @@ const pairs = (t) => [
   [t.onG ?? '#ffffff', t.g, 'knapp (cta/aktiv fane)'],
   [t.focus, t.cream, 'fokusmarkering (3:1 kreves)', 3], [t.focus, t.card, 'fokusmarkering på kort (3:1)', 3],
 ];
-const fixed = [['#5c4600', '#fff3cd', 'demo-banner'], ['#6b4500', '#fff0cc', 'pille/banner advarsel'], ['#7a3615', '#fbe9de', 'tilbudsbanner'], ['#8a3d1c', '#f7f4ee', 'tilbudstekst'],
+const fixed = [['#5c4600', '#fff3cd', 'demo-banner'], ['#6b4500', '#fff0cc', 'pille/banner advarsel'], ['#7a3615', '#fbe9de', 'tilbudsbanner'], ['#8a3d1c', '#FAF6EE', 'tilbudstekst'],
   ['#ffffff', '#b4532a', 'pris-pluss'], ['#b4532a', '#fffdf9', 'pris på kort'], ['#7a3615', '#fffdf9', 'tilbudssum']];
 let bad = 0;
 const report = (name, list) => list.forEach(([f, b, n, min = 4.5]) => { const r = ratio(f, b); const ok = r >= min; if (!ok) bad++; console.log(`${ok ? 'ok  ' : 'FEIL'} ${name.padEnd(5)} ${r.toFixed(2).padStart(5)}  ${n} (${f} på ${b})`); });

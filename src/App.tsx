@@ -14,7 +14,9 @@ import { useChangeKit } from './views/ListChanges';
 import { changeSummary } from './engine/substitution';
 import PapersView from './views/PapersView';
 import PantryView from './views/PantryView';
-import { Leaf, icons } from './views/art';
+import { icons } from './views/art';
+import symbolGreen from './assets/symbol-skoggronn.svg';
+import symbolWhite from './assets/symbol-hvit.svg';
 import { isoDate, shopDate, weekLabel, weekStart } from './views/dates';
 import { fetchLiveOffers } from './offers/client';
 import { toHints } from './offers/hints';
@@ -100,7 +102,7 @@ export default function App() {
   return (
     <div className="app">
       <header>
-        <span className="logo"><Leaf /><span><b>Husvett</b><small>{weekLabel(weekStart())}</small></span></span>
+        <span className="logo"><picture><source media="(prefers-color-scheme: dark)" srcSet={symbolWhite} /><img className="symbol" src={symbolGreen} alt="" aria-hidden width="31" height="28" /></picture><span><b>Husvett</b><small>{weekLabel(weekStart())}</small></span></span>
         <div className="headchips">
           <button className="household" aria-label="Endre hvem som spiser" onClick={() => { setTab('Uka'); setMode('edit'); }}>
             👥 {adults} voksne, {kids} barn ⌄</button>

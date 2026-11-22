@@ -12,7 +12,6 @@
     "build:server": "node scripts/build-server.mjs",
     "start": "node dist-server/index.mjs",
     "smoke:server": "node scripts/smoke-server.mjs",
-    "icons": "node scripts/make-icons.cjs",
     "check:contrast": "node scripts/contrast.mjs",
     "check:a11y": "node scripts/checks/a11y.cjs",
     "check:pwa": "npm run build && node scripts/checks/pwa.cjs",

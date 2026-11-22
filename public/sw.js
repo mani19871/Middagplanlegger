@@ -1,7 +1,7 @@
 // Service worker: appskallet (HTML, JS, CSS, ikoner) caches slik at appen åpner frakoblet.
 // Aldri cache /api/: tilbudsdata fra Tjek er live-visning og skal ikke lagres (se CLAUDE.md, Tilbudskilder).
-const CACHE = 'middag-v2';
-const SHELL = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
+const CACHE = 'middag-v3';
+const SHELL = ['/', '/manifest.webmanifest', '/favicon.ico', '/icons/ikon-192.png', '/icons/ikon-512.png', '/icons/maskable-512.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
