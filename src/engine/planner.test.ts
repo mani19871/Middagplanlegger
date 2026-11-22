@@ -10,6 +10,13 @@ import { miniCatalog, miniSettings } from '../acceptance/util';
 import { recipeDeals, type OfferHint } from './deals';
 import { totalWithOffers } from './offerTotal';
 import { cookNow } from './cookNow';
+import { applyEvents, isValidEvent, type InventoryEvent } from './inventory';
+import { cleanStapleName, customStapleId, isValidStaples, stapleStatus, type StapleInfo } from './staples';
+import { classifyHousehold, householdCatch, householdTotal, householdOfferKey, parseHouseholdRules, type HouseholdOfferIn, type HouseholdRuleSet } from './household';
+import { isStale, priceAgeDays } from './prices';
+import { stapleListFacts } from '../sync/list';
+import { stapleChoices } from '../data/staples';
+import rawRules from '../data/household-rules.json';
 
 const ctx = (over: Partial<Settings> = {}) => ({ catalog, settings: { ...defaultSettings, ...over } });
 const slot = (day: number, recipeId: string, locked = false): Slot => ({ day, recipeId, locked });
@@ -438,5 +445,67 @@ describe('regresjon: husholdningsvarer (household.ts) påvirker aldri middagskur
       expect([other.totalOre, other.complete]).toEqual([9990, false]);
       expect([b.totalOre, b.complete, b.unknownCount]).toEqual([a.totalOre, a.complete, a.unknownCount]);
     }
+  });
+});
+
+// ---------- Kodegjennomgang runde 2 (docs/kodegjennomgang.md): M1–M5 ----------
+const r2info: StapleInfo = { choices: stapleChoices, ingredients: catalog.ingredients };
+const R2RULES: HouseholdRuleSet = parseHouseholdRules(rawRules);
+const R2FOOD = ['melk', 'kaffe', 'ost', 'egg'];
+let r2n = 0;
+const r2offer = (heading: string, over: Partial<HouseholdOfferIn> = {}): HouseholdOfferIn => ({
+  id: `o${++r2n}`, source: 'tjek', heading, description: null, priceOre: 4990, prePriceOre: 6990, amount: null, unit: null, pieces: null,
+  dealerName: 'Kiwi', validFrom: '2026-11-23', validUntil: '2026-11-29', observed: '2026-11-23T08:00:00.000Z', ...over,
+});
+
+describe('regresjon: kodegjennomgang runde 2, M1 basisvare: «tom» oppheves av en telling som sier 0', () => {
+  it('nivåvare (uten minstemengde) markert tom og så telt til 0 skal fortsatt foreslås', () => {
+    const log: InventoryEvent[] = [
+      { type: 'nivå', id: 'a1', at: '2026-11-21T10:00:00.000Z', by: 'a', staple: 'ris', level: 'tom' },
+      { type: 'telling', id: 'a2', at: '2026-11-21T11:00:00.000Z', by: 'a', ingredient: 'ris', amount: 0 },
+    ];
+    const s = stapleStatus([{ id: 'ris' }], applyEvents([], log), stapleListFacts([]), r2info)[0];
+    expect(s.suggest).toBe(true); // før rettingen: state 'ok'
+  });
+});
+
+describe('regresjon: kodegjennomgang runde 2, M2 egen basisvare: id fra customStapleId godtas ikke av nivå-hendelsen', () => {
+  it('hvert navn som cleanStapleName godtar, gir en id som STAPLE_ID (nivå) godtar', () => {
+    for (const name of ['ʻAhi', 'İ'.repeat(30)]) {
+      const clean = cleanStapleName(name)!;
+      const id = customStapleId(clean)!;
+      expect(isValidStaples([{ id, name: clean }], r2info)).toBe(true);
+      const e: InventoryEvent = { type: 'nivå', id: 'x', at: '2026-11-21T10:00:00.000Z', by: 'a', staple: id, level: 'tom' };
+      expect(isValidEvent(e), `${name} → ${id}`).toBe(true); // før rettingen: avvist
+    }
+  });
+});
+
+describe('regresjon: kodegjennomgang runde 2, M3 husholdning: barneprodukter uten ordet «barne»', () => {
+  it('«Tannkrem barn 0-6 år» og «Kids sjampo» gir ikke treff', () => {
+    expect(classifyHousehold(r2offer('Zendium tannkrem barn 0-6 år'), R2RULES, R2FOOD)).toBeNull(); // før rettingen: tannkrem
+    expect(classifyHousehold(r2offer('Shampoo for barn'), R2RULES, R2FOOD)).toBeNull();
+    expect(classifyHousehold(r2offer('Colgate Kids tannkrem'), R2RULES, R2FOOD)).toBeNull();
+  });
+});
+
+describe('regresjon: kodegjennomgang runde 2, M4 husholdning: samme tilbud to ganger, eldste observasjon vises i fangsten', () => {
+  it('fangsten og «Andre varer» bruker samme (nyeste) observasjon', () => {
+    const old = r2offer('Toalettpapir 24 rull', { id: 'same', priceOre: 5990, observed: '2026-11-20T08:00:00.000Z' });
+    const neu = { ...old, priceOre: 7990, observed: '2026-11-24T08:00:00.000Z' };
+    const c = householdCatch([neu, old], R2RULES, R2FOOD, { shopDate: '2026-11-25', chains: ['KIWI'] });
+    const shown = [...c.approved, ...c.review][0];
+    const total = householdTotal([{ id: `hus:${householdOfferKey(old)}#0`, text: 'Toalettpapir', note: 'KIWI' }], [...c.approved, ...c.review], '2026-11-25', ['KIWI']);
+    expect(shown.offer.priceOre).toBe(total.lines[0].priceOre ?? -1);
+    expect(shown.offer.priceOre).toBe(7990); // før rettingen: 5990
+  });
+});
+
+describe('regresjon: kodegjennomgang runde 2, M5 prisalder: observasjonstid i UTC gir én dag for mye alder rett etter norsk midnatt', () => {
+  // ÅPENT (runde 2, M5): feiler til observasjonstiden gjøres om til norsk dato utenfor motoren. Feilen går i trygg retning
+  // (prisen regnes én dag eldre). Når den rettes, blir it.fails rød: bytt til it.
+  it.fails('observert 00:30 norsk tid 9. nov (23:30Z 8. nov) er 14 dager før 23. nov, ikke 15', () => {
+    expect(priceAgeDays('2026-11-08T23:30:00.000Z', '2026-11-23')).toBe(14); // i dag: 15
+    expect(isStale('2026-11-08T23:30:00.000Z', '2026-11-23')).toBe(false);
   });
 });

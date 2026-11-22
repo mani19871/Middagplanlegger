@@ -41,7 +41,7 @@ export function useSync(state: AppState, update: (f: (s: AppState) => AppState) 
     const r = await syncOnce(io, api, () => new Date().toISOString());
     running.current = false; setBusy(false);
     if (r.ok) {
-      failures.current = 0; setOffline(false); setLastError(null);
+      failures.current = 0; setOffline(false); setLastError(r.error ?? null);
     } else {
       failures.current += 1; setOffline(r.offline); setLastError(r.error ?? null);
     }

@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { recordList, stamp, type AppState } from '../store';
 import { deriveStock } from '../engine/inventory';
-import { cookNow, cookNowLinePrefix, emptyCookNowLocal, mergeHave, type CookNowLocal, type CookNowSuggestion } from '../engine/cookNow';
+import { cookNow, cookNowLineId, cookNowLinePrefix, emptyCookNowLocal, mergeHave, type CookNowLocal, type CookNowSuggestion } from '../engine/cookNow';
 import { portionsOnDay, type Ctx } from '../engine/planner';
 import { amount, kr, num } from '../engine/format';
 import { manualLines } from '../sync/list';
@@ -87,12 +87,14 @@ export default function CookNowView({ state, update, ctx }: Props) {
     if (todo.length === 0) return;
     update((st) => {
       const cur = manualLines(st.list);
+      const removed = st.list.flatMap((e) => (e.type === 'manuell-fjern' ? [e.lineId] : []));
       const events = todo.filter((l) => !cur.some((m) => m.id.startsWith(cookNowLinePrefix(s.recipe.id, l.ingredient)))).map((l) => {
         const e = stamp();
         return {
           type: 'manuell' as const, ...e,
           line: {
-            id: `${cookNowLinePrefix(s.recipe.id, l.ingredient)}${e.id}`.slice(0, 100),
+            // Fast id per rett og vare (ikke hendelsens id): to enheter gir én linje.
+            id: cookNowLineId(s.recipe.id, l.ingredient, removed).slice(0, 100),
             text: `${l.name}: ${amount(l.need, l.unit)}`.slice(0, 200),
             note: `til ${s.recipe.name}`.slice(0, 200),
           },

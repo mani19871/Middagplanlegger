@@ -4,9 +4,9 @@ import { initialState, migrateState, recordEvent, recordList, type AppState } fr
 import { conflicts, deriveStock, lineStates, purchaseLineId, type InventoryEvent } from '../engine/inventory';
 import { checks, manualLines, stapleListFacts, toggleEvent } from './list';
 import { SyncApi, syncErrorText } from './api';
-import { connect, docAnchors, isDirty, lostDoc, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
+import { connect, docAnchors, isDirty, lostDoc, pendingCount, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { fieldText, merge3 } from './docs';
-import { stapleLineId, stapleStatus, stapleSuggestions } from '../engine/staples';
+import { customStapleId, STAPLE_LIMITS, stapleLineId, stapleStatus, stapleSuggestions } from '../engine/staples';
 import { stapleChoices } from '../data/staples';
 import type { Staple } from '../engine/types';
 import { activeChanges, applyChange, changeLineId, notFoundEvent, substituteEvent, versionsFor, type AdjustedLine, type ListChange } from '../engine/substitution';
@@ -762,5 +762,99 @@ describe('basisvarer i husstanden (utvidelse B)', () => {
     const household = (await srv.storage.authenticate(sha(a.state.sync!.token), srv.now()))!.householdId;
     const stored = await srv.storage.readSince(household, 0, 100);
     expect(stored.docs.map((d) => d.body).join('')).not.toMatch(/gluten|svin|vegetarian|avoid/);
+  });
+});
+
+// ---------- Kodegjennomgang runde 2 (docs/kodegjennomgang.md): S8, S9, S11 ----------
+const r2letters = 'abcdefghijklmnopqrstuvwxyz';
+/** Egne basisvarer med gyldige navn (bare bokstaver). */
+const r2own = (prefix: string, n: number): Staple[] => Array.from({ length: n }, (_, i) => {
+  const name = `${prefix} ${r2letters[Math.floor(i / 26)]}${r2letters[i % 26]}`;
+  return { id: customStapleId(name)!, name };
+});
+const r2setStaples = (d: Device, staples: Staple[]) => {
+  d.state = { ...d.state, settings: { ...d.state.settings, staples: [...staples].sort((x, y) => (x.id < y.id ? -1 : 1)) } };
+};
+
+describe('kodegjennomgang runde 2: basisvarer flettet over taket', () => {
+  it('to enheter som hver legger til basisvarer (til sammen over taket) får konflikt, ikke stille synkstopp', async () => {
+    const { a, b } = await pair();
+    r2setStaples(a, r2own('alfa', 25));
+    r2setStaples(b, r2own('beta', 25));
+    await a.sync(); await b.sync(); await a.sync();
+    // Før rettingen: B flettet A sine 25 med sine egne 25 = 50 > 40, dokumentet ble ugyldig og ble aldri sendt, uten at
+    // noe ble vist. Nå blir A sine nye basisvarer konflikter hos B, og B sitt dokument holder seg under taket.
+    expect(b.state.settings.staples!.length).toBeLessThanOrEqual(STAPLE_LIMITS.count);
+    expect(b.state.sync!.conflicts.innstillinger?.fields.length).toBe(25);
+    expect(syncStatus(b.state, { offline: false, busy: false }, 0)).toBe('konflikt');
+  });
+
+  it('et dokument med lokale endringer som ikke kan sendes, gir «ugyldig_dokument» (vises som feil), ikke stille stopp', async () => {
+    const { a, b } = await pair();
+    // F.eks. «velg alle» over taket valgt i en konflikt: 50 basisvarer lokalt.
+    r2setStaples(b, [...r2own('alfa', 25), ...r2own('beta', 25)]);
+    const r = await b.sync();
+    expect(r).toMatchObject({ ok: true, error: 'ugyldig_dokument' });
+    expect(syncStatus(b.state, { offline: false, busy: false, lastError: r.error }, 0)).toBe('feil');
+    expect(isDirty(b.state, 'innstillinger')).toBe(true);
+    expect(pendingCount(b.state)).toBeGreaterThan(0);
+    // Rettet (under taket): sendes, og feilen er borte.
+    r2setStaples(b, r2own('alfa', 25));
+    expect(await b.sync()).toEqual({ ok: true, offline: false });
+    await a.sync();
+    expect(a.state.settings.staples!.length).toBe(25);
+  });
+});
+
+describe('kodegjennomgang runde 2: dokument som mangler helt på serveren etter gjenoppretting', () => {
+  let dir = '';
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'middag-r2-')); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+  const retry = async <T,>(f: () => Promise<T>) => { try { return await f(); } catch { return f(); } };
+  const syncOk = async (d: Device) => { for (let i = 0; i < 3; i++) if ((await retry(() => d.sync())).ok) return; throw new Error('synk feilet'); };
+
+  it('kopi tatt før første dokumentskriving: en ny enhet overskriver ikke husstandens innstillinger med sine standardverdier', async () => {
+    await srv.close();
+    srv = await startTestServer({ storage: new SqliteStorage(join(dir, 'db.sqlite')) });
+    const a = new Device('enhet-aaaa1111');
+    const b = new Device('enhet-bbbb2222');
+    await a.create();
+    await b.join(await a.invite());
+    const code = await a.invite(); // gyldig også etter gjenopprettingen
+    // Kopi tatt før noen enhet har sendt plan og innstillinger.
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 222_200 } };
+    await a.sync(); await b.sync();
+    expect(b.state.settings.budgetOre).toBe(222_200);
+    // Gjenopprett: serveren har ingen dokumenter og ingen hendelser (ingen «reset» å oppdage).
+    const port = Number(new URL(srv.base).port);
+    await srv.close(); await srv.storage.close();
+    for (const f of ['db.sqlite', 'db.sqlite-wal', 'db.sqlite-shm']) rmSync(join(dir, f), { force: true });
+    copyFileSync(backup, join(dir, 'db.sqlite'));
+    srv = await startTestServer({ storage: new SqliteStorage(join(dir, 'db.sqlite')), port });
+    await syncOk(a); await syncOk(b);
+    // Ingen av enhetene sender innstillingene på nytt: serveren mangler dem.
+    const docsOnServer = (await retry(() => a.api.withToken(a.state.sync!.token).pull(0))).docs.map((d) => d.name);
+    // En ny enhet med standardinnstillinger blir med og synker.
+    const c = new Device('enhet-cccc3333');
+    await c.join(code);
+    await syncOk(c); await syncOk(a); await syncOk(b);
+    // Forventet: husstandens budsjett (222 200) står, eller det blir en konflikt. Ingen siste-skriving-vinner.
+    for (const d of [a, b]) {
+      const kept = d.state.settings.budgetOre === 222_200 || Object.keys(d.state.sync!.conflicts).length > 0;
+      expect({ device: d.id, docsOnServer, budget: d.state.settings.budgetOre, kept }).toMatchObject({ kept: true });
+    }
+  });
+});
+
+describe('kodegjennomgang runde 2: «Last ned mine data» på enheten', () => {
+  it('tar ikke med slekten (revs), som er serverens interne versjons-id-er', async () => {
+    const { buildExport, exportText } = await import('./export');
+    const { a } = await pair();
+    const rev = a.state.sync!.docs.innstillinger!.revs!.at(-1)!;
+    expect(rev).toMatch(/^[0-9a-f]{12}$/);
+    const text = exportText(buildExport(a.state, a.id, '2026-11-23T12:00:00.000Z', null));
+    expect(text).not.toContain(rev); // faktisk: med under enhet.lagretPåEnheten.sync.docs.*.revs
   });
 });

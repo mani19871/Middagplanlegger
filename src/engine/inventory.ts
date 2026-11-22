@@ -50,7 +50,9 @@ export type InventoryLog = InventoryEvent[];
 export type StapleLevel = 'har' | 'snart-tom' | 'tom';
 export const STAPLE_LEVELS: readonly StapleLevel[] = ['har', 'snart-tom', 'tom'];
 /** Id for en basisvare: id fra den generelle lista (små bokstaver) eller «egen:» + navn med små bokstaver og bindestrek. */
-export const STAPLE_ID = /^(?:[a-z]{1,20}|egen:[\p{Ll}\p{Lo}\p{M}-]{1,40})$/u;
+// Egen vare: alle bokstaver (også \p{Lm} som «ʻ» og tegn der små bokstaver blir lengre, som «İ» → «i̇»), så hver id
+// customStapleId kan lage, godtas også i `nivå` (runde 2, M2). 30 tegn i navnet gir høyst 60 i id-en.
+export const STAPLE_ID = /^(?:[a-z]{1,20}|egen:[\p{L}\p{M}-]{1,80})$/u;
 
 export const purchaseLineId = (week: string, storeId: string | null, ingredient: string, productId: string | null) =>
   `kjøp|${week}|${storeId ?? '-'}|${ingredient}|${productId ?? '-'}`;

@@ -38,7 +38,7 @@ export interface CollectorOptions {
   log?: (m: string) => void;
   /** Tid mellom vellykkede runder. */ intervalMs: number;
   /** Første ventetid etter en feil; dobles for hver feil, aldri over `intervalMs`. */ retryMs: number;
-  /** Lagrede, utløpte tilbud som ikke er sett på så mange dager, slettes etter hver vellykkede runde. 0 = aldri. */ retentionDays: number;
+  /** Lagrede, utløpte tilbud som ikke er sett på så mange dager, slettes i hver runde, også når hentingen feiler. 0 = aldri. */ retentionDays: number;
   /** Planlegg neste runde. Standard: setTimeout som ikke holder prosessen i live. Returnerer avlysning. */
   schedule?: (fn: () => void, ms: number) => () => void;
   /** Etter en vellykket runde: tilbudene og hentetidspunktet (live-visningen i minnet bruker dem). */
@@ -54,10 +54,37 @@ export interface OfferCollector {
 
 const DAY_MS = 86_400_000;
 const BATCH = 1000;
+/** Lengste ventetid setTimeout tåler; lengre blir 1 ms i Node (runde 2, O13). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
+/**
+ * Oppbevaring (OFFER_RETENTION_DAYS): sletter utløpte tilbud som ikke er sett på `days` dager. 0 = aldri. Uavhengig av om
+ * hentingen lykkes, så lagrede priser ikke blir liggende når hentingen feiler over tid eller er slått av (runde 2, O12).
+ */
+export async function pruneOffers(store: OfferStore, days: number, now: string): Promise<number> {
+  if (!(days > 0)) return 0;
+  const before = new Date(Date.parse(now) - days * DAY_MS).toISOString();
+  let deleted = 0;
+  for (let n = BATCH; n === BATCH;) { n = await store.deleteBefore(before, BATCH); deleted += n; }
+  return deleted;
+}
+
+/** Oppbevaring uten innsamler (TJEK_FETCH=0): én runde nå og deretter hver `intervalMs` (standard 6 t). */
+export function startOfferRetention(o: { store: OfferStore; days: number; now: () => string; log?: (m: string) => void; intervalMs?: number }) {
+  const log = o.log ?? ((m: string) => console.log(m));
+  const round = () => pruneOffers(o.store, o.days, o.now())
+    .then((n) => { if (n) log(`Tilbud: ${n} gamle slettet.`); return n; })
+    .catch((e: unknown) => { log(`tilbud-oppbevaring-feil: ${e instanceof Error ? e.name : typeof e}`); return 0; });
+  if (!(o.days > 0)) return { first: Promise.resolve(0), stop: () => {} };
+  const first = round();
+  const timer = setInterval(() => { void round(); }, Math.min(o.intervalMs ?? 6 * 3_600_000, MAX_TIMEOUT_MS));
+  timer.unref?.();
+  return { first, stop: () => clearInterval(timer) };
+}
 
 export function startOfferCollector(o: CollectorOptions): OfferCollector {
   const log = o.log ?? ((m: string) => console.log(m));
-  const schedule = o.schedule ?? ((fn, ms) => { const t = setTimeout(fn, ms); t.unref?.(); return () => clearTimeout(t); });
+  const schedule = o.schedule ?? ((fn, ms) => { const t = setTimeout(fn, Math.min(ms, MAX_TIMEOUT_MS)); t.unref?.(); return () => clearTimeout(t); });
   const st: CollectorState = { lastOk: null, failures: 0, running: false };
   let current: Promise<void> | null = null;
   let cancel: (() => void) | null = null;
@@ -65,6 +92,11 @@ export function startOfferCollector(o: CollectorOptions): OfferCollector {
   let budgetLogged = '';
 
   const next = (ms: number) => { if (!stopped) cancel = schedule(() => { void run(); }, ms); };
+
+  /** Oppbevaringen kjører i hver runde, også når hentingen feiler, og stopper aldri runden. */
+  async function prune(): Promise<number> {
+    try { return await pruneOffers(o.store, o.retentionDays, o.now()); } catch (e) { log(`tilbud-oppbevaring-feil: ${e instanceof Error ? e.name : typeof e}`); return 0; }
+  }
 
   async function round() {
     const at = o.now();
@@ -78,14 +110,12 @@ export function startOfferCollector(o: CollectorOptions): OfferCollector {
       await o.store.setLastFetch(at);
       st.lastOk = at; st.failures = 0;
       o.onCollected?.(offers, at, other);
-      let deleted = 0;
-      if (o.retentionDays > 0) {
-        const before = new Date(Date.parse(o.now()) - o.retentionDays * DAY_MS).toISOString();
-        for (let n = BATCH; n === BATCH;) { n = await o.store.deleteBefore(before, BATCH); deleted += n; }
-      }
+      const deleted = await prune();
       log(`Tilbud: ${offers.length} hentet${o.collectOther ? `, ${other.length} husholdning` : ''} (${r.inserted} nye, ${r.updated} endret, ${r.seen} sett igjen${r.skipped ? `, ${r.skipped} avvist` : ''})${deleted ? `, ${deleted} gamle slettet` : ''}.`);
       next(o.intervalMs);
     } catch (e) {
+      // Også når hentingen feiler eller kallgrensen er nådd: gamle priser skal ikke bli liggende (runde 2, O12).
+      await prune();
       if (e instanceof BudgetExceededError) {
         // Dagens kallgrense er nådd: ingen bakoff-hamring, vent et helt intervall. Logges én gang per dag.
         if (budgetLogged !== at.slice(0, 10)) { budgetLogged = at.slice(0, 10); log('Tilbud: dagens kallgrense mot Tjek er nådd (OFFER_MAX_CALLS_PER_DAY); venter.'); }

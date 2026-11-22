@@ -12,14 +12,16 @@ export const DEFAULT_RETENTION_DAYS = 730;
  *  husstand kan åpnes, eksporteres og slettes i appen så lenge den ligger på serveren. */
 export const DEFAULT_TOKEN_IDLE_DAYS = 730;
 const DAY_MS = 86_400_000;
+/** Høyst 100 år. Større tall gir datoer utenfor det Date tåler (500 på alle kall, eller en jobb som feiler; runde 2, S10). */
+export const MAX_DAYS = 36_500;
 /** Høyst så mange husstander per transaksjon, så en stor opprydding ikke holder skrivelåsen lenge. */
 const BATCH = 500;
 
-/** Leser SYNC_RETENTION_DAYS. Tom: standard. 0: av. Ugyldig verdi gir standard og en advarsel (aldri «av» ved en skrivefeil). */
+/** Leser SYNC_RETENTION_DAYS. Tom: standard. 0: av. Ugyldig verdi (også over MAX_DAYS) gir standard og en advarsel (aldri «av» ved en skrivefeil). */
 export function retentionDaysFrom(value: string | undefined, warn: (m: string) => void = console.warn): number {
   if (value === undefined || value.trim() === '') return DEFAULT_RETENTION_DAYS;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
+  if (!Number.isInteger(n) || n < 0 || n > MAX_DAYS) {
     warn(`SYNC_RETENTION_DAYS er ugyldig; bruker ${DEFAULT_RETENTION_DAYS} dager.`);
     return DEFAULT_RETENTION_DAYS;
   }
@@ -31,7 +33,7 @@ export function retentionDaysFrom(value: string | undefined, warn: (m: string) =
 export function tokenIdleDaysFrom(value: string | undefined, warn: (m: string) => void = console.warn): number {
   if (value === undefined || value.trim() === '') return DEFAULT_TOKEN_IDLE_DAYS;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
+  if (!Number.isInteger(n) || n < 0 || n > MAX_DAYS) {
     warn(`SYNC_TOKEN_IDLE_DAYS er ugyldig; bruker ${DEFAULT_TOKEN_IDLE_DAYS} dager.`);
     return DEFAULT_TOKEN_IDLE_DAYS;
   }

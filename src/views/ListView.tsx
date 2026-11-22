@@ -18,7 +18,7 @@ import { COOK_NOW_PREFIX } from '../engine/cookNow';
 import { parseStapleLine, STAPLE_PREFIX, stapleStatus, stapleSuggestions } from '../engine/staples';
 import { stapleListFacts } from '../sync/list';
 import { STAPLE_INFO } from './StaplesView';
-import { HOUSEHOLD_PREFIX, householdTotal, type HouseholdMatch } from '../engine/household';
+import { HOUSEHOLD_PREFIX, householdTotal, parseHouseholdLine, type HouseholdMatch } from '../engine/household';
 import { householdListFacts } from '../sync/list';
 import type { NormalizedOffer } from '../offers/types';
 import { LINE_STATE, seenText, validityText } from './household/householdText';
@@ -163,7 +163,9 @@ export default function ListView({ state, update, record, week, basket, offerTot
       {stapleSection}
       {manualGroup('🧂 Basisvarer (ikke kontrollert)', manual.filter((m) => m.id.startsWith(STAPLE_PREFIX)))}
       {manualGroup('🍳 Fra «Lag nå» (ikke kontrollert)', manual.filter((m) => m.id.startsWith(COOK_NOW_PREFIX)))}
-      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX) && !m.id.startsWith(STAPLE_PREFIX) && !m.id.startsWith(HOUSEHOLD_PREFIX)))}
+      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX) && !m.id.startsWith(STAPLE_PREFIX)
+        // En «hus:»-linje som ikke kan tolkes (f.eks. fra en annen klient), vises her så den kan fjernes (runde 2, V13).
+        && !(m.id.startsWith(HOUSEHOLD_PREFIX) && parseHouseholdLine(m.id))))}
     </>
   );
   if (state.slots.length === 0) {

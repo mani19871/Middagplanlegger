@@ -167,12 +167,12 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0, h
   return (
     <>
       <h1 className="page">Kundeaviser</h1>
-      <div className="chips tabs">
-        <button className={mode === 'live' ? 'chip on' : 'chip'} onClick={() => setMode('live')}>Tilbud nå</button>
-        <button className={mode === 'hus' ? 'chip on' : 'chip'} onClick={() => setMode('hus')}>Husholdning</button>
-        <button className={mode === 'tjek' ? 'chip on' : 'chip'} onClick={() => setMode('tjek')}>Aviser fra Tjek</button>
-        <button className={mode === 'aviser' ? 'chip on' : 'chip'} onClick={() => setMode('aviser')}>Aviser (demo)</button>
-        <button className={mode === 'kontroll' ? 'chip on' : 'chip'} onClick={() => setMode('kontroll')}>Kontroll</button>
+      <div className="chips tabs" role="group" aria-label="Visning i kundeaviser">
+        <button className={mode === 'live' ? 'chip on' : 'chip'} aria-pressed={mode === 'live'} onClick={() => setMode('live')}>Tilbud nå</button>
+        <button className={mode === 'hus' ? 'chip on' : 'chip'} aria-pressed={mode === 'hus'} onClick={() => setMode('hus')}>Husholdning</button>
+        <button className={mode === 'tjek' ? 'chip on' : 'chip'} aria-pressed={mode === 'tjek'} onClick={() => setMode('tjek')}>Aviser fra Tjek</button>
+        <button className={mode === 'aviser' ? 'chip on' : 'chip'} aria-pressed={mode === 'aviser'} onClick={() => setMode('aviser')}>Aviser (demo)</button>
+        <button className={mode === 'kontroll' ? 'chip on' : 'chip'} aria-pressed={mode === 'kontroll'} onClick={() => setMode('kontroll')}>Kontroll</button>
       </div>
       {mode === 'kontroll' && (<>
         <div className="chips tabs" role="group" aria-label="Kontroll av mat eller husholdning">

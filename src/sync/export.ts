@@ -32,7 +32,12 @@ export function buildExport(state: AppState, deviceId: string, now: string, serv
   let sync: Omit<SyncMeta, 'token'> | null = null;
   if (state.sync) {
     const { token: _token, ...rest } = state.sync;
-    sync = rest;
+    // Slekten (revs) er serverens interne versjons-id-er (avledet av sha256), ikke en opplysning om deg (runde 2, S11).
+    const docs = Object.fromEntries(Object.entries(rest.docs).map(([k, m]) => {
+      const { revs: _revs, ...meta } = m!;
+      return [k, meta];
+    })) as SyncMeta['docs'];
+    sync = { ...rest, docs };
   }
   return {
     format: 'middagsplanlegger-eksport', versjon: 1, eksportert: now, forklaring: TEXT,

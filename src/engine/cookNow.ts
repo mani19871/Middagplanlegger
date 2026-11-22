@@ -199,3 +199,12 @@ export function cookNow(haveIn: HaveItem[], ctx: Ctx, opts: CookNowOptions): Coo
  */
 export const COOK_NOW_PREFIX = 'lagnå:';
 export const cookNowLinePrefix = (recipeId: string, ingredient: string) => `${COOK_NOW_PREFIX}${recipeId}|${ingredient}:`;
+/**
+ * Linje-id for en manglende vare: prefiks + antall linjer for samme rett og vare som er fjernet. Samme rett og vare lagt
+ * på lista fra to enheter (eller mottatt to ganger) gir samme id og én linje; etter fjerning kan den legges til på nytt
+ * (runde 2, V11; samme modell som householdLineId). `removed`: linje-id-er fra `manuell-fjern`.
+ */
+export function cookNowLineId(recipeId: string, ingredient: string, removed: readonly string[]): string {
+  const prefix = cookNowLinePrefix(recipeId, ingredient);
+  return `${prefix}${new Set(removed.filter((id) => id.startsWith(prefix))).size}`;
+}

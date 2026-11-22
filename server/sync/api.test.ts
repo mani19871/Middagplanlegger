@@ -740,3 +740,40 @@ describe('husholdningsvarer (utvidelse C): varegrupper i innstillingene og «And
     expect(householdListFacts(applyListEvents([], events.map((e) => e.event as never))).lines).toHaveLength(1);
   });
 });
+
+describe('kodegjennomgang runde 2 (S10): store verdier i SYNC_TOKEN_IDLE_DAYS og SYNC_RETENTION_DAYS', () => {
+  it('et stort tall i SYNC_TOKEN_IDLE_DAYS gir standard med advarsel, eller i det minste ikke 500 på alle kall', async () => {
+    const warn: string[] = [];
+    const ms = tokenIdleMsFrom('999999999', (m) => warn.push(m));
+    await srv.close();
+    srv = await startTestServer({ tokenIdleMs: ms });
+    const api = new SyncApi(srv.base, (u, i) => fetch(u, i));
+    const r = await api.createHousehold('enhet-aaaa1111', 'Voksen 1');
+    const res = await fetch(`${srv.base}/api/household`, { headers: { authorization: `Bearer ${r.token}` } });
+    expect(res.status).toBe(200); // før rettingen: 500 serverfeil (RangeError: Invalid time value i auth)
+    expect(warn.length).toBe(1);
+  });
+
+  it('et stort tall i SYNC_RETENTION_DAYS gir standard med advarsel, ikke en jobb som feiler hver runde', async () => {
+    const warn: string[] = [];
+    const days = retentionDaysFrom('999999999', (m) => warn.push(m));
+    const storage = new SqliteStorage(':memory:');
+    expect(days).toBe(DEFAULT_RETENTION_DAYS);
+    expect(warn.length).toBe(1);
+    await expect(runRetention(storage, days, '2026-11-23T10:00:00.000Z')).resolves.toBe(0); // før rettingen: RangeError
+  });
+});
+
+describe('kodegjennomgang runde 2 (S12): «sist sett» med minutt-oppløsning også ved oppretting og innmelding', () => {
+  it('lagres aldri med sekunder, slik personvernarket og docs/synk.md sier', async () => {
+    const storage = new SqliteStorage(':memory:');
+    await storage.createHousehold('h1', { id: 'd1', publicId: 'enhet-aaaa1111', label: 'Voksen 1', tokenHash: 'a'.repeat(64) }, '2026-11-23T10:15:42.123Z');
+    await storage.createInvite('h1', { id: 'i1', codeHash: 'k'.repeat(64), createdBy: 'd1', expiresAt: '2026-11-24T10:15:42.123Z' }, '2026-11-23T10:15:42.123Z');
+    const j = await storage.join('k'.repeat(64), { id: 'd2', publicId: 'enhet-bbbb2222', label: 'Voksen 2', tokenHash: 'b'.repeat(64) }, '2026-11-23T10:16:07.456Z');
+    expect(j.ok).toBe(true);
+    const seen = (await storage.members('h1')).map((m) => m.lastSeen);
+    // Før rettingen: '2026-11-23T10:15:42.123Z' og '2026-11-23T10:16:07.456Z' til neste autentiserte kall.
+    expect(seen.sort()).toEqual(['2026-11-23T10:15:00.000Z', '2026-11-23T10:16:00.000Z']);
+    await storage.close();
+  });
+});

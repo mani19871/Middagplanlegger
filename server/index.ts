@@ -13,8 +13,8 @@ import type { NormalizedOffer } from '../src/offers/types';
 import { TjekSource } from '../src/offers/tjek';
 import { createApp } from './app';
 import { createOffersApi } from './offers/api';
-import { CallBudget, startOfferCollector, type OfferCollector } from './offers/collector';
-import { offerConfigFrom } from './offers/config';
+import { CallBudget, startOfferCollector, startOfferRetention, type OfferCollector } from './offers/collector';
+import { offerConfigFrom, paperCallsPerDay } from './offers/config';
 import { allowedImage, foreignHost, imageHostsFrom } from './offers/images';
 import { createPapersApi } from './offers/papers';
 import { SqliteOfferStore } from './offers/sqlite';
@@ -56,6 +56,8 @@ const oslo = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Os
 // av priser; phase0/tjek-avtale.md). Kallbudsjettet teller alle kall mot Tjek, også fra live-visningen.
 const offerCfg = offerConfigFrom(process.env);
 const budget = new CallBudget(offerCfg.maxCallsPerDay, oslo);
+// Kundeavisene (anonyme oppslag) har i tillegg et eget delbudsjett, så de ikke kan bruke opp det innsamleren trenger.
+const paperBudget = new CallBudget(paperCallsPerDay(offerCfg.maxCallsPerDay), oslo);
 const source = new TjekSource(
   // Tidsavbrudd per kall: et Tjek som henger skal gi feil (og nedkjøling), ikke «loading» i mange minutter.
   (url, init) => { budget.take(); return fetch(url, { headers: { ...init?.headers, 'User-Agent': 'Middagsplanlegger/0.1' }, signal: AbortSignal.timeout(15_000) }); },
@@ -95,6 +97,8 @@ if (offerStore) {
     });
   }
 }
+// Uten innsamler (henting av) slettes gamle tilbud likevel etter OFFER_RETENTION_DAYS (ved oppstart og hver 6. time).
+const offerRetention = offerStore && !collector ? startOfferRetention({ store: offerStore, days: offerCfg.retentionDays, now: () => new Date().toISOString() }) : null;
 if (!offerCfg.fetch) console.log('Tilbud: henting fra Tjek er av (TJEK_FETCH=0).');
 
 function refresh() {
@@ -140,7 +144,7 @@ const handlers = [
   createPapersApi({
     listCatalogs: () => (offerCfg.fetch ? source.listCatalogs('NO') : Promise.reject(new Error('av'))),
     catalogPages: (id) => (offerCfg.fetch ? source.catalogPages(id) : Promise.reject(new Error('av'))),
-    imageHosts, trustProxy: process.env.TRUST_PROXY === '1',
+    imageHosts, trustProxy: process.env.TRUST_PROXY === '1', budget: paperBudget,
     // Henting av: «error» er ventet og logges ikke (oppstarten sier allerede fra).
     log: offerCfg.fetch ? undefined : () => {},
   }),
@@ -165,6 +169,7 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
     const force = setTimeout(() => process.exit(1), 8_000);
     force.unref();
     collector?.stop();
+    offerRetention?.stop();
     server.close(() => {
       const closing = [storage.close()];
       if (offerStore) closing.push(offerStore.close());

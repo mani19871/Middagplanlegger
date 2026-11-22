@@ -219,14 +219,15 @@ export function householdCatch<O extends HouseholdOfferIn>(offers: readonly O[],
   const order = new Map(rules.groups.map((g, i) => [g.id, i]));
   const seen = new Set<string>();
   const out: HouseholdMatch<O>[] = [];
-  const sorted = [...offers].sort((a, b) => cmp(householdOfferKey(a), householdOfferKey(b)) || cmp(a.observed, b.observed));
+  // Nyeste observasjon av samme tilbud gjelder, som i householdTotal; en eldre pris vises aldri (runde 2, M4).
+  const sorted = [...offers].sort((a, b) => cmp(householdOfferKey(a), householdOfferKey(b)) || cmp(b.observed, a.observed));
   for (const offer of sorted) {
     const key = householdOfferKey(offer);
     if (seen.has(key)) continue;
+    seen.add(key);
     if (!validOnDay(offer, o.shopDate) || isStale(offer.observed, o.shopDate)) continue;
     const m = classifyHousehold(offer, rules, foodTerms);
     if (!m || !chains.has(m.chain) || (groups && !groups.has(m.group))) continue;
-    seen.add(key);
     out.push(m);
   }
   out.sort((a, b) => order.get(a.group)! - order.get(b.group)! || a.name.localeCompare(b.name, 'nb') || priceOrder(a) - priceOrder(b)

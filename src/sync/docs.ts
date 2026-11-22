@@ -7,7 +7,7 @@
 // flettes per vare («basis:<id>»), så to enheter som legger til hver sin basisvare ikke får konflikt.
 // Ren og deterministisk. Validering deles med serveren (server/sync/api.ts).
 import type { Settings, Slot, Staple } from '../engine/types';
-import { isValidStaples } from '../engine/staples';
+import { isValidStaples, STAPLE_LIMITS } from '../engine/staples';
 import { isValidHouseholdGroups } from '../engine/household';
 import { HOUSEHOLD_RULES } from '../data/household';
 import { stapleChoices } from '../data/staples';
@@ -83,13 +83,18 @@ export function merge3(name: DocName, base: DocBody, mine: DocBody, theirs: DocB
   const keys = [...new Set([...Object.keys(b), ...Object.keys(m), ...Object.keys(t)])].sort();
   const out: Record<string, unknown> = {};
   const conflicts: string[] = [];
+  const added: string[] = [];
   for (const k of keys) {
     const sb = stable(b[k]), sm = stable(m[k]), st = stable(t[k]);
     if (sm === st || st === sb) out[k] = m[k];
-    else if (sm === sb && !cautious) out[k] = t[k];
+    else if (sm === sb && !cautious) { out[k] = t[k]; if (m[k] === undefined && k.startsWith(STAPLE_FIELD)) added.push(k); }
     else { out[k] = m[k]; conflicts.push(k); }
   }
-  return { merged: fromFields(name, out), conflicts };
+  // Basisvarer lagt til på begge sider kan til sammen gå over taket, og da ville dokumentet vært ugyldig og aldri sendt
+  // (runde 2, S8). Den andre sidens nye basisvarer blir da konflikter (lokal verdi står), så brukeren velger.
+  const staples = Object.keys(out).filter((k) => k.startsWith(STAPLE_FIELD) && out[k] !== undefined).length;
+  if (name === 'innstillinger' && staples > STAPLE_LIMITS.count) for (const k of added) { out[k] = m[k]; conflicts.push(k); }
+  return { merged: fromFields(name, out), conflicts: conflicts.sort() };
 }
 
 /** Løser en konflikt: valgt side for konfliktfeltene, flettet verdi for resten. */

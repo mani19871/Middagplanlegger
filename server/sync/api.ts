@@ -331,7 +331,12 @@ export function createSyncApi(opts: SyncApiOptions) {
       const docAnchors = parseDocAnchors(url.searchParams.get('docs'));
       const r = await storage.readSince(hh, after, LIMITS.pullPage);
       const members = (await storage.members(hh)).map((m) => memberInfo(m, me));
-      if (after > r.head || (anchorSeq > 0 && (await storage.eventIdAt(hh, anchorSeq)) !== anchorId)) {
+      const current = docAnchors ? await storage.currentDocs(hh) : [];
+      // Enheten har sett en versjon av et dokument serveren ikke har i det hele tatt: gjenopprettet fra en kopi tatt før
+      // dokumentet ble skrevet. Uten reset ville en ny enhet overskrevet husstandens dokument med sine standardverdier
+      // (runde 2, S9). Dokumenter som venter etter gjenoppretting står ikke i ankeret, så dette gir ingen løkke.
+      const lostDocs = !!docAnchors && [...docAnchors].some(([name, a]) => a.version > 0 && !current.some((d) => d.name === name));
+      if (after > r.head || lostDocs || (anchorSeq > 0 && (await storage.eventIdAt(hh, anchorSeq)) !== anchorId)) {
         return [200, { cursor: 0, more: true, events: [], docs: [], members, head: r.head, reset: true }];
       }
       const events: StoredEnvelope[] = r.events.map((e) => ({ seq: e.seq, stream: e.stream, event: cleanEvent(e.stream, JSON.parse(e.body)) }));
@@ -339,7 +344,7 @@ export function createSyncApi(opts: SyncApiOptions) {
       // selv om serveren har mistet en versjon den har sett (gjenopprettet fra eldre kopi), og fletter tre-veis (S1, S2).
       // Uten rev i ankeret (eldre klienttilstand) sendes dokumentet alltid.
       const docs = docAnchors
-        ? (await storage.currentDocs(hh)).filter((d) => {
+        ? current.filter((d) => {
           const a = docAnchors.get(d.name);
           return !a || a.version !== d.version || !a.rev || a.rev !== d.revs.at(-1);
         })

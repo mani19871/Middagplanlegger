@@ -39,6 +39,8 @@ export default function HouseholdCatch({ state, update, feed, shopDate }: Props)
   });
   // Samme tilbud lagt til to ganger, på to enheter eller mottatt to ganger gir én linje (linje-id per tilbud, regel 8).
   const add = (m: HouseholdMatch<NormalizedOffer>) => {
+    // Nøkkelen kan bli for lang (eller ha «#»); da lagres ingenting, og meldingen må si det (runde 2, V15).
+    if (!householdLineId(householdOfferKey(m.offer), [])) { setMsg(`${m.name} kan ikke legges på handlelista fra dette tilbudet.`); return; }
     const st = stamp();
     update((s) => {
       const f = householdListFacts(s.list);

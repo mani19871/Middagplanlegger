@@ -73,7 +73,7 @@
     }
   ],
   "exclude": ["kaffe", "sjokolade", "godteri", "kjeks", "chips", "snacks", "brus", "juice", "saus", "suppe", "drikke", "iskrem", "pizza", "kake", "pålegg", "holder", "stativ", "dispenser", "leke", "støvsuger", "bind", "truse"],
-  "sensitive": ["bleie", "baby", "barne", "junior", "smokk", "medisin", "vitamin", "plaster", "paracet", "ibux", "smertestill", "tampong", "inkontinens", "graviditet", "eggløsning", "kondom", "prevensjon", "allergi"],
+  "sensitive": ["bleie", "baby", "barne", "barn", "junior", "kids", "smokk", "medisin", "vitamin", "plaster", "paracet", "ibux", "smertestill", "tampong", "inkontinens", "graviditet", "eggløsning", "kondom", "prevensjon", "allergi"],
   "rules": [
     {
       "pattern": "kaffefilter",

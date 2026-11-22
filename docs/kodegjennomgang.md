@@ -11,7 +11,7 @@ Uavhengig gjennomgang av hele repoet på branch `claude/middagsplanner-app-wwuq1
 | Lav | 12 | 7 | 5 |
 | **Sum** | **36** | **28 + 1 delvis** | **7** |
 
-Oppdatert 2026-11-22: E7, S1 og S2 er rettet (se «Rettet»).
+Oppdatert 2026-11-22: E7, S1 og S2 er rettet (se «Rettet»). Runde 2 (alt bygget etter `c137674`) står nederst: 21 funn, 17 rettet og 1 delvis.
 
 ## Åpne funn (produktbeslutning eller for store til å rette her)
 
@@ -74,3 +74,126 @@ Lukket pilot er forsvarlig. Begge forbeholdene fra gjennomgangen er rettet.
 2. **Ekte priser (E7):** rettet. Observasjoner eldre enn 14 dager før handledagen er bare estimat med dato og vinner aldri over en nyere pris. Importen må fortsatt gi riktig `observed` (datoen prisen ble sett, ikke importdatoen).
 
 Resten av de åpne funnene er småting eller produktvalg uten kjent skade for en lukket pilot. Motoren er deterministisk (ingen `Date.now`, `Math.random` eller nettverk i `src/engine/`, sjekket med grep). Beløp er hele øre også ved ugyldige tilbudsdata. Allergi- og kostkrav slår nå tilbud også i kundeavisvisningen.
+
+## Runde 2 (2026-11-22)
+
+Ny, uavhengig gjennomgang av alt som er bygget siden første runde (commit `c137674`, 26 commits):
+- prisalder (`src/engine/prices.ts`);
+- dokumentslekt og tre-veis fletting etter gjenoppretting (`revs`, `lostDoc`, dokumentanker);
+- innsyn og eksport, oppbevaringsjobben og tokenutløp;
+- tilbudslagring og innsamleren (`server/offers/`);
+- avis- og bildeendepunktene og CSP;
+- «Lag nå», basisvarer og husholdningsvarer;
+- personvernarket.
+
+Gjennomgangen er delt i fire områder (motor, synk, tilbud/server, visninger). Alvorlighet er definert som i første runde.
+
+**Regler for funnene:**
+- Hvert funn har en test som feilet før rettingen, eller kodebevis med linje der testen krever en nettleser.
+- Åpne funn som kan testes, står som `it.fails` med merknaden «ÅPENT». De blir røde når noen retter dem, og da byttes de til `it`.
+- Ingen eksisterende test er slettet eller svekket.
+
+Testene ligger her:
+- `src/engine/planner.test.ts`: «regresjon: kodegjennomgang runde 2, M…»
+- `src/sync/engine.test.ts` og `server/sync/api.test.ts`: «kodegjennomgang runde 2 …»
+- `server/offers/kodegjennomgang2.test.ts`
+- `src/acceptance/kodegjennomgang2-ui.test.tsx`
+
+| Alvorlighet | Funn | Rettet | Åpne |
+|---|---|---|---|
+| Høy | 2 | 2 | 0 |
+| Middels | 2 | 2 | 0 |
+| Lav | 17 | 13 + 1 delvis | 3 + resten av V17 |
+| **Sum** | **21** | **17 + 1 delvis** | **3 + 1 delvis** |
+
+S8 og S9 er satt til Høy fordi definisjonen sier det: S8 stopper synk, og S9 er siste-skriving-vinner. Begge gjelder smale tilfeller. S12 bryter strengt tatt «arket skal ikke love mer enn koden gjør», men er satt til Lav etter virkning: forskjellen er sekunder mot minutter.
+
+### Rettet i runde 2
+
+| # | Alv. | Fil | Funn | Test (feilet før retting) |
+|---|---|---|---|---|
+| S8 | Høy | `src/sync/docs.ts` (`merge3`), `src/sync/engine.ts`, `src/sync/useSync.ts` | **Feil:** to enheter la til basisvarer som til sammen gikk over taket på 40. Det flettede innstillingsdokumentet ble da ugyldig og ble aldri sendt, heller ikke senere endringer (som budsjettet). Ingen konflikt eller feil ble vist. **Nå:** den andre sidens nye basisvarer blir konflikter når flettingen ville gått over taket. Et dokument med lokale endringer som ikke kan sendes, gir synkstatus «feil» med teksten for `ugyldig_dokument`, uten bakoff. | `engine.test.ts`: «… (til sammen over taket) får konflikt, ikke stille synkstopp», «et dokument med lokale endringer som ikke kan sendes, gir «ugyldig_dokument» …» |
+| S9 | Høy | `server/sync/api.ts` (pull) | **Feil:** en kopi tatt før første dokumentskriving, gjenopprettet uten hendelser å oppdage reset på, ble ikke oppdaget. En ny enhet sendte da standardinnstillingene sine med `baseVersion 0` og overskrev husstandens budsjett uten konflikt. **Nå:** oppgir enheten en versjon ≥ 1 i dokumentankeret av et dokument serveren ikke har, svarer serveren `reset`. Dokumenter som venter etter en gjenoppretting står ikke i ankeret, så det blir ingen løkke. | `engine.test.ts`: «kopi tatt før første dokumentskriving: en ny enhet overskriver ikke …» |
+| O11 | Middels | `server/offers/papers.ts`, `server/offers/config.ts` (`paperCallsPerDay`), `server/index.ts` | **Feil:** avissidene ligger i minnet for høyst 100 aviser, mens lista kan ha 400. Én IP innenfor 60 kall/min kunne bla gjennom flere enn 100 aviser og hente sidene fra Tjek igjen og igjen. Det brukte opp hele dagens kallbudsjett (felles med innsamleren) på ca. 20 minutter, og innsamleren stoppet resten av døgnet. **Nå:** avisoppslagene har et eget delbudsjett (en femdel av `OFFER_MAX_CALLS_PER_DAY`). Når det er brukt opp, svarer de «error» uten kall til Tjek. Fordelingen er et skjønn. | `kodegjennomgang2.test.ts`: «O11: avissidene har eget delbudsjett …», «O11: … kan ikke bruke opp kallbudsjettet som innsamleren trenger» |
+| M3 | Middels | `src/data/household-rules.json` (`sensitive`) | **Feil:** barneprodukter uten «barne», «baby» eller «junior» ble klassifisert som vanlige husholdningsvarer. «Zendium tannkrem barn 0-6 år» ble tannkrem. CLAUDE.md sier at gruppene ikke har barneprodukter. En slik linje i den delte lista kan røpe barns alder. **Nå:** «barn» og «kids» er sensitive ord (delstreng, som de andre). Det kan utelukke litt for mye, for eksempel merkenavn som inneholder «barn». Det er riktig vei å feile. Lista er fortsatt et skjønn. | `planner.test.ts`: «M3 … «Tannkrem barn 0-6 år» og «Kids sjampo» gir ikke treff» |
+| O12 | Lav | `server/offers/collector.ts` (`pruneOffers`, `startOfferRetention`), `server/index.ts` | **Feil:** oppbevaringen kjørte bare etter en vellykket henting, og aldri med `TJEK_FETCH=0`. Lagrede priser ble derfor liggende for alltid når hentingen feilet over tid eller var slått av, for eksempel når avtalen er slutt. **Nå:** oppbevaringen kjører i hver runde, også ved feil og kallgrense, og ved oppstart og hver 6. time uten innsamler. | «O12: utløpte tilbud slettes … også når hentingen feiler», «O12: med henting av (TJEK_FETCH=0) …» |
+| O13 | Lav | `server/offers/config.ts`, `server/offers/collector.ts` | **Feil:** `OFFER_REFRESH_HOURS` over ca. 596 gir et intervall over det `setTimeout` tåler. Node gjør det om til 1 ms, og innsamleren kjørte runde etter runde til budsjettet var brukt opp. **Nå:** høyst 168 timer (ellers standard med advarsel), og planleggeren kapper ventetiden. | «O13: OFFER_REFRESH_HOURS over ca. 596 timer …» |
+| M1 | Lav | `src/engine/staples.ts` | **Feil:** en telling eller rest på 0 ble regnet som påfyll, så «tom» forsvant selv om matskapet sa at varen var tom. **Nå:** bare en mengde over 0 er påfyll. | `planner.test.ts`: «M1 … telt til 0 skal fortsatt foreslås» |
+| M2 | Lav | `src/engine/inventory.ts` (`STAPLE_ID`), `src/engine/staples.ts` | **Feil:** `cleanStapleName` godtar alle bokstaver, men `STAPLE_ID` godtok bare `\p{Ll}\p{Lo}`, høyst 40. «ʻAhi» og 30 × «İ» kunne derfor ligge i innstillingene uten at nivå-hendelser for dem ble godtatt. **Nå:** `STAPLE_ID` godtar `\p{L}\p{M}`, høyst 80. `customStapleId` gir null for alt mønsteret ikke godtar. Dette utvider valideringen. En eldre, bufret app avviser fortsatt slike nivå-hendelser til den er oppdatert. | `planner.test.ts`: «M2 … hvert navn som cleanStapleName godtar …» |
+| M4 | Lav | `src/engine/household.ts` (`householdCatch`) | **Feil:** med to observasjoner av samme tilbud viste fangsten den eldste prisen, mens «Andre varer» brukte den nyeste. **Nå:** den nyeste observasjonen gjelder begge steder. | `planner.test.ts`: «M4 … bruker samme (nyeste) observasjon» |
+| S10 | Lav | `server/retention.ts` | **Feil:** et stort tall i `SYNC_TOKEN_IDLE_DAYS` ga 500 på alle autentiserte kall (`RangeError` i datoregningen). Et stort tall i `SYNC_RETENTION_DAYS` ga en jobb som feilet hver runde. **Nå:** høyst 36 500 dager. Større tall gir standard (730) med advarsel. | `api.test.ts`: «kodegjennomgang runde 2 (S10) …» |
+| S11 | Lav | `src/sync/export.ts` | **Feil:** «Last ned mine data» på enheten tok med serverens interne versjons-id-er (`revs`, avledet av sha256). **Nå:** de er fjernet fra eksporten. Servereksporten hadde dem ikke fra før. | `engine.test.ts`: «tar ikke med slekten (revs) …» |
+| S12 | Lav | `server/storage/sqlite.ts` | **Feil:** «sist sett» ble lagret med millisekunder ved oppretting og innmelding, og ble først avrundet ved neste autentiserte kall. Personvernarket og `docs/synk.md` sier minutt-oppløsning. **Nå:** alltid minutt. | `api.test.ts`: «kodegjennomgang runde 2 (S12) …» |
+| V11 | Lav | `src/engine/cookNow.ts` (`cookNowLineId`), `src/views/CookNowView.tsx` | **Feil:** linje-id for «Legg manglende på handlelista» var prefiks pluss enhetens egen hendelses-id. To enheter ga derfor to linjer, mens CLAUDE.md sier én gang per rett og vare. **Nå:** id-en er fast per rett og vare (prefiks + antall fjernede), samme modell som `householdLineId`. Eldre linjer med gammel id gjenkjennes fortsatt på prefikset. | `kodegjennomgang2-ui.test.tsx`: «V11 …» |
+| V13 | Lav | `src/views/ListView.tsx` | **Feil:** en `hus:`-linje som ikke kan tolkes (fra en annen eller eldre klient), var usynlig og kunne ikke fjernes. **Nå:** den vises under «Fra kundeaviser». | «V13 …» |
+| V14 | Lav | `src/views/PapersView.tsx` | **Feil:** fanene i Kundeaviser manglet `aria-pressed` og gruppe, så en skjermleser fikk ikke vite hvilken som var valgt. **Nå:** begge deler er på plass, som i Kontroll og Matskap. | «V14 …» |
+| V15 | Lav | `src/views/household/HouseholdCatch.tsx` | **Feil:** ga `householdLineId` null (nøkkel over 80 tegn eller med `#`), ble ingenting lagret, men meldingen sa «er lagt på handlelista». **Nå:** meldingen sier at varen ikke kan legges på. | Kodebevis (React-tilstand). Tjek-id-er er korte, så det skjer neppe med ekte data. |
+| V17 | Lav (delvis) | `src/views/StaplesView.tsx` (`parseStapleMin`) | **Feil 1:** en ugyldig minstemengde ble forkastet uten melding. **Feil 2:** 0,4 ble avrundet til 0, som `isValidStaples` avviser. Innstillingene sluttet da å synke (og ga etter S8 «feil»). **Nå:** verdien avrundes før sjekken, og ugyldig verdi gir melding. **Åpent:** en ugyldig mengde i «Lag nå» forkastes fortsatt uten melding (bare lokalt, ingen synk). | «V17 basisvarer: en minstemengde som avrundes til 0 godtas ikke …» |
+| D1 | Lav | `docs/sikkerhet.md` | **Feil:** S7 sa at `SYNC_RETENTION_DAYS` har standard 365. Koden og CLAUDE.md sier 730. «Tester» sa at `api.test.ts` og `engine.test.ts` var uendret. **Nå:** begge stedene er rettet. `docs/synk.md` er oppdatert for O11, O12, O13, S8 og S9. | – |
+
+### Åpne funn fra runde 2
+
+| # | Alv. | Fil:linje | Funn | Reproduksjon | Anbefaling |
+|---|---|---|---|---|---|
+| M5 | Lav | `src/engine/prices.ts:16` (`dayNumber`), `src/offers/hints.ts:20`, `src/engine/household.ts` | Tilbudenes `observed` er en UTC-tid, mens handledagen er en norsk dato. En pris sett mellom norsk midnatt og 01:00/02:00 blir regnet én dag for gammel, akkurat på 14-dagersgrensen. Feilen går i trygg retning: prisen regnes som eldre, aldri som nyere. Katalogpriser (bare dato) påvirkes ikke. | `planner.test.ts`: «M5 …» (`it.fails`) | Gjør `observed` om til norsk dato utenfor motoren (`osloDate`) før `isStale`, i hints og i husholdningsvisningene. Ingen klokke eller tidssone i motoren. |
+| V12 | Lav | `src/views/ListView.tsx:84` | En «Lag nå»-linje som ble krysset av forrige uke, står som ikke krysset av etter ukeskiftet. «Lag nå» sier samtidig «✓ Ligger på handlelista». Basisvarelinjer beholder krysset for sin egen uke. | `kodegjennomgang2-ui.test.tsx`: «V12 …» (`it.fails`) | Produktbeslutning: enten uke i linja (som basisvarer), eller dokumenter det som for «Andre varer». |
+| V16 | Lav | `PantryView.tsx:116`, `StaplesView.tsx:93`, `CookNowView.tsx:227`, `HouseholdCatch.tsx:68`, `ListView.tsx:123`, `TjekPapers.tsx:87` | Etter handlinger som fjerner eller deaktiverer knappen, flyttes ikke fokus, så det havner på `body`. Det gjelder blant annet «Åpne «Lag nå»», «Legg manglende …», «＋ Legg på lista», Godkjenn/«Ikke nå» på basisvareforslag og «Neste →» på siste avisside. «← Tilbake» fra en avis gir heller ikke fokus tilbake. | Kodebevis. Krever nettleser. | Flytt fokus til overskrift eller statuslinje (`tabIndex=-1`), og legg det inn i `npm run check:a11y`. |
+
+**Åpne funn fra første runde, kontrollert på nytt:**
+- **Gjelder fortsatt:** V7 (to faner, nå også `cookNow`), V10, O8 (`/api/offers` uten ratebegrensning; `/api/offers/lagret` og `/api/aviser` har den) og O10.
+- **Ikke vurdert på nytt i denne runden:** O5, O4b, S6 og S7.
+
+### Sjekket i runde 2 uten funn
+
+- **Motor (regel 1–3):**
+  - `prices.ts`, `cookNow.ts`, `staples.ts` og `household.ts` har ingen klokke, tilfeldighet eller nett.
+  - `resolvePrice` bruker aldri en utløpt `validUntil` eller et gammelt tilbud uten gyldighet.
+  - En gammel pris blir estimat med dato og taper alltid mot en ny.
+  - En kombinasjonskurv vinner bare når den er komplett.
+  - «Lag nå» filtrerer på absolutte krav før dekning, gir ukjent pris ved uavklart allergenstatus og rangerer aldri ukjent pris foran kjent.
+  - Basisvarer påvirker aldri kurv eller sum.
+- **Synk:**
+  - `parseDocAnchors` er streng; ingen 500 ble funnet.
+  - Det ble ikke funnet falsk reset.
+  - `cleanEvent` har `nivå`.
+  - `isValidDoc` validerer basisvarer og varegrupper strengt.
+  - Kostkrav, allergier, postnummer og «Lag nå» synkes aldri.
+  - Servereksporten har ingen token, hash, kode eller `revs`.
+  - Oppbevaringsjobben har injisert klokke, `0` = av og bare antall i loggen.
+  - Utløpt token gir samme 401.
+- **Tilbud og server:**
+  - Avisoppslag bare for id-er i den gjeldende lista (ingen SSRF).
+  - `allowedImage` slipper ikke gjennom brukernavn, port, ikke-https, punycode eller avsluttende punktum.
+  - `appCsp` kaster ved injeksjon, og Trusted Types er uendret.
+  - Alle kall mot Tjek går gjennom budsjettet.
+  - Lagringen er idempotent på (kilde, id), med observasjonsdato fra kilden.
+  - Ingen persondata i tilbudsdatabasen.
+  - Loggene har bare feilens navn.
+  - `TJEK_FETCH=0` slår av alle kall.
+- **Visninger:**
+  - Tjek-pris og -overskrift havner aldri i synkede linjer.
+  - `basis:`- og `hus:`-id-ene er idempotente.
+  - Bilder lastes først etter brukerens trykk, med «Kilde: Tjek, hentet …» og `no-referrer`.
+  - Ingen kjøpsoppfordring.
+  - «Andre varer» er aldri med i middagskurv, budsjett eller «Med kontrollerte tilbud».
+
+### Ikke testet i runde 2
+
+- Ekte Tjek-svar er ikke kalt av denne gjennomgangen. Formen på kataloger, sider og bildevert er prøvd av en annen økt samme dag (`phase0/tjek-formprøve.md`, kom inn under rebasen). Formprøven fant 145 norske aviser, altså flere enn de 100 som holdes i minnet, så utkastingen i O11 skjer med ekte data. Delbudsjettet (200 oppslag per døgn med standardbudsjettet) holder for en lukket pilot, men kan nås med mange brukere. Hvor ofte det nås, er ikke målt.
+- Fokus, tastatur og skjermleser i ekte nettleser utover `npm run check:a11y`. To ekte telefoner.
+- Gjenoppretting av en ekte produksjonskopi. S9 er testet med SQLite-kopi i testene, ikke med `backup.sh`.
+- Ingen eksterne kall er gjort.
+
+### Vurdering etter runde 2: lukket pilot
+
+Lukket pilot er fortsatt forsvarlig, med de samme forbeholdene som før om ekte prisdata, Tjek-avtalen og drift (`docs/sikkerhet.md`, «Må på plass før ekte familier»).
+
+Det viktigste denne runden:
+- **Rettet:**
+  - Innstillinger kunne slutte å synke uten at noen så det (S8).
+  - En gjenoppretting fra en veldig tidlig kopi kunne gi siste-skriving-vinner (S9).
+  - Anonyme kall kunne bruke opp Tjek-budsjettet (O11).
+  - Barneprodukter slapp inn i husholdningsvarene (M3).
+- **Åpent:** bare små ting uten kjent skade (M5 feiler i trygg retning) og produktvalg (V12, V16).
+
+Før piloten anbefales det å se delbudsjettet for aviser (O11) mot det faktiske antallet aviser i formprøven, og å ta V16 (fokus) sammen med neste a11y-runde.

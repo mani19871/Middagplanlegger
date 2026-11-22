@@ -55,6 +55,8 @@ const toDevice = (r: DeviceDb): DeviceRow => ({
   createdAt: r.created_at, lastSeen: r.last_seen, revokedAt: r.revoked_at,
 });
 const DEVICE_COLS = 'id, household_id, public_id, label, role, created_at, last_seen, revoked_at';
+/** «Sist sett» lagres med minutt-oppløsning (også ved oppretting og innmelding; runde 2, S12). */
+const toMinute = (iso: string) => `${iso.slice(0, 16)}:00.000Z`;
 
 export class SqliteStorage implements SyncStorage {
   private db: DatabaseSync;
@@ -106,7 +108,7 @@ export class SqliteStorage implements SyncStorage {
     return this.tx(() => {
       this.db.prepare('INSERT INTO households (id, created_at) VALUES (?, ?)').run(householdId, now);
       this.db.prepare('INSERT INTO devices (id, household_id, public_id, label, role, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(d.id, householdId, d.publicId, d.label, 'eier', d.tokenHash, now, now);
+        .run(d.id, householdId, d.publicId, d.label, 'eier', d.tokenHash, now, toMinute(now));
       return this.device(d.id);
     });
   }
@@ -121,7 +123,7 @@ export class SqliteStorage implements SyncStorage {
       return null;
     }
     // «Sist sett» lagres med minutt-oppløsning: nok til medlemslista, mindre bruksmønster lagret.
-    const minute = `${now.slice(0, 16)}:00.000Z`;
+    const minute = toMinute(now);
     if (r.last_seen !== minute) this.db.prepare('UPDATE devices SET last_seen = ? WHERE id = ?').run(minute, r.id);
     return toDevice({ ...r, last_seen: minute });
   }
@@ -171,10 +173,10 @@ export class SqliteStorage implements SyncStorage {
         // En fjernet enhet som blir invitert på nytt får tilbake sin offentlige id med nytt token.
         id = existing.id;
         this.db.prepare("UPDATE devices SET token_hash = ?, label = ?, role = 'voksen', revoked_at = NULL, last_seen = ? WHERE id = ?")
-          .run(d.tokenHash, d.label, now, id);
+          .run(d.tokenHash, d.label, toMinute(now), id);
       } else {
         this.db.prepare("INSERT INTO devices (id, household_id, public_id, label, role, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, 'voksen', ?, ?, ?)")
-          .run(d.id, inv.household_id, d.publicId, d.label, d.tokenHash, now, now);
+          .run(d.id, inv.household_id, d.publicId, d.label, d.tokenHash, now, toMinute(now));
       }
       this.db.prepare('UPDATE invites SET used_at = ?, used_by = ? WHERE id = ?').run(now, id, inv.id);
       return { ok: true, device: this.device(id) };

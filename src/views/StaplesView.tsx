@@ -34,6 +34,14 @@ export function stapleStateText(s: StapleStatus): string {
   }
 }
 
+/** Minstemengde fra feltet: tom = ingen, ugyldig = null. Avrundet først: 0,4 ble ellers 0, som innstillingsdokumentet ikke
+ *  godtar, så innstillingene sluttet å synke (runde 2, V17). */
+export function parseStapleMin(raw: string): number | undefined | null {
+  if (raw.trim() === '') return undefined;
+  const v = Math.round(Number(raw.replace(',', '.')));
+  return Number.isFinite(v) && v > 0 && v <= STAPLE_LIMITS.min ? v : null;
+}
+
 export default function StaplesView({ state, update, record, week, openList }: Props) {
   const staples = state.settings.staples ?? [];
   const facts = useMemo(() => stapleListFacts(state.list), [state.list]);
@@ -48,11 +56,7 @@ export default function StaplesView({ state, update, record, week, openList }: P
     return countable(id, STAPLE_INFO) ? catalog.ingredients.find((i) => i.id === ing)?.unit ?? null : null;
   };
   const setStaples = (f: (cur: Staple[]) => Staple[]) => update((s) => ({ ...s, settings: { ...s.settings, staples: normalizeStaples(f(s.settings.staples ?? [])) } }));
-  const parseMin = (raw: string): number | undefined | null => {
-    if (raw.trim() === '') return undefined;
-    const v = Number(raw.replace(',', '.'));
-    return Number.isFinite(v) && v > 0 && v <= STAPLE_LIMITS.min ? Math.round(v) : null;
-  };
+  const parseMin = parseStapleMin;
   const addable = stapleChoices.filter((c) => !staples.some((s) => s.id === c.id)).sort((a, b) => a.name.localeCompare(b.name, 'nb'));
   const full = staples.length >= STAPLE_LIMITS.count;
   const addPick = () => {
@@ -75,7 +79,8 @@ export default function StaplesView({ state, update, record, week, openList }: P
   const remove = (s: StapleStatus) => { setStaples((cur) => cur.filter((x) => x.id !== s.id)); setMsg(`${s.name} er fjernet fra basisvarene.`); };
   const setMin = (id: string, raw: string) => {
     const min = parseMin(raw);
-    if (min === null) return;
+    // Ugyldig verdi lagres ikke; si det, så feltet ikke ser lagret ut (runde 2, V17).
+    if (min === null) { setMsg('Minstemengden er ikke endret: den må være et tall over 0 og høyst 100 000.'); return; }
     setStaples((cur) => cur.map((s) => (s.id !== id ? s : min === undefined ? { id: s.id, ...(s.name ? { name: s.name } : {}) } : { ...s, min })));
   };
   const markAs = (s: StapleStatus, level: StapleLevel) => record({ type: 'nivå', ...stamp(), staple: s.id, level });

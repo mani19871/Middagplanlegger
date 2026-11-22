@@ -20,6 +20,11 @@ export interface PapersApiOptions {
   /** Ventetid etter en feil hos Tjek før nytt forsøk. */ retryMs?: number;
   /** Høyst så mange aviser i lista og sider per avis. */ maxCatalogs?: number; maxPages?: number;
   /** Høyst så mange avisers sider i minnet samtidig (eldste kastes). */ maxCachedCatalogs?: number;
+  /**
+   * Eget delbudsjett for oppslag hos Tjek fra disse endepunktene (`take()` før hvert oppslag, kaster når dagens tak er nådd;
+   * se `paperCallsPerDay`). Anonyme kall kan da ikke bruke opp kallbudsjettet innsamleren trenger. Brukt opp: «error».
+   */
+  budget?: { take(): void };
 }
 export interface PapersResponse {
   status: 'ok' | 'loading' | 'error'; error: string | null; source: 'tjek';
@@ -65,7 +70,8 @@ export function createPapersApi(o: PapersApiOptions) {
     if (fresh || t() - listFailedAt < retry) return;
     if (!listLoading) {
       const at = now();
-      listLoading = o.listCatalogs()
+      listLoading = Promise.resolve()
+        .then(() => { o.budget?.take(); return o.listCatalogs(); })
         .then((cs) => { list = { at, catalogs: cs }; listFailedAt = 0; })
         // Bare navnet på feilen: meldingen kan ha sti og statuskode fra Tjek (docs/sikkerhet.md, S10).
         .catch((e: unknown) => { listFailedAt = t(); log(`aviser-feil: ${e instanceof Error ? e.name : typeof e}`); })
@@ -80,7 +86,8 @@ export function createPapersApi(o: PapersApiOptions) {
     if (t() - (pagesFailedAt.get(id) ?? 0) < retry) return false;
     let p = pagesLoading.get(id);
     if (!p) {
-      p = o.catalogPages(id)
+      p = Promise.resolve()
+        .then(() => { o.budget?.take(); return o.catalogPages(id); })
         .then((ps) => {
           pages.delete(id);
           pages.set(id, { at: t(), pages: ps.slice(0, maxPages) });

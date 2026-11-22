@@ -22,7 +22,7 @@
 // Basisvarer påvirker aldri planmotorens kurv, butikksum, sammenligning eller filtre (regel 1–4): planner.ts leser dem
 // ikke, og allergi- og kostkrav brukes ikke her.
 import type { Ingredient, Staple, StapleChoice, Unit } from './types';
-import { deriveStock, lineStates, STAPLE_LEVELS, type InventoryLog, type StapleLevel } from './inventory';
+import { deriveStock, lineStates, STAPLE_ID, STAPLE_LEVELS, type InventoryLog, type StapleLevel } from './inventory';
 import { amount } from './format';
 
 export { STAPLE_LEVELS, STAPLE_ID, type StapleLevel } from './inventory';
@@ -106,7 +106,8 @@ export function stapleStatus(staples: Staple[], log: InventoryLog, facts: Staple
     for (const e of log) {
       if (e.type === 'nivå') { if (e.staple === s.id && STAPLE_LEVELS.includes(e.level)) steps.push({ at: e.at, id: e.id, kind: 'mark', level: e.level }); continue; }
       if (!ing) continue;
-      if ((e.type === 'telling' || e.type === 'rest') && e.ingredient === ing) { steps.push({ at: e.at, id: e.id, kind: 'påfyll' }); known = true; }
+      // En telling eller rest på 0 er ikke påfyll: «tom» står til det faktisk finnes noe (runde 2, M1).
+      if ((e.type === 'telling' || e.type === 'rest') && e.ingredient === ing) { steps.push({ at: e.at, id: e.id, kind: e.amount > 0 ? 'påfyll' : 'endret' }); known = true; }
       else if (e.type === 'hjemme' && e.ingredient === ing) { steps.push({ at: e.at, id: e.id, kind: 'endret' }); known = true; }
       else if (e.type === 'laget' && e.uses.some((u) => u.ingredient === ing)) steps.push({ at: e.at, id: e.id, kind: 'endret' });
     }
@@ -174,7 +175,9 @@ export function customStapleId(name: string): string | null {
   const clean = cleanStapleName(name);
   if (!clean) return null;
   const slug = clean.toLowerCase().replace(/[^\p{L}\p{M}]+/gu, '-').replace(/^-+|-+$/g, '');
-  return slug ? `egen:${slug}` : null;
+  const id = `egen:${slug}`;
+  // Samme mønster som nivå-hendelsene krever, så en vare i innstillingene alltid kan markeres (runde 2, M2).
+  return slug && STAPLE_ID.test(id) ? id : null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);

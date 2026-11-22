@@ -197,6 +197,7 @@ export function connect(s: AppState, token: string, me: MemberInfo): AppState {
 /** Kobler fra husstanden. Data på enheten beholdes; enheten blir en enkelt-enhets husstand igjen. */
 export const disconnect = (s: AppState, notice: string | null): AppState => ({ ...s, sync: null, syncNotice: notice });
 
+/** `ok` med `error`: runden lyktes, men noe må rettes lokalt (f.eks. `ugyldig_dokument`); gir «feil» uten bakoff. */
 export interface SyncResult { ok: boolean; offline: boolean; error?: string }
 
 /** Én synk-runde. Kaster aldri; feil gis i resultatet. 401 kobler enheten fra. */
@@ -255,12 +256,15 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
       if (!r.more) break;
     }
     // 3. Send endrede dokumenter. Utdatert base gir 409 med gjeldende versjon, som flettes før nytt forsøk.
+    let invalidDoc = false;
     for (const name of DOC_NAMES) {
       for (let attempt = 0; attempt < 3; attempt++) {
         const s = io.get();
         if (!same(s) || s.sync!.conflicts[name] || !isDirty(s, name)) break;
         const body = docBody(s, name);
-        if (!isValidDoc(name, body)) break; // ugyldig lokalt (f.eks. tomt budsjettfelt): sendes når det er rettet
+        // Ugyldig lokalt (f.eks. tomt budsjettfelt, eller flere basisvarer enn taket): sendes når det er rettet. Vises som
+        // «ugyldig_dokument», så synken ikke stopper uten at noen ser det (runde 2, S8).
+        if (!isValidDoc(name, body)) { invalidDoc = true; break; }
         const baseVersion = s.sync!.docs[name]?.version ?? 0;
         try {
           const r = await api.putDoc(name, baseVersion, body);
@@ -288,7 +292,8 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
       }
     }
     io.set((s) => same(s) ? { ...s, sync: { ...s.sync!, lastSync: now() } } : s);
-    return { ok: true, offline: false };
+    // Runden lyktes ellers (ingen bakoff), men et dokument med lokale endringer kan ikke sendes før det er rettet.
+    return invalidDoc ? { ok: true, offline: false, error: 'ugyldig_dokument' } : { ok: true, offline: false };
   } catch (e) {
     if (e instanceof SyncError && e.unauthorized) {
       io.set((s) => same(s) ? disconnect(s, 'Denne enheten er ikke lenger med i husstanden (fjernet, forlatt eller slettet). Dataene på enheten er beholdt.') : s);
