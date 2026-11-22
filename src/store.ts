@@ -3,29 +3,63 @@ import type { Settings, Slot } from './engine/types';
 import { defaultSettings } from './data/defaults';
 import { applyEvent, type InventoryEvent, type InventoryLog } from './engine/inventory';
 import { enqueue } from './sync/queue';
+import { applyListEvent, type ListEvent, type ListLog } from './sync/list';
+import type { DocBody, DocName } from './sync/docs';
+import type { MemberInfo } from './sync/protocol';
 
-export interface ManualLine { id: string; text: string; note: string }
+/** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
+export interface DocMeta { version: number; base: DocBody }
+/** Felt i et dokument som er endret ulikt på to enheter. Lokal verdi gjelder til brukeren har valgt. */
+export interface DocConflict { theirs: DocBody; version: number; fields: string[]; by: string; at: string }
+export interface SyncMeta {
+  /** Enhetstoken (bare hash på serveren). */
+  token: string; me: MemberInfo; cursor: number;
+  docs: Partial<Record<DocName, DocMeta>>; conflicts: Partial<Record<DocName, DocConflict>>;
+  members: MemberInfo[];
+  /** Antall hendelser serveren har avvist (ugyldige). */
+  rejected: number; lastSync: string | null;
+}
 export interface AppState {
   settings: Settings; slots: Slot[]; approved: boolean; option: 'regular' | 'combo';
-  checked: Record<string, boolean>; manual: ManualLine[]; postal: string;
+  /** Postnummer for «Nær meg» i kundeavisene. Bare på denne enheten, synkes ikke (dataminimering). */
+  postal: string;
   /** Beholdningshendelser (kjøp, bekreftet hjemme, rest, laget). Idempotent på id. */
   inventory: InventoryLog;
-  /** Hendelser som ikke er levert videre ennå. Det finnes ingen server for dem ennå, så de blir liggende lokalt. */
+  /** Beholdningshendelser som ikke er levert til husstanden ennå. */
   outbox: InventoryEvent[];
+  /** Delt handleliste: avkrysninger per person og manuelle linjer (src/sync/list.ts). Idempotent på id. */
+  list: ListLog;
+  listOutbox: ListEvent[];
+  /** Tilkobling til en delt husstand. null: bare denne enheten (som før). */
+  sync: SyncMeta | null;
+  /** Melding til brukeren om synk (f.eks. at enheten er fjernet fra husstanden). */
+  syncNotice: string | null;
 }
 export const initialState: AppState = {
-  settings: defaultSettings, slots: [], approved: false, option: 'regular', checked: {}, manual: [], postal: '',
-  inventory: [], outbox: [],
+  settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
+  inventory: [], outbox: [], list: [], listOutbox: [], sync: null, syncNotice: null,
 };
+type OldState = Partial<AppState> & { checked?: Record<string, boolean>; manual?: { id: string; text: string; note: string }[] };
 const KEY = 'middag-state-v1';
 const DEVICE_KEY = 'middag-enhet';
 
 /**
- * Flytter gammel `settings.pantry` (fra før hendelsesloggen) til tellinger. Faste id-er, så en ny innlasting
- * ikke gir doble rader. Ren funksjon.
+ * Flytter gammel tilstand inn i hendelseslogger: `settings.pantry` blir tellinger, `manual` blir manuelle linjer og
+ * `checked` blir avkrysninger for `week`. Faste id-er, så en ny innlasting (eller samme migrering på en annen
+ * enhet) ikke gir doble rader. Ren funksjon.
  */
-export function migrateState(raw: Partial<AppState>): AppState {
-  const s: AppState = { ...initialState, ...raw, settings: { ...initialState.settings, ...(raw.settings ?? {}) } };
+export function migrateState(raw: OldState, week = '1970-01-05', by = 'migrering'): AppState {
+  const { checked, manual, ...rest } = raw;
+  const s: AppState = { ...initialState, ...rest, settings: { ...initialState.settings, ...(raw.settings ?? {}) } };
+  let list = s.list ?? [];
+  let listOutbox = s.listOutbox ?? [];
+  const at = '1970-01-01T00:00:00.000Z';
+  const addList = (e: ListEvent) => {
+    const next = applyListEvent(list, e);
+    if (next !== list) { list = next; listOutbox = enqueue(listOutbox, e); }
+  };
+  for (const m of manual ?? []) addList({ type: 'manuell', id: `migrert-manuell:${m.id}`.slice(0, 100), at, by, line: { id: m.id.slice(0, 100), text: m.text.slice(0, 200), note: (m.note ?? '').slice(0, 200) } });
+  for (const key of Object.keys(checked ?? {}).sort()) if (checked![key]) addList({ type: 'kryss', id: `migrert-kryss:${week}:${key}`.slice(0, 100), at, by, week, key: key.slice(0, 200) });
   const old = s.settings.pantry ?? {};
   let inventory = s.inventory ?? [];
   let outbox = s.outbox ?? [];
@@ -35,7 +69,7 @@ export function migrateState(raw: Partial<AppState>): AppState {
     inventory = applyEvent(inventory, e);
     outbox = enqueue(outbox, e);
   }
-  return { ...s, inventory, outbox, settings: { ...s.settings, pantry: {} } };
+  return { ...s, inventory, outbox, list, listOutbox, settings: { ...s.settings, pantry: {} } };
 }
 
 /** Tilfeldig enhets-id (ikke persondata), så hver avkrysning lagres med egen identitet. */
@@ -49,11 +83,11 @@ export function deviceId(): string {
   } catch { return 'enhet-ukjent'; }
 }
 
-export function usePersistentState(): [AppState, (f: (s: AppState) => AppState) => void] {
+export function usePersistentState(week: string): [AppState, (f: (s: AppState) => AppState) => void] {
   const [state, setState] = useState<AppState>(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) return migrateState(JSON.parse(raw));
+      if (raw) return migrateState(JSON.parse(raw), week, deviceId());
     } catch { /* lagring kan mangle */ }
     return initialState;
   });
@@ -68,6 +102,16 @@ export function recordEvent(s: AppState, e: InventoryEvent): AppState {
   const inventory = applyEvent(s.inventory, e);
   if (inventory === s.inventory) return s;
   return { ...s, inventory, outbox: enqueue(s.outbox, e) };
+}
+
+/** Legger hendelser i handlelista og utboksen. En id som finnes fra før gir ingen endring. */
+export function recordList(s: AppState, ...events: ListEvent[]): AppState {
+  let list = s.list, listOutbox = s.listOutbox;
+  for (const e of events) {
+    const next = applyListEvent(list, e);
+    if (next !== list) { list = next; listOutbox = enqueue(listOutbox, e); }
+  }
+  return list === s.list ? s : { ...s, list, listOutbox };
 }
 
 /** Ny hendelses-id og tidspunkt. Hører hjemme utenfor motoren. */

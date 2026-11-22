@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { catalog } from './data/catalog';
 import { alternatives, generatePlan } from './engine/planner';
 import { recordEvent, usePersistentState } from './store';
-import { deriveStock, type InventoryEvent } from './engine/inventory';
+import { conflicts, deriveStock, type InventoryEvent } from './engine/inventory';
+import HouseholdView from './views/HouseholdView';
+import { useSync } from './sync/useSync';
+import { pendingCount, syncStatus, type SyncStatus } from './sync/engine';
 import WeekView from './views/WeekView';
 import ListView from './views/ListView';
 import PapersView from './views/PapersView';
@@ -16,11 +19,29 @@ import { totalWithOffers } from './engine/offerTotal';
 import type { Mode } from './views/WeekView';
 
 const TABS = ['Uka', 'Kundeaviser', 'Handleliste', 'Matskap'] as const;
-type Tab = (typeof TABS)[number];
+type Tab = (typeof TABS)[number] | 'Husstand';
+
+/** Invitasjonslenke: /#bli-med=KODE. Koden ligger i fragmentet, så den sendes aldri til serveren i en URL. */
+const inviteFromHash = () => {
+  const m = /^#bli-med=([A-Za-z0-9-]{1,20})$/.exec(typeof location === 'undefined' ? '' : location.hash);
+  if (m) history.replaceState(null, '', location.pathname + location.search);
+  return m ? m[1] : '';
+};
+const STATUS_TEXT: Record<SyncStatus, string> = {
+  lokal: '✓ Lagret på denne enheten', synket: '✓ Synket med husstanden', synker: '↻ Synker …',
+  venter: '⏳ Venter på nett', konflikt: '⚠ Konflikt – må avklares',
+};
 
 export default function App() {
-  const [state, update] = usePersistentState();
-  const [tab, setTab] = useState<Tab>('Uka');
+  const [state, update] = usePersistentState(isoDate(weekStart()));
+  const [inviteCode] = useState(inviteFromHash);
+  const [tab, setTab] = useState<Tab>(inviteCode ? 'Husstand' : 'Uka');
+  const runtime = useSync(state, update);
+  const purchaseConflicts = useMemo(() => conflicts(state.inventory).length, [state.inventory]);
+  const status = syncStatus(state, runtime, purchaseConflicts);
+  const pending = pendingCount(state);
+  const statusText = status === 'venter' && pending > 0 ? `${STATUS_TEXT.venter} (${pending} endring${pending === 1 ? '' : 'er'} lagret her)` : STATUS_TEXT[status];
+  const docConflicts = state.sync ? Object.keys(state.sync.conflicts).length : 0;
   const [mode, setMode] = useState<Mode>('home');
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
   const kids = state.settings.eaters.length - adults;
@@ -64,21 +85,31 @@ export default function App() {
     <div className="app">
       <header>
         <span className="logo"><Leaf /><span><b>Matuke</b><small>{weekLabel(weekStart())}</small></span></span>
-        <button className="household" aria-label="Endre hvem som spiser" onClick={() => { setTab('Uka'); setMode('edit'); }}>
-          👥 {adults} voksne, {kids} barn ⌄</button>
+        <div className="headchips">
+          <button className="household" aria-label="Endre hvem som spiser" onClick={() => { setTab('Uka'); setMode('edit'); }}>
+            👥 {adults} voksne, {kids} barn ⌄</button>
+          <button className={`syncchip ${status}`} aria-label={`Husstand og deling. ${statusText}`} onClick={() => setTab('Husstand')}>
+            🏠 {status === 'lokal' ? 'Del med husstanden' : statusText}</button>
+        </div>
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>
-      <main id="panel" role="tabpanel" aria-labelledby={`tab-${tab}`} tabIndex={-1}>
+      <main id="panel" role="tabpanel" {...(tab === 'Husstand' ? { 'aria-label': 'Husstand' } : { 'aria-labelledby': `tab-${tab}` })} tabIndex={-1}>
+        {docConflicts > 0 && tab !== 'Husstand' && (
+          <div className="banner warn" role="alert">⚠ Planen eller innstillingene ble endret på to enheter samtidig.{' '}
+            <button className="ghost sm" onClick={() => setTab('Husstand')}>Velg hva som skal gjelde</button></div>
+        )}
         {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores}
           offerTotal={offerTotal} approvedHints={approvedHints}
           regenerate={regenerate} openList={() => setTab('Handleliste')} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} />}
-        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} />}
+        {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} />}
+        {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
+          purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
         {tab === 'Matskap' && <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} />}
       </main>
       <nav role="tablist" aria-label="Hovedmeny" onKeyDown={(e) => {
         // Piltaster flytter mellom faner (roving tabindex), Home/End til første/siste.
-        const i = TABS.indexOf(tab);
+        const i = TABS.indexOf(tab as (typeof TABS)[number]);
         const next = e.key === 'ArrowRight' ? (i + 1) % TABS.length : e.key === 'ArrowLeft' ? (i + TABS.length - 1) % TABS.length : e.key === 'Home' ? 0 : e.key === 'End' ? TABS.length - 1 : -1;
         if (next < 0) return;
         e.preventDefault(); setTab(TABS[next]); document.getElementById(`tab-${TABS[next]}`)?.focus();

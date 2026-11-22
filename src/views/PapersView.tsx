@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchLiveOffers, type LiveResponse } from '../offers/client';
 import type { LiveOffer } from '../offers/service';
 import { amount } from '../engine/format';
-import type { AppState } from '../store';
+import { recordList, stamp, type AppState } from '../store';
 import type { Ctx } from '../engine/planner';
 import { editions, offers, type Edition, type Offer } from '../data/newspapers';
 import { DAYS, kr } from '../engine/format';
@@ -61,7 +61,7 @@ export default function PapersView({ state, update, ctx, goWeek }: Props) {
     const d = day >= 0 && days.includes(day) ? day : days[0];
     const start = weekStart();
     const back = () => { setOffer(null); setRecipeId(''); setDay(-1); };
-    const addManual = () => update((s) => ({ ...s, manual: [...s.manual, { id: `m${s.manual.length}-${offer.text}`, text: offer.text, note: `${edition.sender}, ${kr(offer.priceOre)}` }] }));
+    const addManual = () => { const st = stamp(); update((s) => recordList(s, { type: 'manuell', ...st, line: { id: st.id, text: offer.text.slice(0, 200), note: `${edition.sender}, ${kr(offer.priceOre)}`.slice(0, 200) } })); };
     return (
       <>
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={back}>←</button><h2>Bruk tilbudet</h2><span /></div>

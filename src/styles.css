@@ -93,3 +93,17 @@ select.field { display:block; width:100%; }
 :focus-visible { outline:3px solid var(--focus); outline-offset:2px; border-radius:6px; }
 .sheet:focus { outline:none; }
 main:focus { outline:none; }
+/* Handlemodus og synk */
+.shoptoggle { width:100%; font-size:1.05rem; } .shoptoggle.on { background:var(--g); color:#fff; border-color:transparent; }
+.list.shop li { padding:16px 0; } .list.shop .main { font-size:1.35rem; } .list.shop .main small { font-size:1rem; }
+.list.shop input[type=checkbox] { width:44px; height:44px; }
+.list .main small.who, .list .main .who { color:var(--g); font-weight:600; }
+.syncchip { background:var(--gl); border:0; border-radius:99px; padding:6px 12px; font-size:.85rem; color:var(--ink); }
+.syncchip.konflikt, .syncchip.venter { background:#fff0cc; color:#6b4500; }
+.headchips { display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+.code { font-size:1.8rem; font-weight:700; letter-spacing:.12em; font-family:ui-monospace,monospace; }
+.member { display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--line); font-size:1.05rem; } .member:last-child { border:0; }
+.member span { flex:1; } .member small { display:block; color:var(--mut); }
+.danger { color:var(--bad); border-color:var(--bad); }
+.field label, label.big { display:block; font-size:1.05rem; margin:8px 0 4px; }
+.notice { background:var(--gl); border-radius:14px; padding:12px 14px; margin:10px 0; }
