@@ -21,7 +21,7 @@ export const portionsOnDay = (s: Settings, day: number) =>
 
 const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id, x]));
 
-import { recipeDeals, type OfferHint, type RecipeDeals } from './deals';
+import { hintsForChains, recipeDeals, type OfferHint, type RecipeDeals } from './deals';
 
 export interface Ctx {
   catalog: Catalog; settings: Settings; offers?: OfferHint[]; shopDate?: string;
@@ -32,11 +32,16 @@ export interface Ctx {
   stock?: Record<string, number>;
 }
 
-/** Tilbud for en rett på en bestemt dag (tomt hvis tilbudsplanlegging er av eller dato mangler). */
+/**
+ * Tilbud for en rett på en bestemt dag (tomt hvis tilbudsplanlegging er av, dato mangler eller ingen kjede er valgt).
+ * Bare tilbud fra kjeder i `settings.offerChains` teller.
+ */
 export function dealsFor(recipe: Recipe, day: number, ctx: Ctx): RecipeDeals {
   if (ctx.settings.useOffers === false || !ctx.offers?.length || !ctx.shopDate) return { lines: [], savingOre: 0 };
+  const offers = hintsForChains(ctx.offers, ctx.settings.offerChains);
+  if (offers.length === 0) return { lines: [], savingOre: 0 };
   const portions = portionsOnDay(ctx.settings, day);
-  return recipeDeals(recipe, portions / recipe.baseServings, ctx.catalog.ingredients, ctx.offers, ctx.shopDate);
+  return recipeDeals(recipe, portions / recipe.baseServings, ctx.catalog.ingredients, offers, ctx.shopDate);
 }
 
 /**
@@ -54,21 +59,37 @@ export function blockedByAllergenStatus(r: Recipe, ctx: Ctx): boolean {
   });
 }
 
-/** Absolutte krav (vegetar, allergen, råvarer som skal unngås). Tidsgrensen hører ikke hit: en låst rett er et eksplisitt valg om tid. */
-export function meetsAbsoluteRequirements(r: Recipe, ctx: Ctx): boolean {
+/** Hvilket absolutt krav en rett bryter: allergen (`avoid`), kost (`vegetarian`) eller råvare (`avoidFoods`). */
+export type RequirementReason = 'allergen' | 'kost' | 'råvare';
+export function requirementViolation(r: Recipe, ctx: Ctx): RequirementReason | null {
   const { catalog, settings } = ctx;
-  return (!settings.vegetarian || r.vegetarian)
-    && !r.allergens.some((a) => settings.avoid.includes(a))
-    && !(settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t));
+  if (r.allergens.some((a) => settings.avoid.includes(a))) return 'allergen';
+  if (settings.vegetarian && !r.vegetarian) return 'kost';
+  if ((settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t))) return 'råvare';
+  return null;
 }
 
-/** Låste slots som bryter et absolutt krav. generatePlan slipper dem ut; UI kan bruke listen til å varsle. */
-export function lockedViolations(slots: Slot[], ctx: Ctx): Slot[] {
-  return slots.filter((s) => {
-    if (!s.locked) return false;
+/** Absolutte krav (vegetar, allergen, råvarer som skal unngås). Tidsgrensen hører ikke hit: en låst rett er et eksplisitt valg om tid. */
+export const meetsAbsoluteRequirements = (r: Recipe, ctx: Ctx): boolean => requirementViolation(r, ctx) === null;
+
+export interface LockedViolation { day: number; recipeId: string; reason: RequirementReason }
+/**
+ * Låste retter som bryter et absolutt krav (allergi, kost, råvare). Absolutte krav vinner over lås, så
+ * `generatePlan` slipper disse ut og planlegger dagen på nytt. Tidsgrensen er unntatt: en låst rett er et
+ * eksplisitt valg om tid. Sortert på dag.
+ */
+export function lockedViolations(slots: Slot[], ctx: Ctx): LockedViolation[] {
+  return slotViolations(slots.filter((s) => s.locked), ctx);
+}
+/** Som `lockedViolations`, men for alle retter i planen (låst eller ikke). */
+export function slotViolations(slots: Slot[], ctx: Ctx): LockedViolation[] {
+  const out: LockedViolation[] = [];
+  for (const s of slots) {
     const r = ctx.catalog.recipes.find((x) => x.id === s.recipeId);
-    return !!r && !meetsAbsoluteRequirements(r, ctx);
-  });
+    const reason = r ? requirementViolation(r, ctx) : null;
+    if (reason) out.push({ day: s.day, recipeId: s.recipeId, reason });
+  }
+  return out.sort((a, b) => a.day - b.day || a.recipeId.localeCompare(b.recipeId));
 }
 
 /** Kostkrav: absolutte krav filtrerer oppskriftene; preferanser påvirker bare rangering. */
@@ -186,9 +207,9 @@ const score = (b: Basket) => b.totalOre + b.unknownCount * UNKNOWN_PENALTY_ORE;
 export function generatePlan(ctx: Ctx, previous: Slot[] = []): Slot[] {
   const { settings } = ctx;
   const slots: Slot[] = [];
-  // Absolutte krav (allergi, kost) vinner over låsing: en låst rett som bryter dem slippes ut (se lockedViolations).
-  const violating = new Set(lockedViolations(previous, ctx));
-  const locked = new Map(previous.filter((s) => s.locked && !violating.has(s)).map((s) => [s.day, s]));
+  // Absolutte krav vinner over lås: en låst rett som bryter allergi, kost eller råvarekrav slippes ut (se lockedViolations).
+  const broken = new Set(lockedViolations(previous, ctx).map((v) => v.day));
+  const locked = new Map(previous.filter((s) => s.locked && !broken.has(s.day)).map((s) => [s.day, s]));
   const enabled = settings.days.map((d, i) => (d.enabled && portionsOnDay(settings, i) > 0 ? i : -1)).filter((i) => i >= 0);
   for (const d of enabled) if (locked.has(d)) slots.push(locked.get(d)!);
   for (const day of enabled) {

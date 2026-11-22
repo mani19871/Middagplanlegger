@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Alternatives, Basket } from '../engine/types';
-import { budgetAnswer, budgetSuggestions, dealsFor, swapOptions, type Ctx } from '../engine/planner';
+import {
+  budgetAnswer, budgetSuggestions, dealsFor, lockedViolations, recipeTags, requirementViolation, slotViolations, swapOptions,
+  type Ctx, type LockedViolation,
+} from '../engine/planner';
+import { ALLERGEN_LABEL } from '../engine/allergens';
+import { chainSet, COMMON_CHAINS, normalizeChain } from '../engine/chains';
+import { hintChain } from '../engine/deals';
 import { DAYS, kr, num } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
@@ -22,12 +28,38 @@ interface Props {
 }
 export type Mode = 'home' | 'plan' | 'edit' | 'trip';
 const storeName = (ctx: Ctx, id: string) => ctx.catalog.stores.find((s) => s.id === id)?.name ?? id;
+/** «allergikravet ditt (gluten)», «kostkravet ditt (bare vegetar)», «råvarekravet ditt (fisk)». */
+function requirementText(v: LockedViolation, ctx: Ctx): string {
+  const r = ctx.catalog.recipes.find((x) => x.id === v.recipeId);
+  const s = ctx.settings;
+  if (v.reason === 'allergen') return `allergikravet ditt (${(r?.allergens ?? []).filter((a) => s.avoid.includes(a)).map((a) => ALLERGEN_LABEL[a].toLowerCase()).join(', ')})`;
+  if (v.reason === 'kost') return 'kostkravet ditt (bare vegetar)';
+  const tags = r ? recipeTags(r, ctx.catalog.ingredients) : new Set();
+  return `råvarekravet ditt (${(s.avoidFoods ?? []).filter((t) => tags.has(t)).join(', ')})`;
+}
+/** Kjeder å velge for tilbud: de vanligste pluss kjedene i live-tilbudene, med visningsnavn fra kilden. */
+function chainOptions(ctx: Ctx): { chain: string; label: string }[] {
+  const m = new Map(COMMON_CHAINS.map((c) => [c.chain, c.label]));
+  for (const h of ctx.offers ?? []) { const c = hintChain(h); if (c && !m.has(c)) m.set(c, h.dealer); }
+  for (const c of ctx.settings.offerChains ?? []) { const n = normalizeChain(c); if (n && !m.has(n)) m.set(n, c); }
+  return [...m].map(([chain, label]) => ({ chain, label })).sort((a, b) => a.label.localeCompare(b.label, 'nb'));
+}
 const pill = (d: number) => (d === 0 ? { t: 'Samme pris', c: 'pill' } : d > 0 ? { t: `+${num(d / 100, 0)} kr på handelen`, c: 'pill up' } : { t: `−${num(-d / 100, 0)} kr på handelen`, c: 'pill down' });
 
 export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode, offerTotal, approvedHints }: Props) {
   const { settings, slots } = state;
   const [sheet, setSheet] = useState<number | null>(null);
   const [pick, setPick] = useState<string | null>(null);
+  /** Låste retter som ble sluppet ut ved siste «Lag ukeplan»/«Lag ny uke» fordi de bryter et absolutt krav. */
+  const [dropped, setDropped] = useState<{ v: LockedViolation; name: string; why: string }[]>([]);
+  const regen = () => {
+    setDropped(lockedViolations(slots, ctx).map((v) => ({ v, name: recipe(v.recipeId).name, why: requirementText(v, ctx) })));
+    regenerate();
+  };
+  /** En rett låses aldri automatisk hvis den bryter et absolutt krav (allergi, kost, råvare). */
+  const lockable = (id: string) => requirementViolation(recipe(id), ctx) === null;
+  const broken = slotViolations(slots, ctx);
+  const noChains = settings.useOffers !== false && (ctx.offers ?? []).some((h) => h.approved) && chainSet(settings.offerChains).size === 0;
   const start = weekStart();
   const recipe = (id: string) => ctx.catalog.recipes.find((r) => r.id === id)!;
   const portions = (day: number) => settings.eaters.filter((e) => e.daysHome[day]).reduce((a, e) => a + e.portion, 0);
@@ -43,8 +75,9 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const fmtP = (n: number) => num(n, 1);
 
   if (slots.length === 0 || mode === 'edit') {
-    return <PlanForm state={state} update={update} hasPlan={slots.length > 0}
-      onDone={() => { regenerate(); setMode('plan'); }} />;
+    return <PlanForm state={state} update={update} hasPlan={slots.length > 0} chains={chainOptions(ctx)}
+      lockWarnings={lockedViolations(slots, ctx).map((v) => `Låst rett ${recipe(v.recipeId).name} (${DAYS[v.day].toLowerCase()}) bryter ${requirementText(v, ctx)} og blir fjernet når du lager ukeplan.`)}
+      onDone={() => { regen(); setMode('plan'); }} />;
   }
   const answer = budgetAnswer(basket, settings.budgetOre);
   const margin = settings.budgetOre - basket.totalOre;
@@ -54,6 +87,26 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   const hr = recipe(hero.recipeId);
   const pct = Math.min(100, Math.round((basket.totalOre / settings.budgetOre) * 100));
 
+  const warnings = (
+    <>
+      {dropped.length > 0 && (
+        <div className="banner warn" role="alert">
+          {dropped.map((d) => <p key={d.v.day}>⚠ Låst rett {d.name} ({DAYS[d.v.day].toLowerCase()}) ble fjernet fordi den bryter {d.why}.</p>)}
+          <button className="ghost sm" onClick={() => setDropped([])}>OK</button>
+        </div>
+      )}
+      {broken.length > 0 && (
+        <div className="banner warn" role="alert">
+          {broken.map((v) => <p key={v.day}>⚠ {DAYS[v.day]}: {recipe(v.recipeId).name} bryter {requirementText(v, ctx)}.</p>)}
+          <button className="ghost sm" onClick={regen}>Lag ny uke uten disse</button>
+        </div>
+      )}
+      {noChains && (
+        <div className="banner">🏷 Tilbud regnes ikke inn før du velger kjedene du handler hos.{' '}
+          <button className="ghost sm" onClick={() => setMode('edit')}>Velg kjeder</button></div>
+      )}
+    </>
+  );
   const summary = (
     <div className="card total">
       <div className="tcol"><span className="lab">Anslått handel</span>
@@ -80,6 +133,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
           <div className="heroart"><Thumb id={hr.id} size={120} /></div>
           <div className="herocap"><strong>{DAYS[hero.day]} · {hr.name}</strong><span>{hr.minutes} min · {fmtP(portions(hero.day))} porsjoner</span></div>
         </div>
+        {warnings}
         {summary}
         <button className="cta" onClick={() => setMode('plan')}>Se ukeplan ›</button>
         <button className="ghost" onClick={openList}>Åpne handlelista</button>
@@ -139,6 +193,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   return (
     <>
       <div className="pagehead"><h1 className="page">Ukeplan</h1><button className="ghost sm" onClick={() => setMode('edit')}>✎ Rediger uke</button></div>
+      {warnings}
       {slots.map((s) => {
         const r = recipe(s.recipeId);
         const d = dayDate(start, s.day);
@@ -177,11 +232,11 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
       {weekDealLines > 0 && <div className="banner deal">🏷 {weekDealLines} varer i uka er på tilbud{weekSaving > 0 ? `, ca. ${kr(weekSaving)} lavere enn førpris` : ''}. Bare regelgodkjente tilbud med kjent pris, mengde og vilkår regnes inn i «Med kontrollerte tilbud»; summen over er uendret.</div>}
       {sugg.length > 0 && (
         <ul className="sugg">{sugg.map((g) => (
-          <li key={g.day}><button className="ghost" onClick={() => patchSlot(g.day, { recipeId: g.option.recipe.id, locked: true })}>
+          <li key={g.day}><button className="ghost" onClick={() => patchSlot(g.day, { recipeId: g.option.recipe.id, locked: lockable(g.option.recipe.id) })}>
             Bytt {DAYS[g.day].toLowerCase()} til {g.option.recipe.name} → {kr(g.newTotalOre)}</button></li>))}</ul>
       )}
       <button className="cta" onClick={() => { update((s) => ({ ...s, option: alts.recommended })); setMode('trip'); }}>{state.approved ? 'Velg handletur på nytt' : 'Godkjenn og velg handletur'} ›</button>
-      <button className="ghost" onClick={regenerate}>Lag ny uke (låste beholdes)</button>
+      <button className="ghost" onClick={regen}>Lag ny uke (låste beholdes)</button>
 
       {sheetSlot && (
         <Sheet label={`Bytt ${DAYS[sheetSlot.day].toLowerCase()}s middag`} onClose={closeSheet}>
@@ -199,7 +254,9 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                 {n.assumed.length > 0 && <div>Omtrentlig (mengde i ml regnet som gram).</div>}
               </div>); })()}
             <div className="toggles">
-              <label className="switch"><input type="checkbox" checked={sheetSlot.locked} onChange={() => patchSlot(sheetSlot.day, { locked: !sheetSlot.locked })} /> Lås denne retten</label>
+              <label className="switch"><input type="checkbox" checked={sheetSlot.locked} disabled={!sheetSlot.locked && !lockable(sheetSlot.recipeId)}
+                onChange={() => patchSlot(sheetSlot.day, { locked: !sheetSlot.locked && lockable(sheetSlot.recipeId) })} /> Lås denne retten
+                {!lockable(sheetSlot.recipeId) && <small> (kan ikke låses: bryter kravene dine)</small>}</label>
               <label className="switch"><input type="checkbox" checked={(sheetSlot.extra ?? 0) > 0}
                 onChange={(e) => patchSlot(sheetSlot.day, e.target.checked
                   ? { extra: 1, extraFor: slots.find((x) => x.day > sheetSlot.day)?.day ?? sheetSlot.day + 1 } : { extra: 0, extraFor: undefined })} /> Reserver 1 ekstra porsjon til matpakke</label>
@@ -222,7 +279,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
             </div>
             {chosen && <div className="card total2"><span>Ny anslått handel{chosen.complete ? '' : ' (delsum)'}</span><strong>{kr(basket.totalOre + chosen.deltaOre)}</strong></div>}
             <p className="fine">Næringsdata: Matvaretabellen (Mattilsynet). Generelle matvarer, ikke en bestemt vare; uten salt, olje og krydder. Veiledende tall, ikke kostråd eller anbefalt inntak. Sier ingenting om allergener.</p>
-            <button className="cta" disabled={!chosen} onClick={() => { patchSlot(sheetSlot.day, { recipeId: pick!, locked: true }); closeSheet(); }}>
+            <button className="cta" disabled={!chosen} onClick={() => { patchSlot(sheetSlot.day, { recipeId: pick!, locked: lockable(pick!) }); closeSheet(); }}>
               {chosen ? `Velg ${chosen.recipe.name.toLowerCase()} ›` : 'Velg en middag'}</button>
         </Sheet>
       )}

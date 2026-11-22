@@ -10,7 +10,7 @@ import {
 import type { PriceStatus, Settings, Slot } from '../engine/types';
 import { applyEvent, deriveStock, type InventoryEvent, type InventoryLog } from '../engine/inventory';
 import { initialState, migrateState, recordEvent, type AppState } from '../store';
-import { ctx, fullWeek, hint, roundTrip, settings, SHOP_DAY, slot } from './util';
+import { CHAINS, ctx, fullWeek, hint, roundTrip, settings, SHOP_DAY, slot } from './util';
 
 const STATUSES: PriceStatus[] = ['ordinær', 'tilbud', 'estimat', 'ukjent'];
 
@@ -178,7 +178,7 @@ describe('F1: rettbytte bevarer låste retter', () => {
     }
   });
   it('«Lag ny uke» etter bytte beholder både byttet og tidligere låste retter, også med tilbud og beholdning', () => {
-    const c = ctx({ days: fullWeek() }, { offers: [hint()], shopDate: SHOP_DAY, stock: { ris: 1000 } });
+    const c = ctx({ days: fullWeek(), offerChains: CHAINS }, { offers: [hint()], shopDate: SHOP_DAY, stock: { ris: 1000 } });
     let plan = generatePlan(c, [slot(1, 'taco', true)]);
     const first = swapOptions(plan, 3, ['demoA'], c)[0].recipe.id;
     plan = swap(plan, 3, first);
@@ -198,7 +198,7 @@ describe('F1: rettbytte bevarer låste retter', () => {
   it('generatePlan bytter aldri ut en låst rett, uansett dag, tid eller tilbud', () => {
     for (const maxMinutes of [15, 30, 60]) {
       const days = defaultSettings.days.map(() => ({ enabled: true, maxMinutes }));
-      const c = ctx({ days }, { offers: [hint({ ingredient: 'kylling', priceOre: 1000, prePriceOre: 11990, amount: 600 })], shopDate: SHOP_DAY });
+      const c = ctx({ days, offerChains: CHAINS }, { offers: [hint({ ingredient: 'kylling', priceOre: 1000, prePriceOre: 11990, amount: 600 })], shopDate: SHOP_DAY });
       const plan = generatePlan(c, [slot(0, 'kjottkaker', true)]); // 45 min: gjelder selv når dagens tidsgrense er lavere
       expect(plan.find((s) => s.day === 0)).toEqual(slot(0, 'kjottkaker', true));
     }
@@ -251,6 +251,46 @@ describe('F1: absolutte krav slår låste retter (regel 4)', () => {
     const c = ctx({ avoid: ['gluten'], days: fullWeek() });
     const prev = [slot(0, 'bolognese', true)];
     expect(JSON.stringify(generatePlan(c, prev))).toBe(JSON.stringify(generatePlan(c, prev)));
+  });
+  // lockedViolations gir {day, recipeId, reason}, så UI kan varsle «Låst rett X ble fjernet fordi den bryter …».
+  const recipeOf = recipe;
+  it('en låst rett med et allergen som nå er unngått blir ikke liggende i planen (var `it.fails`)', () => {
+    const c = ctx({ avoid: ['gluten'] });
+    const plan = generatePlan(c, [slot(0, 'bolognese', true)]); // bolognese har gluten
+    expect(plan.every((s) => !recipeOf(s.recipeId).allergens.includes('gluten'))).toBe(true);
+    expect(plan.find((s) => s.day === 0)?.recipeId).not.toBe('bolognese'); // dagen er planlagt på nytt, ikke tom
+    expect(lockedViolations([slot(0, 'bolognese', true)], c)).toEqual([{ day: 0, recipeId: 'bolognese', reason: 'allergen' }]);
+  });
+  it('vegetar: en låst kjøttrett slippes ut med grunn «kost»', () => {
+    const c = ctx({ vegetarian: true, days: fullWeek() });
+    const prev = [slot(1, 'taco', true), slot(3, 'omelett', true)];
+    const plan = generatePlan(c, prev);
+    expect(plan.every((s) => recipeOf(s.recipeId).vegetarian)).toBe(true);
+    expect(plan.find((s) => s.day === 3)).toEqual(slot(3, 'omelett', true)); // låst og lovlig: beholdes
+    expect(lockedViolations(prev, c)).toEqual([{ day: 1, recipeId: 'taco', reason: 'kost' }]);
+  });
+  it('råvarekrav: en låst fiskerett slippes ut med grunn «råvare»', () => {
+    const c = ctx({ avoidFoods: ['fisk'], days: fullWeek() });
+    const prev = [slot(2, 'lakseris', true)];
+    expect(generatePlan(c, prev).some((s) => s.recipeId === 'lakseris')).toBe(false);
+    expect(lockedViolations(prev, c)).toEqual([{ day: 2, recipeId: 'lakseris', reason: 'råvare' }]);
+  });
+  it('slipp-ut er deterministisk og stabilt over flere runder', () => {
+    const c = ctx({ avoid: ['gluten'], days: fullWeek() }, { offers: [hint()], shopDate: SHOP_DAY });
+    const prev = [slot(0, 'bolognese', true), slot(4, 'lakseris', true)];
+    const a = generatePlan(c, prev);
+    expect(JSON.stringify(generatePlan(c, prev))).toBe(JSON.stringify(a));
+    expect(JSON.stringify(generatePlan(roundTrip(c), roundTrip(prev)))).toBe(JSON.stringify(a));
+    expect(a.find((s) => s.day === 4)).toEqual(slot(4, 'lakseris', true));
+    expect(JSON.stringify(generatePlan(c, a))).toBe(JSON.stringify(a));
+  });
+  it('avgrensing: en kurv med den bruddretten blir aldri «komplett», så summen kåres aldri billigst', () => {
+    const c = ctx({ avoid: ['gluten'] });
+    const plan = [slot(0, 'bolognese', true)];
+    const b = buildBasket(plan, ['demoA', 'demoB'], c);
+    expect(b.complete).toBe(false);
+    expect(budgetAnswer(b, 100_000_000)).toBe('ufullstendig');
+    expect(alternatives(plan, c).combo).toBeNull();
   });
 });
 

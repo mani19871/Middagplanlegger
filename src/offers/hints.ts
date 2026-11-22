@@ -1,5 +1,6 @@
 import type { Ingredient } from '../engine/types';
 import type { OfferHint } from '../engine/deals';
+import { normalizeChain } from '../engine/chains';
 import { matchOffer, OFFER_TERMS } from './match';
 import { OFFER_RULES, type OfferRule } from './rules';
 import type { LiveOffer } from './service';
@@ -17,7 +18,7 @@ export function toHints(live: LiveOffer[], ingredients: Ingredient[], rules: Off
     const ing = m && ingredients.find((i) => i.id === m.ingredient);
     if (!m || m.needsReview || !ing || o.priceOre === null || !o.amount || o.unit !== ing.unit) continue;
     out.push({
-      id: o.id, ingredient: m.ingredient, dealer: o.dealerName, priceOre: o.priceOre, prePriceOre: o.prePriceOre,
+      id: o.id, ingredient: m.ingredient, dealer: o.dealerName, chain: normalizeChain(o.dealerName), priceOre: o.priceOre, prePriceOre: o.prePriceOre,
       amount: o.amount, unit: o.unit, validFrom: o.validFrom.slice(0, 10), validUntil: o.validUntil.slice(0, 10), approved: m.approved,
     });
   }

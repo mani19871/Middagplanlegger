@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { recipeDeals } from '../engine/deals';
 import { totalWithOffers } from '../engine/offerTotal';
 import {
-  alternatives, budgetAnswer, budgetSuggestions, buildBasket, generatePlan, swapOptions,
+  alternatives, budgetAnswer, budgetSuggestions, buildBasket, dealsFor, generatePlan, swapOptions,
 } from '../engine/planner';
 import { catalog } from '../data/catalog';
-import { slot, ctx, hint, miniCatalog, miniSettings, roundTrip, settings, SHOP_DAY } from './util';
+import { CHAINS, fullWeek, slot, ctx, hint, miniCatalog, miniSettings, roundTrip, settings, SHOP_DAY } from './util';
 
 const R1 = [slot(0, 'r1')];
 const mini = (prices: Parameters<typeof miniCatalog>[0]['prices'], over = {}) => {
@@ -85,7 +85,9 @@ describe('F2: en kurv med ukjent pris vinner aldri butikksammenligningen', () =>
 
 describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rabatt (tilbud på handledagen)', () => {
   const laks = buildBasket([slot(0, 'lakseris')], ['demoA'], ctx()); // 400 g laks, 99,90 kr, demodata
-  const total = (h = hint(), day = SHOP_DAY) => totalWithOffers(laks, [h], day, settings());
+  // Husstanden har valgt kjedene tilbudene kommer fra, så «ingen rabatt» under skyldes regelen som testes, ikke kjedevalget.
+  const S = settings({ offerChains: CHAINS });
+  const total = (h = hint(), day = SHOP_DAY) => totalWithOffers(laks, [h], day, S);
   it('kontroll: et gyldig, godkjent tilbud gir rabatt fra førpris', () => {
     expect(total().savingOre).toBe(4000);
   });
@@ -112,20 +114,20 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
     expect(total(hint({ priceOre: 5000.5 })).savingOre).toBe(0); // beløp er heltall i øre
   });
   it('allergifilter og «tilbud av» blokkerer alle rabatter', () => {
-    expect(totalWithOffers(laks, [hint()], SHOP_DAY, settings({ avoid: ['egg'] })).savingOre).toBe(0);
-    expect(totalWithOffers(laks, [hint()], SHOP_DAY, settings({ useOffers: false })).savingOre).toBe(0);
+    expect(totalWithOffers(laks, [hint()], SHOP_DAY, { ...S, avoid: ['egg'] }).savingOre).toBe(0);
+    expect(totalWithOffers(laks, [hint()], SHOP_DAY, { ...S, useOffers: false }).savingOre).toBe(0);
   });
   it('rabatten overstiger aldri linjens pris, og et tilbud gjør aldri en ukjent pris kjent', () => {
     expect(total(hint({ priceOre: 1, prePriceOre: 99_999 })).savingOre).toBe(laks.lines.find((l) => l.ingredient === 'laks')!.costOre);
     const unknown = buildBasket([slot(0, 'linsegryte')], ['demoA'], ctx());
-    const t = totalWithOffers(unknown, [hint({ ingredient: 'linser', priceOre: 100, prePriceOre: 5000, amount: 500 })], SHOP_DAY, settings());
+    const t = totalWithOffers(unknown, [hint({ ingredient: 'linser', priceOre: 100, prePriceOre: 5000, amount: 500 })], SHOP_DAY, S);
     expect(t.savingOre).toBe(0);
     expect(t.complete).toBe(false);
   });
   it('tilbud endrer aldri basissummen, butikksammenligningen eller budsjettsvaret', () => {
     // Samme handledag i begge: bare tilbudene skiller (en utløpt katalogpris gjelder ikke uansett, se under).
-    const c0 = ctx({}, { shopDate: SHOP_DAY });
-    const c1 = ctx({}, { offers: [hint()], shopDate: SHOP_DAY });
+    const c0 = ctx({ offerChains: CHAINS }, { shopDate: SHOP_DAY });
+    const c1 = ctx({ offerChains: CHAINS }, { offers: [hint()], shopDate: SHOP_DAY });
     const plan = [slot(0, 'lakseris'), slot(1, 'bolognese')];
     expect(JSON.stringify(alternatives(plan, c1))).toBe(JSON.stringify(alternatives(plan, c0)));
   });
@@ -147,13 +149,52 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
     expect(l.status).toBe('tilbud');
   });
   it.todo('Tilbud med validFrom etter handledagen hoppes over: PriceObs har ingen validFrom i dag, så kommende katalogtilbud kan ikke uttrykkes ennå');
-  it.todo('HULL: tilbud fra en kjede/region som ikke dekker husstandens butikker gir ingen rabatt (OfferHint har ingen butikk eller område)');
+
+  // Geografisk feil rabatt: tilbud fra en kjede husstanden ikke har valgt (Settings.offerChains). Tjek oppgir kjede, ikke
+  // utsalg, så valget gjelder kjeden. Demobutikkene har ingen kjede. (Var `it.todo`; lukket.)
+  const meny = hint({ id: 'm1', dealer: 'MENY', priceOre: 1000, prePriceOre: 9000 });
+  const lakseris = catalog.recipes.find((r) => r.id === 'lakseris')!;
+  const dealsOn = (chains: string[] | undefined, offers = [meny]) =>
+    dealsFor(lakseris, 0, ctx({ offerChains: chains }, { offers, shopDate: SHOP_DAY }));
+  it('geografisk feil: tilbud fra en kjede som ikke er valgt gir ingen rabatt i summen og ingen rangering', () => {
+    expect(totalWithOffers(laks, [meny], SHOP_DAY, settings({ offerChains: ['KIWI'] })).savingOre).toBe(0);
+    expect(dealsOn(['KIWI']).lines).toEqual([]);
+    expect(totalWithOffers(laks, [meny], SHOP_DAY, settings({ offerChains: ['KIWI', 'meny'] })).savingOre).toBe(8000); // kontroll
+    expect(dealsOn(['Meny']).savingOre).toBe(8000);
+  });
+  it('standard uten valgt kjede: ingen tilbud brukes, og summen sier hvorfor («kjede»)', () => {
+    for (const chains of [undefined, [], ['', ' ']]) {
+      const t = totalWithOffers(laks, [hint(), meny], SHOP_DAY, settings({ offerChains: chains }));
+      expect(t.savingOre).toBe(0);
+      expect(dealsOn(chains, [hint(), meny]).lines).toEqual([]);
+      expect(t.blocked).toBe('kjede');
+    }
+    expect(settings().offerChains).toBeUndefined();
+  });
+  it('kjedevalget flytter aldri valget av middager mot ikke-valgte kjeder, og er deterministisk', () => {
+    const big = hint({ id: 'b1', ingredient: 'kokosmelk', dealer: 'Coop Extra', priceOre: 100, prePriceOre: 90_000, unit: 'ml' });
+    const plan = (chains?: string[]) => JSON.stringify(generatePlan(ctx({ days: fullWeek(), offerChains: chains }, { offers: [big], shopDate: SHOP_DAY })));
+    const without = JSON.stringify(generatePlan(ctx({ days: fullWeek() }, { shopDate: SHOP_DAY })));
+    expect(plan(['KIWI', 'REMA 1000'])).toBe(without);
+    expect(plan(undefined)).toBe(without);
+    expect(plan(['COOP EXTRA'])).not.toBe(without); // kontroll: valgt kjede flytter valget
+    expect(plan(['coop extra'])).toBe(plan(['COOP EXTRA']));
+    expect(plan(['REMA 1000', 'COOP EXTRA'])).toBe(plan(['COOP EXTRA', 'REMA 1000'])); // rekkefølgen spiller ingen rolle
+  });
+  it('kjedevalget endrer aldri basissum, butikksammenligning eller budsjettsvar, og allergifilter blokkerer fortsatt', () => {
+    const p = [slot(0, 'lakseris'), slot(1, 'bolognese')];
+    const a0 = JSON.stringify(alternatives(p, ctx({}, { offers: [meny], shopDate: SHOP_DAY })));
+    expect(JSON.stringify(alternatives(p, ctx({ offerChains: ['MENY'] }, { offers: [meny], shopDate: SHOP_DAY })))).toBe(a0);
+    const t = totalWithOffers(laks, [meny], SHOP_DAY, settings({ offerChains: ['MENY'], avoid: ['egg'] }));
+    expect(t.blocked).toBe('allergifilter');
+    expect(t.totalOre).toBe(laks.totalOre);
+  });
 });
 
 describe('F2: prisreglene kan gjenskapes fra en lagret uke', () => {
   // «Lagret uke» = alt motoren trenger, serialisert som JSON: innstillinger, plan, tilbud, handledag og beholdning.
   const stored = {
-    settings: settings({ days: settings().days.map((d, i) => ({ ...d, enabled: i < 6 })) }),
+    settings: settings({ days: settings().days.map((d, i) => ({ ...d, enabled: i < 6 })), offerChains: ['MENY', 'KIWI'] }),
     slots: [] as ReturnType<typeof generatePlan>,
     offers: [hint(), hint({ id: 'o2', ingredient: 'ost', dealer: 'MENY', priceOre: 4900, prePriceOre: 8990, amount: 400 })],
     shopDate: SHOP_DAY, stock: { pasta: 300, ris: 500 } as Record<string, number>,

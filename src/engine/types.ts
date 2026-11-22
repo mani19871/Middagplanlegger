@@ -31,6 +31,11 @@ export interface Settings {
   useOffers?: boolean;
   /** Absolutte kostkrav: retter med disse ingrediensene filtreres bort. */
   avoidFoods?: FoodTag[];
+  /**
+   * Kjeder husstanden handler hos, normalisert (chains.ts `normalizeChain`). Bare tilbud fra disse kjedene brukes i
+   * rangering og «Med kontrollerte tilbud». Mangler eller tom: ingen tilbud brukes.
+   */
+  offerChains?: string[];
 }
 export type LunchBox = 'termos' | 'matboks';
 export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number; /** Hvordan den reserverte matpakken pakkes. Påvirker ikke planmotoren. */ lunchBox?: LunchBox }

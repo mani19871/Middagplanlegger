@@ -4,15 +4,24 @@ import type { Eater, FoodTag } from '../engine/types';
 import { ALLERGENS, ALLERGEN_LABEL } from '../engine/allergens';
 import { DAYS, kr } from '../engine/format';
 import { catalog } from '../data/catalog';
+import { normalizeChain } from '../engine/chains';
 
-interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; onDone: () => void; hasPlan: boolean }
+interface Props {
+  state: AppState; update: (f: (s: AppState) => AppState) => void; onDone: () => void; hasPlan: boolean;
+  /** Kjeder å velge for tilbud (vanligste + de i live-tilbudene), normalisert. */
+  chains?: { chain: string; label: string }[];
+  /** Låste retter som bryter kravene slik de står nå, og som slippes ut ved «Lag ukeplan». */
+  lockWarnings?: string[];
+}
 const FOODS: [FoodTag, string][] = [['storfe', 'storfe'], ['svin', 'svin'], ['lam', 'lam'], ['kylling', 'kylling'], ['fisk', 'fisk'], ['skalldyr', 'skalldyr'], ['belgvekster', 'belgvekster']];
 const ALL = [true, true, true, true, true, true, true];
 
-export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
+export default function PlanForm({ state, update, onDone, hasPlan, chains = [], lockWarnings = [] }: Props) {
   const s = state.settings;
   const [timeDay, setTimeDay] = useState(() => Math.max(0, s.days.findIndex((d) => d.enabled)));
   const [more, setMore] = useState(false);
+  const picked = new Set((s.offerChains ?? []).map(normalizeChain));
+  const toggleChain = (c: string) => set({ offerChains: (picked.has(c) ? [...picked].filter((x) => x !== c) : [...picked, c]).sort() });
   const set = (patch: Partial<typeof s>) => update((st) => ({ ...st, settings: { ...st.settings, ...patch }, approved: false }));
   const adults = s.eaters.filter((e) => e.portion >= 1);
   const kids = s.eaters.filter((e) => e.portion < 1);
@@ -58,6 +67,15 @@ export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
           <label><input type="checkbox" checked={s.useOffers !== false} onChange={() => set({ useOffers: s.useOffers === false })} /> Planlegg rundt tilbud (når tilbudsdata er tilgjengelig)</label>
           {state.sync && <p className="banner warn">Kostkrav og allergier deles ikke med husstanden (de kan være helseopplysninger) og
             lagres bare på denne enheten. Legg dem inn på hver voksen enhet som lager eller endrer planen.</p>}
+          {s.useOffers !== false && (
+            <fieldset className="chains">
+              <legend>Kjeder jeg handler hos (for tilbud)</legend>
+              {chains.map((c) => (
+                <label key={c.chain} className="mini"><input type="checkbox" checked={picked.has(c.chain)} onChange={() => toggleChain(c.chain)} /> {c.label}</label>
+              ))}
+              <p className="fine">Tilbud gjelder kjeden, ikke nødvendigvis ditt utsalg; Tjek skiller ikke på utsalg. Bare tilbud fra kjedene du velger brukes i planen og i «Med kontrollerte tilbud». Velger du ingen, brukes ingen tilbud.</p>
+            </fieldset>
+          )}
           <label><input type="checkbox" checked={s.vegetarian} onChange={() => set({ vegetarian: !s.vegetarian })} /> Bare vegetar (absolutt krav)</label>
           <p>Unngå allergener (absolutt krav):</p>
           {ALLERGENS.map((a) => (
@@ -90,6 +108,7 @@ export default function PlanForm({ state, update, onDone, hasPlan }: Props) {
           <p className="fine" id="etikett-hjelp">Bruk etiketter som «Voksen 1» eller «Barn 1», ikke navn. Appen trenger bare porsjonsstørrelse og hvilke dager de er hjemme.</p>
         </div>
       )}
+      {lockWarnings.length > 0 && <div className="banner warn" role="status">{lockWarnings.map((w) => <p key={w}>⚠ {w}</p>)}</div>}
       <button className="cta" onClick={onDone}>Lag ukeplan ›</button>
       {hasPlan && <button className="link" onClick={() => { try { localStorage.clear(); } catch { /* */ } location.reload(); }}>Slett lokale data</button>}
     </>

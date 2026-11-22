@@ -119,7 +119,7 @@ describe('regresjon: «Med kontrollerte tilbud» er en egen sum', () => {
     const hint = { id: 'o', ingredient: 'tomat', dealer: 'X', priceOre: 100, prePriceOre: 1490, amount: 400, unit: 'g' as const, validFrom: '2026-11-23', validUntil: '2026-11-29', approved: true };
     const slots = [slot(0, 'linsegryte')];
     const b = buildBasket(slots, ['demoA'], { ...ctx(), offers: [hint], shopDate: '2026-11-24' });
-    const t = totalWithOffers(b, [hint], '2026-11-24', defaultSettings);
+    const t = totalWithOffers(b, [hint], '2026-11-24', { ...defaultSettings, offerChains: ['X'] });
     expect(t.savingOre).toBeGreaterThan(0);
     expect(b.totalOre).toBe(buildBasket(slots, ['demoA'], ctx()).totalOre);
     expect(budgetAnswer(b, 1)).toBe('ufullstendig');
@@ -159,5 +159,64 @@ describe('allergifilter og uavklart allergenstatus', () => {
     const plan = generatePlan(c, [slot(0, kokos.id, true)]);
     expect(plan.find((s) => s.day === 0)!.recipeId).toBe(kokos.id);
     expect(buildBasket(plan, ['demoA'], c).complete).toBe(false);
+  });
+});
+
+describe('regresjon: absolutte krav vinner over låste retter', () => {
+  const days = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 60 }));
+  it('låst rett som bryter allergi, kost eller råvare slippes ut; lockedViolations sier hvorfor', async () => {
+    const { lockedViolations } = await import('./planner');
+    const prev = [slot(0, 'bolognese', true), slot(1, 'lakseris', true), slot(2, 'taco', true), slot(3, 'omelett', true)];
+    const c = ctx({ days, avoid: ['gluten'], avoidFoods: ['fisk'] });
+    expect(lockedViolations(prev, c)).toEqual([
+      { day: 0, recipeId: 'bolognese', reason: 'allergen' }, { day: 1, recipeId: 'lakseris', reason: 'råvare' },
+      { day: 2, recipeId: 'taco', reason: 'allergen' },
+    ]);
+    const plan = generatePlan(c, prev);
+    expect(plan.map((s) => s.recipeId)).not.toContain('bolognese');
+    expect(plan.map((s) => s.recipeId)).not.toContain('lakseris');
+    expect(plan.find((s) => s.day === 3)).toEqual(slot(3, 'omelett', true));
+    expect(plan).toHaveLength(7);
+    expect(lockedViolations(prev, ctx({ days, vegetarian: true })).map((v) => v.reason)).toEqual(['kost', 'kost', 'kost']);
+    expect(lockedViolations(prev.map((s) => ({ ...s, locked: false })), c)).toEqual([]); // bare låste
+  });
+  it('tidsgrensen er unntatt: låst rett over maks tid beholdes', () => {
+    const c = ctx({ days: days.map((d) => ({ ...d, maxMinutes: 15 })) });
+    expect(generatePlan(c, [slot(0, 'kjottkaker', true)])[0]).toEqual(slot(0, 'kjottkaker', true));
+  });
+});
+
+describe('regresjon: tilbud teller bare fra valgte kjeder', () => {
+  const DAY = '2026-11-24';
+  const h = (dealer: string, over: object = {}) => ({
+    id: `o-${dealer}`, ingredient: 'kokosmelk', dealer, priceOre: 100, prePriceOre: 90_000, amount: 400, unit: 'ml' as const,
+    validFrom: '2026-11-23', validUntil: '2026-11-29', approved: true, ...over,
+  });
+  const two = defaultSettings.days.map((x, i) => ({ ...x, enabled: i < 2 }));
+  const c = (offerChains: string[] | undefined, offers = [h('MENY')]) => ({ ...ctx({ days: two, offerChains }), offers, shopDate: DAY });
+  const karri = catalog.recipes.find((r) => r.id === 'karri')!;
+  it('tilbud fra ikke-valgt kjede gir verken rangering eller sum; valgt kjede gir begge', async () => {
+    const { dealsFor } = await import('./planner');
+    const { totalWithOffers } = await import('./offerTotal');
+    const none = generatePlan(c(undefined, []));
+    expect(dealsFor(karri, 0, c(['KIWI'])).lines).toEqual([]);
+    expect(JSON.stringify(generatePlan(c(['KIWI'])))).toBe(JSON.stringify(none)); // rangeringen flyttes ikke
+    expect(JSON.stringify(generatePlan(c(undefined)))).toBe(JSON.stringify(none)); // standard: ingen kjede valgt
+    expect(JSON.stringify(generatePlan(c([])))).toBe(JSON.stringify(none));
+    expect(dealsFor(karri, 0, c(['Meny'])).savingOre).toBeGreaterThan(0);
+    expect(JSON.stringify(generatePlan(c(['MENY'])))).not.toBe(JSON.stringify(none)); // kontroll: valgt kjede flytter valget
+    const plan = [slot(0, 'karri')];
+    const b = buildBasket(plan, ['demoA'], c(undefined));
+    expect(totalWithOffers(b, [h('MENY')], DAY, c(['KIWI']).settings).savingOre).toBe(0);
+    expect(totalWithOffers(b, [h('MENY')], DAY, c(undefined).settings).blocked).toBe('kjede');
+    expect(totalWithOffers(b, [h('MENY')], DAY, c(['MENY']).settings).savingOre).toBeGreaterThan(0);
+    // basissummen er uendret av kjedevalget
+    expect(buildBasket(plan, ['demoA'], c(['MENY'])).totalOre).toBe(b.totalOre);
+  });
+  it('normalisert chain på hintet går foran visningsnavnet', async () => {
+    const { dealsFor } = await import('./planner');
+    expect(dealsFor(karri, 0, c(['COOP OBS'], [h('Coop Obs!')])).lines).toHaveLength(1);
+    expect(dealsFor(karri, 0, c(['COOP EXTRA'], [h('Noe annet', { chain: 'COOP EXTRA' })])).lines).toHaveLength(1);
+    expect(dealsFor(karri, 0, c(['COOP EXTRA'], [h('Coop Extra', { chain: 'COOP PRIX' })])).lines).toEqual([]);
   });
 });

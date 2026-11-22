@@ -38,20 +38,20 @@ describe('tilbudsrangering', () => {
   });
   it('planen flyttes mot retter med store tilbud, og er deterministisk', () => {
     const days = defaultSettings.days.map((x, i) => ({ ...x, enabled: i < 2 }));
-    const base = generatePlan(ctx([], { days }));
+    const base = generatePlan(ctx([], { days, offerChains: ['KIWI'] }));
     const big = hint({ ingredient: 'kokosmelk', priceOre: 100, prePriceOre: 90000, amount: 400, unit: 'ml' }); // enorm rabatt på kokosmelk
-    const withOffer = generatePlan(ctx([big], { days }));
+    const withOffer = generatePlan(ctx([big], { days, offerChains: ['KIWI'] }));
     const uses = (plan: typeof base) => plan.some((s) => ['karri', 'fiskesuppe'].includes(s.recipeId));
     expect(uses(withOffer)).toBe(true);
-    expect(JSON.stringify(withOffer)).toBe(JSON.stringify(generatePlan(ctx([big], { days }))));
+    expect(JSON.stringify(withOffer)).toBe(JSON.stringify(generatePlan(ctx([big], { days, offerChains: ['Kiwi'] })))); // normalisert
     expect(uses(base)).toBe(base.some((s) => ['karri', 'fiskesuppe'].includes(s.recipeId))); // sanity
   });
   it('useOffers: false ignorerer tilbud', () => {
-    const c = ctx([hint()], { useOffers: false });
+    const c = ctx([hint()], { useOffers: false, offerChains: ['KIWI'] });
     expect(dealsFor(recipe('lakseris'), 0, c).lines).toEqual([]);
   });
   it('allergifilter slår tilbud: retter med unngått allergen velges aldri', () => {
-    const c = ctx([hint({ ingredient: 'laks', priceOre: 1, prePriceOre: 90000 })], { avoid: ['fisk'] });
+    const c = ctx([hint({ ingredient: 'laks', priceOre: 1, prePriceOre: 90000 })], { avoid: ['fisk'], offerChains: ['KIWI'] });
     for (const s of generatePlan(c)) expect(recipe(s.recipeId).allergens).not.toContain('fisk');
   });
 });

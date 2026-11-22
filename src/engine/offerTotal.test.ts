@@ -18,7 +18,9 @@ const slot = (day: number, recipeId: string): Slot => ({ day, recipeId, locked: 
 // Kurven prises 23.11., siste dag for demotilbudet på laks i Demo Nærbutikk; utløpte priser brukes ikke (regel 2).
 const basketFor = (slots: Slot[]) => buildBasket(slots, ['demoA'], { ...ctx(), shopDate: '2026-11-23' });
 const laks = basketFor([slot(0, 'lakseris')]); // 4 spisere × 0,8 → 400 g laks, én pakke à 99,90 kr
-const total = (hints: OfferHint[], basket = laks, settings = defaultSettings) => totalWithOffers(basket, hints, DAY, settings);
+// Husstanden har valgt KIWI; tilbud fra andre kjeder teller ikke (se egne tester for kjedevalg).
+const S = { ...defaultSettings, offerChains: ['KIWI'] };
+const total = (hints: OfferHint[], basket = laks, settings = S) => totalWithOffers(basket, hints, DAY, settings);
 
 describe('«Med kontrollerte tilbud»-sum', () => {
   it('godkjent tilbud senker summen med førpris minus tilbudspris per pakke', () => {
@@ -70,12 +72,12 @@ describe('«Med kontrollerte tilbud»-sum', () => {
     expect(t.complete).toBe(false);
   });
   it('aktivt allergifilter: tilbudsvarer har uavklart allergenstatus og regnes ikke med', () => {
-    const t = total([hint()], laks, { ...defaultSettings, avoid: ['gluten'] });
+    const t = total([hint()], laks, { ...S, avoid: ['gluten'] });
     expect(t.blocked).toBe('allergifilter');
     expect(t.totalOre).toBe(laks.totalOre);
   });
   it('tilbud av gir ingen tilbudssum', () => {
-    expect(total([hint()], laks, { ...defaultSettings, useOffers: false }).blocked).toBe('av');
+    expect(total([hint()], laks, { ...S, useOffers: false }).blocked).toBe('av');
   });
   it('basissum, kurv og butikksammenligning er uendret av tilbud', () => {
     const slots = generatePlan(ctx());
@@ -84,7 +86,7 @@ describe('«Med kontrollerte tilbud»-sum', () => {
     expect(JSON.stringify(alternatives(slots, ctx(big)))).toBe(before);
     const basket = buildBasket(slots, ['demoA'], ctx(big));
     const snap = JSON.stringify(basket);
-    totalWithOffers(basket, big, DAY, defaultSettings);
+    totalWithOffers(basket, big, DAY, S);
     expect(JSON.stringify(basket)).toBe(snap); // ingen mutasjon
   });
 });

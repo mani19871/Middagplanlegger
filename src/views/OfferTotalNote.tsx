@@ -7,6 +7,9 @@ export default function OfferTotalNote({ total, approvedHints, className = 'offe
   if (total.blocked === 'allergifilter') {
     return <p className={`fine ${className}`}>Allergifilter er på: tilbudsvarer har uavklart allergenstatus, så kontrollerte tilbud regnes ikke inn.</p>;
   }
+  if (total.blocked === 'kjede') {
+    return <p className={`fine ${className}`}>Ingen kjede valgt: tilbud regnes ikke inn. Velg kjedene du handler hos under «Rediger uke» → «Flere valg».</p>;
+  }
   if (total.blocked || total.lines.length === 0) return null;
   const dealers = [...new Set(total.lines.map((l) => l.dealer))].sort().join(', ');
   return (
@@ -14,7 +17,8 @@ export default function OfferTotalNote({ total, approvedHints, className = 'offe
       <div className="drow"><span>🏷 Med kontrollerte tilbud{total.complete ? '' : ' (delsum)'}</span><strong>{kr(total.totalOre)}, anslått</strong></div>
       <p className="fine">
         {kr(total.savingOre)} lavere enn summen over på {total.lines.length} vare{total.lines.length === 1 ? '' : 'r'}, regnet fra tilbudets egen førpris.
-        Gjelder bare hvis du kjøper tilbudsvarene hos {dealers} på handledagen. Tilbudene er ekte (Tjek) og kontrollert av redaktør; summen over er uendret.
+        Forutsetter at du kjøper tilbudsvarene hos {dealers} på handledagen, ikke nødvendigvis i butikken summen over gjelder.
+        Tilbudet gjelder kjeden, ikke nødvendigvis ditt utsalg (Tjek skiller ikke på utsalg). Tilbudene er ekte (Tjek) og kontrollert av redaktør; summen over er uendret.
         {total.coveredOnly.length > 0 && ` ${total.coveredOnly.length} tilbud uten førpris er ikke regnet med.`}
       </p>
     </div>

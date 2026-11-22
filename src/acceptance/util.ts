@@ -10,6 +10,8 @@ export const SHOP_DAY = '2026-11-23';
 export const slot = (day: number, recipeId: string, locked = false, extra?: number): Slot =>
   ({ day, recipeId, locked, ...(extra ? { extra, extraFor: day + 1 } : {}) });
 export const settings = (over: Partial<Settings> = {}): Settings => ({ ...defaultSettings, ...over });
+/** Kjedene testtilbudene kommer fra. Uten valgt kjede brukes ingen tilbud (geografisk feil rabatt). */
+export const CHAINS = ['KIWI', 'REMA 1000', 'MENY'];
 export const ctx = (over: Partial<Settings> = {}, extra: Partial<Ctx> = {}): Ctx => ({ catalog, settings: settings(over), ...extra });
 export const hint = (over: Partial<OfferHint> = {}): OfferHint => ({
   id: 'o1', ingredient: 'laks', dealer: 'KIWI', priceOre: 5000, prePriceOre: 9000, amount: 400, unit: 'g',

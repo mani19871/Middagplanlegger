@@ -114,3 +114,4 @@ main:focus { outline:none; }
 .bigbtn .warntext, .warntext { color:#6b4500; }
 .driftlist { margin:6px 0; padding-left:18px; } .driftlist li { margin:4px 0; }
 .list .main { min-width:0; } .list .main .pill { max-width:100%; white-space:normal; }
+.chains { border:0; padding:0; margin:8px 0; min-width:0; } .chains legend { font-weight:600; padding:0; margin-bottom:4px; }

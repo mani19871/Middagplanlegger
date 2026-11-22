@@ -68,7 +68,7 @@ describe('regresjon: prosenttilbud uten kjent grunnpris', () => {
     expect(l[0].reasons).toEqual(expect.arrayContaining(['pris ukjent', 'vilkår']));
     expect(l[0].approved).toBe(false);
     expect(hintsOf(raw())).toEqual([]);
-    expect(totalWithOffers(basket, hintsOf(raw()), SHOP_DAY, settings()).savingOre).toBe(0);
+    expect(totalWithOffers(basket, hintsOf(raw()), SHOP_DAY, settings({ offerChains: ['TESTKJEDE'] })).savingOre).toBe(0);
   });
   it('med sluttpris, men uten grunnpris: prosentvilkåret gjør at tilbudet må kontrolleres, og det gir ingen rabatt', () => {
     const r = raw({ pricing: { price: 59.9, pre_price: null } });
@@ -76,7 +76,7 @@ describe('regresjon: prosenttilbud uten kjent grunnpris', () => {
     expect(l[0].needsReview).toBe(true);
     expect(l[0].reasons).toContain('vilkår');
     expect(hintsOf(r)).toEqual([]);
-    expect(totalWithOffers(basket, hintsOf(r), SHOP_DAY, settings()).savingOre).toBe(0);
+    expect(totalWithOffers(basket, hintsOf(r), SHOP_DAY, settings({ offerChains: ['TESTKJEDE'] })).savingOre).toBe(0);
   });
   it('prosent bare i beskrivelsen (ikke overskriften) fanges også som vilkår', () => {
     const r = raw({ heading: 'Kyllingfilet 600 g', description: 'Spar 40 % denne uka', pricing: { price: 59.9, pre_price: null } });
@@ -88,15 +88,15 @@ describe('regresjon: prosenttilbud uten kjent grunnpris', () => {
     const hints = hintsOf(r);
     expect(hints).toHaveLength(1);
     expect(hints[0].prePriceOre).toBeNull();
-    expect(totalWithOffers(basket, hints, SHOP_DAY, settings()).savingOre).toBe(0);
+    expect(totalWithOffers(basket, hints, SHOP_DAY, settings({ offerChains: ['TESTKJEDE'] })).savingOre).toBe(0);
   });
   it('kontroll: kjent pris og førpris, uten vilkår, men ikke regelgodkjent, gir heller ingen rabatt i summen', () => {
     const r = raw({ heading: 'Kyllingfilet 600 g', pricing: { price: 59.9, pre_price: 99.9 } });
     const hints = hintsOf(r);
     expect(hints).toHaveLength(1);
     expect(hints[0].approved).toBe(false);
-    expect(totalWithOffers(basket, hints, SHOP_DAY, settings()).savingOre).toBe(0);
-    expect(totalWithOffers(basket, [{ ...hints[0], approved: true }], SHOP_DAY, settings()).savingOre).toBe(4000);
+    expect(totalWithOffers(basket, hints, SHOP_DAY, settings({ offerChains: ['TESTKJEDE'] })).savingOre).toBe(0);
+    expect(totalWithOffers(basket, [{ ...hints[0], approved: true }], SHOP_DAY, settings({ offerChains: ['Testkjede'] })).savingOre).toBe(4000);
   });
 });
 

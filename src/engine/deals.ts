@@ -1,15 +1,30 @@
 // Tilbudsrangering: hvor mye en rett sparer på kontrollerte, gyldige tilbud. Ren funksjon, ingen nettverk eller klokke.
 // Besparelsen regnes fra tilbudets egen førpris; tilbud uten førpris teller som dekning, ikke som besparelse.
+// Bare tilbud fra kjeder husstanden har valgt (`Settings.offerChains`) teller; se `hintsForChains`.
 import type { Ingredient, Recipe, Unit } from './types';
+import { chainSet, normalizeChain } from './chains';
 
 export interface OfferHint {
-  id: string; ingredient: string; dealer: string; priceOre: number; prePriceOre: number | null;
+  /** `dealer` er visningsnavnet fra kilden; `chain` er det normaliserte kjedenavnet (se chains.ts). */
+  id: string; ingredient: string; dealer: string; chain?: string; priceOre: number; prePriceOre: number | null;
   amount: number; unit: Unit; validFrom: string; validUntil: string; // ISO-datoer (YYYY-MM-DD)
   /** Koblingen tilbud → ingrediens er godkjent av en kuratert regel. Bare slike tilbud kan senke «Med tilbud»-summen. */
   approved?: boolean;
 }
 export interface DealLine { ingredient: string; dealer: string; offerId: string; packs: number; savingOre: number }
 export interface RecipeDeals { lines: DealLine[]; savingOre: number }
+
+/** Kjeden et tilbud gjelder: `chain` når den er satt, ellers normalisert `dealer`. */
+export const hintChain = (h: OfferHint) => normalizeChain(h.chain ?? h.dealer);
+
+/**
+ * Tilbud fra kjeder brukeren har valgt. Ingen valgt kjede gir ingen tilbud: et tilbud fra en kjede husstanden ikke
+ * handler i er en geografisk feil rabatt. Tjek skiller ikke på utsalg, så valget gjelder hele kjeden.
+ */
+export function hintsForChains(hints: OfferHint[], chains: readonly string[] | undefined): OfferHint[] {
+  const set = chainSet(chains);
+  return set.size === 0 ? [] : hints.filter((h) => set.has(hintChain(h)));
+}
 
 export const validOnDate = (h: OfferHint, date: string) => h.validFrom <= date && h.validUntil >= date;
 

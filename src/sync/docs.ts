@@ -115,7 +115,7 @@ export function isValidDoc(name: string, body: unknown): body is DocBody {
   }
   if (name === 'innstillinger') {
     // Ingen kostkrav eller allergier (LOCAL_ONLY_SETTINGS) og ingen matskap: de lagres aldri på serveren.
-    const keys = ['eaters', 'days', 'budgetOre', 'storeIds', 'regularStoreId', 'maxStops', 'extraStoreThresholdOre', 'useOffers'];
+    const keys = ['eaters', 'days', 'budgetOre', 'storeIds', 'regularStoreId', 'maxStops', 'extraStoreThresholdOre', 'useOffers', 'offerChains'];
     if (!onlyKeys(body, keys)) return false;
     const eaters = body.eaters, days = body.days, stores = body.storeIds;
     return Array.isArray(eaters) && eaters.length <= 12 && eaters.every((e) => isObj(e) && onlyKeys(e, ['id', 'label', 'portion', 'daysHome'])
@@ -125,7 +125,9 @@ export function isValidDoc(name: string, body: unknown): body is DocBody {
       && int(body.budgetOre, 0, 100_000_000)
       && Array.isArray(stores) && stores.length <= 20 && stores.every((s) => str(s, 40)) && str(body.regularStoreId, 40)
       && (body.maxStops === 1 || body.maxStops === 2) && int(body.extraStoreThresholdOre, 0, 10_000_000)
-      && (body.useOffers === undefined || bool(body.useOffers));
+      && (body.useOffers === undefined || bool(body.useOffers))
+      // Kjeder for tilbud (valgfritt): kjedenavn, ingen persondata.
+      && (body.offerChains === undefined || (Array.isArray(body.offerChains) && body.offerChains.length <= 40 && body.offerChains.every((c) => str(c, 40))));
   }
   return false;
 }
