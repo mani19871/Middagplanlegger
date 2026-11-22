@@ -13,8 +13,18 @@ export interface DeviceRow {
 export interface NewDevice { id: string; publicId: string; label: string; tokenHash: string }
 export interface EventIn { stream: Stream; id: string; by: string; body: string }
 export interface EventOut { seq: number; stream: Stream; body: string }
-export interface DocOut { name: DocName; version: number; body: string; updatedBy: string; updatedAt: string }
-export interface ReadResult { events: EventOut[]; docs: DocOut[]; cursor: number; more: boolean; /** Husstandens nåværende `seq`. */ head: number }
+export interface DocOut {
+  name: DocName; version: number; body: string; updatedBy: string; updatedAt: string;
+  /** Slekten: rev for de siste versjonene, eldst først; siste er denne versjonen (se `docRev` i sqlite.ts). Intern. */
+  revs: string[];
+}
+export interface ReadResult {
+  events: EventOut[];
+  /** Dokumenter skrevet etter `after` (for klienter uten dokumentanker). */
+  docs: DocOut[];
+  /** `seq` for siste hendelse i svaret, ellers `after`: aldri en dokumentskriving, så ankeret dekker hele cursoren. */
+  cursor: number; more: boolean; /** Husstandens nåværende `seq`. */ head: number;
+}
 export type JoinResult = { ok: true; device: DeviceRow } | { ok: false; code: 'ugyldig_kode' | 'enhet_finnes' | 'kvote_full' };
 /** Kvoter per husstand (docs/sikkerhet.md). Lagringen sjekker dem i samme transaksjon som skrivingen. */
 export interface MemberQuota { /** Aktive medlemmer. */ active: number; /** Alle rader, også fjernede. */ total: number }
@@ -27,7 +37,7 @@ export interface EventQuota {
 export class QuotaExceededError extends Error { constructor() { super('kvote_full'); this.name = 'QuotaExceededError'; } }
 /** Etiketten en fjernet eller utløpt enhet får (dataminimering: egen etikett og «sist sett» fjernes). */
 export const REMOVED_LABEL = 'Tidligere medlem';
-export type PutDocResult = { ok: true; version: number } | { ok: false; current: DocOut | null };
+export type PutDocResult = { ok: true; version: number; revs: string[] } | { ok: false; current: DocOut | null };
 /** Alt som er lagret om en husstand utenom hendelsene (til eksport, GDPR art. 15 og 20). Interne id-er er med; API-et oversetter. */
 export interface HouseholdDump {
   createdAt: string; seq: number;
@@ -69,6 +79,8 @@ export interface SyncStorage {
    */
   appendEvents(householdId: string, deviceId: string, events: EventIn[], now: string, quota?: EventQuota): Promise<string[]>;
   readSince(householdId: string, after: number, limit: number): Promise<ReadResult>;
+  /** Gjeldende versjon av alle husstandens dokumenter (med slekt). */
+  currentDocs(householdId: string): Promise<DocOut[]>;
   /** Id-en til hendelsen med denne `seq` i husstanden, eller null (finnes ikke, f.eks. etter gjenoppretting fra eldre kopi). */
   eventIdAt(householdId: string, seq: number): Promise<string | null>;
   /** Alt om husstanden utenom hendelsene, eller null hvis den ikke finnes. */

@@ -4,11 +4,11 @@
 // aldri overskrives.
 import { applyEvents, type InventoryEvent } from '../engine/inventory';
 import { addVersion, applyChange, type ListChange, type PlanVersion } from '../engine/substitution';
-import type { AppState, DocConflict } from '../store';
+import type { AppState, DocConflict, DocMeta } from '../store';
 import { applyListEvents, type ListEvent } from './list';
 import { DOC_NAMES, fieldsOf, fromFields, isValidDoc, merge3, stable, type DocBody, type DocName, type PlanDoc, type SettingsDoc } from './docs';
 import { HttpTransport, SyncError, type SyncApi } from './api';
-import { cleanEvent, LIMITS, type DocVersion, type Envelope, type MemberInfo } from './protocol';
+import { cleanEvent, DOC_REV, LIMITS, type DocVersion, type Envelope, type MemberInfo } from './protocol';
 import { defaultSettings } from '../data/defaults';
 
 export interface SyncIO { get(): AppState; set(f: (s: AppState) => AppState): void }
@@ -29,11 +29,18 @@ export const isDirty = (s: AppState, name: DocName) => {
   const m = s.sync?.docs[name];
   return !m || !!m.restored || stable(docBody(s, name)) !== stable(m.base);
 };
+/** Dokumentanker til pull: «navn:versjon:rev» for hvert dokument enheten har sett (ikke de som venter etter gjenoppretting). */
+export const docAnchors = (s: AppState): string[] => DOC_NAMES.flatMap((n) => {
+  const m = s.sync?.docs[n];
+  if (!m || m.restored || !Number.isInteger(m.version) || m.version < 1) return [];
+  const rev = m.revs?.at(-1);
+  return [`${n}:${m.version}${rev && DOC_REV.test(rev) ? `:${rev}` : ''}`];
+});
 
 /**
- * Serveren er gjenopprettet fra en eldre kopi (den har ikke det enheten har sett). Enheten begynner på nytt fra 0,
- * legger hele sin lokale logg i utboksene igjen (serveren lagrer hver id én gang) og sender dokumentene sine på nytt:
- * neste versjon fra serveren blir base, så lokal verdi ikke overskrives av den eldre.
+ * Serveren er gjenopprettet fra en eldre kopi (den har ikke det enheten har sett). Enheten begynner på nytt fra 0 og
+ * legger hele sin lokale logg i utboksene igjen (serveren lagrer hver id én gang). Dokumentene merkes `restored` og
+ * beholder basen og slekten fra før: neste versjon fra serveren flettes tre-veis mot den (se `receiveDoc`).
  */
 export function resetForRestore(s: AppState): AppState {
   if (!s.sync) return s;
@@ -52,26 +59,77 @@ export function resetForRestore(s: AppState): AppState {
   };
 }
 
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+/** Slekt fra serveren, bare i gyldig form (lagres lokalt). */
+const cleanRevs = (v: unknown): string[] | undefined =>
+  Array.isArray(v) && v.length <= LIMITS.docRevs && v.every((x) => typeof x === 'string' && DOC_REV.test(x)) ? [...v] : undefined;
+const metaOf = (d: DocVersion): DocMeta => {
+  const m: DocMeta = { version: d.version, base: d.body };
+  const revs = cleanRevs(d.revs);
+  if (revs?.length) m.revs = revs;
+  if (typeof d.updatedAt === 'string' && ISO.test(d.updatedAt)) m.at = d.updatedAt;
+  return m;
+};
+
+/**
+ * Har serveren mistet en versjon enheten har sett? Samme versjonsnummer med annen rev (eller annet innhold), lavere
+ * versjon enn enheten har, eller en nyere versjon der enhetens rev ikke står på sin plass i slekten. Da er serveren
+ * gjenopprettet fra en eldre kopi (og kanskje skrevet videre på), og enheten må begynne på nytt (`resetForRestore`).
+ */
+export function lostDoc(meta: DocMeta | undefined, d: DocVersion): boolean {
+  if (!meta || meta.restored || !isValidDoc(d.name, d.body)) return false;
+  if (d.version < meta.version) return true;
+  const mine = meta.revs?.at(-1);
+  const revs = cleanRevs(d.revs);
+  if (d.version === meta.version) return mine && revs?.length ? revs.at(-1) !== mine : stable(d.body) !== stable(meta.base);
+  if (!mine || !revs?.length) return false;
+  const i = revs.length - 1 - (d.version - meta.version);
+  return i >= 0 && revs[i] !== mine; // utenfor slekten (mange versjoner siden): kan ikke avgjøres, regnes som nyere
+}
+
+/**
+ * Etter gjenoppretting: er serverens versjon eldre eller nyere enn enhetens base? Slekten avgjør først (basen finnes i
+ * serverens slekt: nyere; serverens versjon finnes i basens slekt: eldre kopi), deretter serverens klokke.
+ */
+function restoredOrder(meta: DocMeta, d: DocVersion): 'eldre' | 'nyere' | 'ukjent' {
+  const mine = meta.revs?.at(-1), revs = cleanRevs(d.revs), theirs = revs?.at(-1);
+  if (mine && revs?.includes(mine)) return 'nyere';
+  if (theirs && meta.revs?.includes(theirs)) return 'eldre';
+  if (meta.at && typeof d.updatedAt === 'string' && ISO.test(d.updatedAt)) return d.updatedAt < meta.at ? 'eldre' : 'nyere';
+  return 'ukjent';
+}
+
 /**
  * Tar inn en dokumentversjon fra serveren. Ikke endret lokalt: overta. Endret lokalt: tre-veis fletting.
  * Felt begge har endret ulikt blir en konflikt; lokal verdi beholdes og ingenting sendes før brukeren har valgt.
+ * Etter gjenoppretting (`restored`) flettes det mot basen fra før gjenopprettingen, så ingen siste-skriving-vinner (S1):
+ * en eldre kopi overses (lokal verdi sendes), en nyere versjon flettes som vanlig, og når rekkefølgen ikke kan avgjøres,
+ * blir hvert felt som er ulikt en konflikt.
  */
 export function receiveDoc(s: AppState, d: DocVersion): AppState {
   const sync = s.sync;
   if (!sync || !isValidDoc(d.name, d.body)) return s;
   const meta = sync.docs[d.name];
-  if (meta && !meta.restored && meta.version >= d.version) return s;
+  if (meta && !meta.restored && meta.version >= d.version) {
+    // Eldre lokal tilstand uten slekt: samme versjon og innhold gir slekten, så dokumentankeret får rev.
+    const m = metaOf(d);
+    if (meta.version === d.version && !meta.revs?.length && m.revs && stable(meta.base) === stable(d.body)) {
+      return { ...s, sync: { ...sync, docs: { ...sync.docs, [d.name]: { ...meta, revs: m.revs, at: m.at } } } };
+    }
+    return s;
+  }
   const local = docBody(s, d.name);
-  const docs = { ...sync.docs, [d.name]: { version: d.version, base: d.body } };
-  // Etter gjenoppretting: serverens (eldre) versjon blir base, lokal verdi beholdes og sendes som neste versjon.
-  if (meta?.restored) return { ...s, sync: { ...sync, docs } };
+  const docs = { ...sync.docs, [d.name]: metaOf(d) };
+  const order = meta?.restored ? restoredOrder(meta, d) : 'nyere';
+  // Eldre kopi av dokumentet: lokal verdi beholdes og sendes som neste versjon (den bygger på mer enn kopien).
+  if (order === 'eldre') return { ...s, sync: { ...sync, docs } };
   // Første gang (nettopp med i husstanden) eller uendret lokalt: husstandens versjon gjelder.
-  if (!meta || stable(local) === stable(meta.base)) {
+  if (!meta || (order === 'nyere' && stable(local) === stable(meta.base))) {
     const conflicts = { ...sync.conflicts };
     delete conflicts[d.name];
     return withDoc({ ...s, sync: { ...sync, docs, conflicts } }, d.name, d.body);
   }
-  const { merged, conflicts: fields } = merge3(d.name, meta.base, local, d.body);
+  const { merged, conflicts: fields } = merge3(d.name, meta.base, local, d.body, order === 'ukjent');
   const prev = sync.conflicts[d.name];
   const theirsFields = diffKeys(d.name, merged, d.body);
   // En konflikt som ikke er løst, forsvinner ikke fordi den andre enheten har endret noe annet.
@@ -164,15 +222,21 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
     // 2. Hent alt nytt etter cursor og flett.
     for (let round = 0; round < 50; round++) {
       const cursor = io.get().sync?.cursor ?? 0;
-      const r = await api.pull(cursor, io.get().sync?.anchor);
-      if (r.reset) {
+      const anchor = io.get().sync?.anchor;
+      // Cursor står på ankeret (siste hendelse). Eldre tilstand kan ha cursor etter ankeret (på en dokumentskriving).
+      const anchorSeq = anchor ? Number(anchor.slice(0, anchor.indexOf(':'))) : NaN;
+      const after = Number.isInteger(anchorSeq) && anchorSeq < cursor ? anchorSeq : cursor;
+      const r = await api.pull(after, anchor, docAnchors(io.get()));
+      // Serveren har mistet en dokumentversjon enheten har sett: gjenopprettet, som «reset».
+      const lost = r.docs.some((d) => lostDoc(io.get().sync?.docs[d.name], d));
+      if (r.reset || lost) {
         // Gjenopprettet server: begynn på nytt og send alt eget på nytt. Etter nullstilling (cursor 0, uten anker)
         // kan serveren ikke svare «reset» igjen, så dette går bare én gang.
         io.set((s) => (same(s) ? resetForRestore(s) : s));
         return syncOnce(io, apiBase, now);
       }
       io.set((s) => {
-        if (!same(s) || s.sync!.cursor !== cursor) return s;
+        if (!same(s) || s.sync!.cursor !== cursor || s.sync!.anchor !== anchor) return s;
         const evs = r.events.map((e) => ({ ...e, event: cleanEvent(e.stream, e.event) }));
         const inv = evs.filter((e) => e.stream === 'beholdning').map((e) => e.event as InventoryEvent);
         const lst = evs.filter((e) => e.stream === 'liste').map((e) => e.event as ListEvent);
@@ -185,8 +249,8 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
         for (const d of r.docs) next = receiveDoc(next, d);
         const me = r.members.find((m) => m.me) ?? next.sync!.me;
         const last = r.events.at(-1);
-        const anchor = last ? `${last.seq}:${(last.event as { id: string }).id}` : next.sync!.anchor;
-        return { ...next, sync: { ...next.sync!, cursor: r.cursor, anchor, members: r.members, me } };
+        const nextAnchor = last ? `${last.seq}:${(last.event as { id: string }).id}` : next.sync!.anchor;
+        return { ...next, sync: { ...next.sync!, cursor: r.cursor, anchor: nextAnchor, members: r.members, me } };
       });
       if (!r.more) break;
     }
@@ -200,13 +264,14 @@ export async function syncOnce(io: SyncIO, apiBase: SyncApi, now: () => string):
         const baseVersion = s.sync!.docs[name]?.version ?? 0;
         try {
           const r = await api.putDoc(name, baseVersion, body);
-          io.set((x) => same(x) ? { ...x, sync: { ...x.sync!, docs: { ...x.sync!.docs, [name]: { version: r.version, base: body } } } } : x);
+          const meta = metaOf({ name, version: r.version, body, updatedBy: '', updatedAt: r.updatedAt ?? '', revs: r.revs });
+          io.set((x) => same(x) ? { ...x, sync: { ...x.sync!, docs: { ...x.sync!.docs, [name]: meta } } } : x);
           break;
         } catch (e) {
           if (!(e instanceof SyncError) || e.status !== 409) throw e;
           const cur = e.current;
-          // Serverens versjon er eldre enn den enheten bygde på: serveren er gjenopprettet fra en eldre kopi.
-          if (cur && cur.version < baseVersion) {
+          // Serveren har mistet versjonen enheten bygde på (eldre versjon, eller annen slekt): gjenopprettet fra en eldre kopi.
+          if (cur && (cur.version < baseVersion || lostDoc(s.sync!.docs[name], cur))) {
             // Som «reset» ved pull: begynn på nytt og send alt eget på nytt, ikke bare dokumentet. Etter nullstilling er
             // dokumentversjonene 0, så denne grenen slår ikke til igjen i samme runde.
             io.set((x) => (same(x) ? resetForRestore(x) : x));

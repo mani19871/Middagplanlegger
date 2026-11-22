@@ -52,8 +52,12 @@ export function fromFields(name: DocName, f: Record<string, unknown>): DocBody {
 }
 
 export interface MergeResult { merged: DocBody; conflicts: string[] }
-/** Tre-veis fletting. `conflicts` er feltene begge sider har endret ulikt; der står lokal verdi i `merged`. */
-export function merge3(name: DocName, base: DocBody, mine: DocBody, theirs: DocBody): MergeResult {
+/**
+ * Tre-veis fletting. `conflicts` er feltene begge sider har endret ulikt; der står lokal verdi i `merged`.
+ * `cautious` (etter gjenoppretting når det ikke kan avgjøres om serverens versjon er eldre eller nyere enn basen): et felt
+ * bare den andre siden har endret, kan være en gammel verdi fra kopien og blir også en konflikt i stedet for å tas med.
+ */
+export function merge3(name: DocName, base: DocBody, mine: DocBody, theirs: DocBody, cautious = false): MergeResult {
   const b = fieldsOf(name, base), m = fieldsOf(name, mine), t = fieldsOf(name, theirs);
   const keys = [...new Set([...Object.keys(b), ...Object.keys(m), ...Object.keys(t)])].sort();
   const out: Record<string, unknown> = {};
@@ -61,7 +65,7 @@ export function merge3(name: DocName, base: DocBody, mine: DocBody, theirs: DocB
   for (const k of keys) {
     const sb = stable(b[k]), sm = stable(m[k]), st = stable(t[k]);
     if (sm === st || st === sb) out[k] = m[k];
-    else if (sm === sb) out[k] = t[k];
+    else if (sm === sb && !cautious) out[k] = t[k];
     else { out[k] = m[k]; conflicts.push(k); }
   }
   return { merged: fromFields(name, out), conflicts };

@@ -1,7 +1,7 @@
 // HTTP-klient for synk-API-et (server/sync/api.ts). `fetch` settes inn, så den kan testes mot en ekte server.
 import type { DocBody, DocName } from './docs';
 import type {
-  DocVersion, Envelope, HouseholdResponse, InviteResponse, JoinResponse, MemberInfo, PushResponse, ServerExport, SyncResponse,
+  DocVersion, Envelope, HouseholdResponse, PutDocResponse, InviteResponse, JoinResponse, MemberInfo, PushResponse, ServerExport, SyncResponse,
 } from './protocol';
 import type { EventTransport } from './queue';
 
@@ -77,10 +77,12 @@ export class SyncApi {
   /** Alt serveren har lagret om husstanden (innsyn og dataportabilitet). */
   exportData() { return this.call<ServerExport>('GET', '/api/household/export'); }
   push(events: Envelope[]) { return this.call<PushResponse>('POST', '/api/sync/events', { events }); }
-  pull(after: number, anchor?: string) {
-    return this.call<SyncResponse>('GET', `/api/sync?after=${after}${anchor ? `&anchor=${encodeURIComponent(anchor)}` : ''}`);
+  /** `docs`: dokumentanker «navn:versjon:rev» for dokumentene enheten har (serveren sender bare dem som er ulike). */
+  pull(after: number, anchor?: string, docs?: string[]) {
+    return this.call<SyncResponse>('GET', `/api/sync?after=${after}${anchor ? `&anchor=${encodeURIComponent(anchor)}` : ''}`
+      + `${docs ? `&docs=${encodeURIComponent(docs.join(','))}` : ''}`);
   }
-  putDoc(name: DocName, baseVersion: number, body: DocBody) { return this.call<{ version: number }>('PUT', `/api/sync/docs/${name}`, { baseVersion, body }); }
+  putDoc(name: DocName, baseVersion: number, body: DocBody) { return this.call<PutDocResponse>('PUT', `/api/sync/docs/${name}`, { baseVersion, body }); }
 }
 
 /** Utboks-transport mot serveren. Avviste hendelser regnes som levert (de vil aldri bli godtatt) og telles separat. */

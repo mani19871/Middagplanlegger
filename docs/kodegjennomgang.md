@@ -6,17 +6,17 @@ Uavhengig gjennomgang av hele repoet på branch `claude/middagsplanner-app-wwuq1
 
 | Alvorlighet | Funn | Rettet | Åpne |
 |---|---|---|---|
-| Høy | 9 | 7 | 2 |
+| Høy | 9 | 9 | 0 |
 | Middels | 15 | 12 + 1 delvis | 2 |
 | Lav | 12 | 7 | 5 |
-| **Sum** | **36** | **26 + 1 delvis** | **9** |
+| **Sum** | **36** | **28 + 1 delvis** | **7** |
+
+Oppdatert 2026-11-22: E7, S1 og S2 er rettet (se «Rettet»).
 
 ## Åpne funn (produktbeslutning eller for store til å rette her)
 
 | # | Alv. | Fil:linje | Funn | Reproduksjon | Anbefaling |
 |---|---|---|---|---|---|
-| S1 | Høy | `src/sync/engine.ts:59` (`receiveDoc`, gren `meta.restored`) | Etter at serveren er gjenopprettet fra en eldre kopi, tar en enhet serverens versjon som ny base og sender sin lokale verdi uten fletting. To enheter som begge har sett mer enn kopien, overskriver hverandre (siste skriving vinner). Det bryter «Ingen siste-skriving-vinner». | A og B har budsjett v5 = X. Serveren gjenopprettes til v3. A sender X som v4. B har lokal Y og sender Y som v5 uten konflikt. Testen «oppdages også når bare dokumentet viser det (409 …)» i `src/sync/engine.test.ts` viser det: B ender på 222 200 og ikke A sitt 333 300. | Krever et valg. Enten (a) flett tre-veis mot base før gjenoppretting og vis konflikt når begge sider har endret seg, eller (b) la serveren lagre en epoke eller instans-id, så enhetene vet hvilken side som er nyest. |
-| S2 | Høy | `src/sync/engine.ts:188` | Ankeret flyttes bare når en pull inneholder hendelser. Dokumentene deler `seq` med hendelsene, så cursor kan ligge foran ankeret. Gjenopprettes serveren og noen skriver forbi cursor, oppdages det ikke. Da hentes aldri den nye hendelsen, og egne hendelser sendes ikke på nytt. | A har anker `10:E` og cursor 12 (dokumenter på 11–12). Serveren gjenopprettes til 11, og en ny hendelse får seq 12. A spør med `after=12`: head = 12 og hendelse 10 er fortsatt E, så serveren svarer ikke `reset`. | Anker på cursor-posisjonen (fingeravtrykk av raden ved `cursor`, også for dokumenter) eller en database-epoke i svaret. Hører til synk-økten. |
 | V7 | Middels | `src/store.ts:116` | Med appen åpen i to faner skriver hver fane hele tilstanden til samme localStorage-nøkkel. En fane kan da slette den andre fanens usendte utboks. | Fane A markerer kjøp (utboks = [kjøp]). Fane B, åpnet tidligere, krysser av en vare og skriver uten kjøpet. Etter ny innlasting er kjøpet borte. | Lytt på `storage`-hendelsen og flett de idempotente loggene og utboksene, eller tillat bare én aktiv fane (BroadcastChannel). |
 | O5 | Middels | `src/offers/service.ts:19` | Én feilet Tjek-forespørsel forkaster hele innsamlingen (cirka 80 kall i rekke), og det kommer et nytt forsøk først etter fem minutter. Det er bevisst: testen «lar kildefeil boble opp» krever det, og nedkjølingen vernet Tjek. Nå har hvert kall også tidsavbrudd (O6). | Kall 60 av 80 får 429. Svaret blir status `error` i fem minutter. | Bestem om et delvis resultat skal vises, merket som ufullstendig. |
 | O4b | Middels | `src/offers/tjek.ts:109` | Tilbud uten `dealer.country` slippes gjennom landfilteret. Valutadelen er rettet (O4). | Et tilbud uten land i et søk med `country_id=NO` tas med. | Krev land bare når Tjek-svaret alltid har det. Phase 0 sier at feltet finnes, men ikke at det alltid er med. Sjekk mot Tjek før det strammes inn. |
@@ -30,6 +30,8 @@ Uavhengig gjennomgang av hele repoet på branch `claude/middagsplanner-app-wwuq1
 
 | # | Alv. | Fil | Funn | Test (feilet før retting) |
 |---|---|---|---|---|
+| S1 | Høy | `src/sync/engine.ts` (`receiveDoc`, `restoredOrder`), `server/storage/sqlite.ts`, `server/sync/api.ts` | Etter gjenoppretting fra eldre kopi tok en enhet serverens versjon som ny base og sendte sin lokale verdi uten fletting, så to enheter overskrev hverandre (siste skriving vinner). Nå har hver dokumentversjon en slekt (`revs`, innholdsadressert rev for de siste 100 versjonene), og enheten beholder basen fra før gjenopprettingen. Neste versjon fra serveren flettes tre-veis mot den basen: nyere (basen står i serverens slekt, ellers serverens klokke) flettes som vanlig med konflikt der begge har endret, en eldre kopi (serverens versjon står i basens slekt) overses og lokal verdi sendes, og uten slekt og tid blir hvert ulikt felt en konflikt. Valgt løsning er (a) fra anbefalingen, med slekten som rekkefølge i stedet for epoke. | `engine.test.ts`: «S1: etter gjenoppretting flettes dokumentene tre-veis …», «S1: begge har endret samme felt …», «S1: eldre kopi (i basens slekt eller eldre tid) overses …», 409-testen (sier nå hvilket budsjett som vinner); `api.test.ts`: «dokumenter har en slekt (revs) …», «eldre database uten slekt …» |
+| S2 | Høy | `server/storage/sqlite.ts` (`readSince`), `server/sync/api.ts`, `src/sync/engine.ts` | Ankeret ble bare flyttet når en pull hadde hendelser, mens cursor fulgte `head` (også dokumentskrivinger), så cursor kunne ligge foran ankeret og en gjenoppretting ble ikke oppdaget. Nå står cursor alltid på siste hendelse (ankeret), og dokumentene hentes med dokumentanker (`docs=navn:versjon:rev`): serveren sender hvert dokument som er ulikt enhetens, uansett `seq`, og enheten oppdager selv at serveren har mistet en versjon (`lostDoc`) og starter på nytt som ved `reset`. Eldre lagret cursor etter ankeret hentes fra ankeret. Gjenværende smale tilfeller (ikke dokumenter) står i `docs/synk.md`, «Kjente svakheter». | `engine.test.ts`: «S2: ankeret dekker cursor som har flyttet seg på grunn av dokumenter», «lostDoc …», «dokumentanker …»; `api.test.ts`: «cursor står alltid på en hendelse …»; `security.test.ts`: «ugyldig dokumentanker gir 400 …», «slekten (revs) … ikke med i eksporten» |
 | S3 | Høy | `server/sync/api.ts` | Et hendelses-id med linjeskift (`\n`, ` `) ga et anker serveren avviste med 400. Alle andre enheter i husstanden ble stående fast i «feil». Regexen godtar nå alle tegn. | `api.test.ts`: «et hendelses-id med linjeskift låser ikke andre enheters synk» |
 | S4 | Høy | `src/sync/engine.ts` | Ble en gjenoppretting oppdaget gjennom 409 på et dokument, ble bare dokumentet nullstilt. Egne hendelser fra etter kopien ble aldri sendt på nytt. Nå kjøres `resetForRestore` og en ny runde, som ved `reset`. | `engine.test.ts`: «oppdages også når bare dokumentet viser det (409 …)» |
 | V1 | Høy | `src/views/WeekView.tsx`, `src/views/lunch.ts`, `src/store.ts` | En matpakke fra søndag fikk `extraFor: 7`. `isValidDoc` godtar bare 0–6, så planen sluttet å synke uten feilmelding. Nå gir søndag «Senere», og eldre lagret tilstand ryddes ved innlasting. | `src/views/lunch.test.ts` |
@@ -60,15 +62,15 @@ Uavhengig gjennomgang av hele repoet på branch `claude/middagsplanner-app-wwuq1
 
 ## Ingen tester er slettet eller svekket
 
-Én eksisterende test er utvidet: `engine.test.ts`, synkstatus uten nett. Den nye 409-testen sier ikke hvilket budsjett som vinner, fordi det er det åpne funnet S1.
+Én eksisterende test er utvidet: `engine.test.ts`, synkstatus uten nett. 409-testen («oppdages også når bare dokumentet viser det») er strammet inn ved rettingen av S1: den sier nå at A sitt budsjett vinner hos begge uten konflikt. Med dokumentanker oppdages gjenopprettingen i den testen allerede ved pull; 409-grenen er beholdt (nå også med slekten) for en gjenoppretting mellom pull og PUT.
 
 E7 endret én forventning etter brukerens beslutning: `fase2.test.ts` «demokatalogens laksetilbud er satt langt frem …» ventet `tilbud` på handledag 2027-06-01 for en observasjon fra 2026-11-17. Den venter nå `estimat` med dato og kilde, og laks er fortsatt priset (det testen skulle sikre). Samme test sjekker at tilbudet er `tilbud` på 2026-11-23.
 
 ## Vurdering: lukket pilot
 
-Lukket pilot er forsvarlig, med to forbehold.
+Lukket pilot er forsvarlig. Begge forbeholdene fra gjennomgangen er rettet.
 
-1. **Gjenoppretting av serveren (S1, S2):** etter en gjenoppretting fra eldre kopi kan dokumentendringer gå tapt uten konflikt, og i et smalt tilfelle oppdages ikke gjenopprettingen. Dette gjelder bare når driften faktisk gjenoppretter. Inntil det er rettet: gjenopprett ikke en kopi mens husstander er aktive, og be piloten kontrollere plan og innstillinger etterpå. Legg dette i `docs/drift` eller i pilot-sjekklisten.
+1. **Gjenoppretting av serveren (S1, S2):** rettet 2026-11-22. Plan og innstillinger flettes tre-veis etter en gjenoppretting, og ankeret dekker hele cursoren. Forbeholdet i pilot-sjekklisten (ikke gjenopprett mens husstander er aktive) er fjernet. Gjenopprettingsøvelsen (C7, C9) gjelder fortsatt.
 2. **Ekte priser (E7):** rettet. Observasjoner eldre enn 14 dager før handledagen er bare estimat med dato og vinner aldri over en nyere pris. Importen må fortsatt gi riktig `observed` (datoen prisen ble sett, ikke importdatoen).
 
 Resten av de åpne funnene er småting eller produktvalg uten kjent skade for en lukket pilot. Motoren er deterministisk (ingen `Date.now`, `Math.random` eller nettverk i `src/engine/`, sjekket med grep). Beløp er hele øre også ved ugyldige tilbudsdata. Allergi- og kostkrav slår nå tilbud også i kundeavisvisningen.

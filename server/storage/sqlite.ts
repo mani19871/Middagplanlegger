@@ -1,7 +1,9 @@
 // SyncStorage med node:sqlite (innebygd i Node 22, ingen ekstern tjeneste). Skrivinger kjøres i BEGIN IMMEDIATE-
 // transaksjoner, så samtidige skrivinger (også fra flere prosesser med WAL) serialiseres. I én Node-prosess er hver
 // metode i tillegg synkron og dermed atomisk. `:memory:` brukes i tester.
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { LIMITS } from '../../src/sync/protocol';
 import type { DocName } from '../../src/sync/docs';
 import type { Role, Stream } from '../../src/sync/protocol';
 import {
@@ -28,8 +30,24 @@ CREATE INDEX IF NOT EXISTS events_seq ON events (household_id, seq);
 CREATE TABLE IF NOT EXISTS docs (
   household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE, name TEXT NOT NULL, version INTEGER NOT NULL,
   body TEXT NOT NULL, seq INTEGER NOT NULL, updated_by TEXT NOT NULL, updated_at TEXT NOT NULL,
+  revs TEXT NOT NULL DEFAULT '[]',
   PRIMARY KEY (household_id, name));
 `;
+
+/**
+ * Versjons-id (rev) for en dokumentversjon: innholdsadressert, sha256 av forrige rev, versjonsnummer og innhold (12 hex).
+ * Samme innhold på samme grunnlag gir samme rev, så en enhet som sender det samme igjen etter en gjenoppretting, ikke
+ * lager en ny slekt. `revs` er de siste `LIMITS.docRevs` rev-ene (eldst først): slekten enhetene bruker til å se om
+ * serveren har mistet en versjon de har sett, og om serverens versjon er eldre eller nyere enn deres (docs/synk.md).
+ */
+export const docRev = (prev: string, version: number, body: string) =>
+  createHash('sha256').update(`${prev}\n${version}\n${body}`).digest('hex').slice(0, 12);
+const parseRevs = (t: string | null | undefined): string[] => {
+  try { const v = JSON.parse(t ?? '[]'); return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; }
+};
+interface DocDb { name: DocName; version: number; body: string; updated_by: string; updated_at: string; revs: string }
+const DOC_COLS = 'name, version, body, updated_by, updated_at, revs';
+const toDoc = (r: DocDb): DocOut => ({ name: r.name, version: r.version, body: r.body, updatedBy: r.updated_by, updatedAt: r.updated_at, revs: parseRevs(r.revs) });
 
 interface DeviceDb { id: string; household_id: string; public_id: string; label: string; role: string; created_at: string; last_seen: string | null; revoked_at: string | null }
 const toDevice = (r: DeviceDb): DeviceRow => ({
@@ -50,10 +68,19 @@ export class SqliteStorage implements SyncStorage {
     this.migrate();
   }
 
-  /** Tellere for kvoter (antall og byte hendelser per husstand). Legges til og fylles én gang i eldre databaser. */
   private migrate() {
-    const cols = (this.db.prepare('PRAGMA table_info(households)').all() as { name: string }[]).map((c) => c.name);
-    if (cols.includes('event_bytes')) return;
+    const cols = (table: string) => (this.db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+    // Slekt for dokumenter (S1/S2 i docs/kodegjennomgang.md): eldre rader får én rev regnet av gjeldende versjon og innhold.
+    if (!cols('docs').includes('revs')) {
+      this.tx(() => {
+        this.db.exec("ALTER TABLE docs ADD COLUMN revs TEXT NOT NULL DEFAULT '[]'");
+        const rows = this.db.prepare('SELECT household_id, name, version, body FROM docs').all() as { household_id: string; name: string; version: number; body: string }[];
+        const upd = this.db.prepare('UPDATE docs SET revs = ? WHERE household_id = ? AND name = ?');
+        for (const r of rows) upd.run(JSON.stringify([docRev('', r.version, r.body)]), r.household_id, r.name);
+      });
+    }
+    // Tellere for kvoter (antall og byte hendelser per husstand). Legges til og fylles én gang i eldre databaser.
+    if (cols('households').includes('event_bytes')) return;
     this.tx(() => {
       this.db.exec('ALTER TABLE households ADD COLUMN event_count INTEGER NOT NULL DEFAULT 0');
       this.db.exec('ALTER TABLE households ADD COLUMN event_bytes INTEGER NOT NULL DEFAULT 0');
@@ -241,11 +268,17 @@ export class SqliteStorage implements SyncStorage {
     const more = rows.length > limit;
     const events = rows.slice(0, limit);
     const head = (this.db.prepare('SELECT seq FROM households WHERE id = ?').get(householdId) as { seq: number } | undefined)?.seq ?? 0;
-    const cursor = more ? events[events.length - 1].seq : Math.max(after, head);
-    const docs = (this.db.prepare('SELECT name, version, body, updated_by, updated_at FROM docs WHERE household_id = ? AND seq > ? AND seq <= ? ORDER BY name')
-      .all(householdId, after, cursor) as { name: DocName; version: number; body: string; updated_by: string; updated_at: string }[])
-      .map((r): DocOut => ({ name: r.name, version: r.version, body: r.body, updatedBy: r.updated_by, updatedAt: r.updated_at }));
+    // Cursor står alltid på en hendelse (eller blir stående), aldri på en dokumentskriving: ankeret («seq:id» for siste
+    // hendelse) dekker da hele cursoren, også etter en gjenoppretting (S2). Dokumenter sendes etter enhetens dokumentanker.
+    const cursor = events.length > 0 ? events[events.length - 1].seq : after;
+    // Eldre klienter uten dokumentanker: dokumenter skrevet etter `after` (de som er like, ignoreres av klienten).
+    const docs = (this.db.prepare(`SELECT ${DOC_COLS} FROM docs WHERE household_id = ? AND seq > ? AND seq <= ? ORDER BY name`)
+      .all(householdId, after, more ? cursor : head) as unknown as DocDb[]).map(toDoc);
     return { events, docs, cursor, more, head };
+  }
+
+  async currentDocs(householdId: string): Promise<DocOut[]> {
+    return (this.db.prepare(`SELECT ${DOC_COLS} FROM docs WHERE household_id = ? ORDER BY name`).all(householdId) as unknown as DocDb[]).map(toDoc);
   }
 
   async eventIdAt(householdId: string, seq: number): Promise<string | null> {
@@ -264,9 +297,7 @@ export class SqliteStorage implements SyncStorage {
       const invites = (this.db.prepare('SELECT created_at, expires_at, used_at, created_by, used_by FROM invites WHERE household_id = ? ORDER BY created_at, rowid')
         .all(householdId) as { created_at: string; expires_at: string; used_at: string | null; created_by: string; used_by: string | null }[])
         .map((r) => ({ createdAt: r.created_at, expiresAt: r.expires_at, usedAt: r.used_at, createdBy: r.created_by, usedBy: r.used_by }));
-      const docs = (this.db.prepare('SELECT name, version, body, updated_by, updated_at FROM docs WHERE household_id = ? ORDER BY name')
-        .all(householdId) as { name: DocName; version: number; body: string; updated_by: string; updated_at: string }[])
-        .map((r): DocOut => ({ name: r.name, version: r.version, body: r.body, updatedBy: r.updated_by, updatedAt: r.updated_at }));
+      const docs = (this.db.prepare(`SELECT ${DOC_COLS} FROM docs WHERE household_id = ? ORDER BY name`).all(householdId) as unknown as DocDb[]).map(toDoc);
       const devices = (this.db.prepare(`SELECT ${DEVICE_COLS} FROM devices WHERE household_id = ? ORDER BY created_at, rowid`).all(householdId) as unknown as DeviceDb[]).map(toDevice);
       return { createdAt: h.created_at, seq: h.seq, devices, invites, docs };
     } finally { this.db.exec('COMMIT'); }
@@ -297,17 +328,17 @@ export class SqliteStorage implements SyncStorage {
 
   async putDoc(householdId: string, name: DocName, baseVersion: number, body: string, updatedBy: string, now: string): Promise<PutDocResult> {
     return this.tx((): PutDocResult => {
-      const cur = this.db.prepare('SELECT name, version, body, updated_by, updated_at FROM docs WHERE household_id = ? AND name = ?')
-        .get(householdId, name) as { name: DocName; version: number; body: string; updated_by: string; updated_at: string } | undefined;
+      const row = this.db.prepare(`SELECT ${DOC_COLS} FROM docs WHERE household_id = ? AND name = ?`).get(householdId, name) as unknown as DocDb | undefined;
+      const cur = row ? toDoc(row) : undefined;
       const version = cur?.version ?? 0;
-      if (baseVersion !== version) {
-        return { ok: false, current: cur ? { name, version, body: cur.body, updatedBy: cur.updated_by, updatedAt: cur.updated_at } : null };
-      }
+      if (baseVersion !== version) return { ok: false, current: cur ?? null };
       const seq = this.nextSeq(householdId);
-      this.db.prepare(`INSERT INTO docs (household_id, name, version, body, seq, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      const revs = [...(cur?.revs ?? []), docRev(cur?.revs.at(-1) ?? '', version + 1, body)].slice(-LIMITS.docRevs);
+      this.db.prepare(`INSERT INTO docs (household_id, name, version, body, seq, updated_by, updated_at, revs) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (household_id, name) DO UPDATE SET version = excluded.version, body = excluded.body, seq = excluded.seq,
-        updated_by = excluded.updated_by, updated_at = excluded.updated_at`).run(householdId, name, version + 1, body, seq, updatedBy, now);
-      return { ok: true, version: version + 1 };
+        updated_by = excluded.updated_by, updated_at = excluded.updated_at, revs = excluded.revs`)
+        .run(householdId, name, version + 1, body, seq, updatedBy, now, JSON.stringify(revs));
+      return { ok: true, version: version + 1, revs };
     });
   }
 

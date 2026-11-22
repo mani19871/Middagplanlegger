@@ -13,8 +13,8 @@
 //  DELETE /api/household                (eier; sletter alt)          → 204
 //  GET    /api/household/export         (medlem; innsyn/portabilitet)→ ServerExport (JSON-fil)
 //  POST   /api/sync/events              {events: Envelope[]}         → {accepted, rejected}
-//  GET    /api/sync?after=<cursor>                                   → SyncResponse
-//  PUT    /api/sync/docs/:name          {baseVersion, body}          → {version} | 409 {error:'konflikt', current}
+//  GET    /api/sync?after=<cursor>&anchor=<seq:id>&docs=<navn:versjon:rev,…>  → SyncResponse
+//  PUT    /api/sync/docs/:name          {baseVersion, body}          → {version, revs, updatedAt} | 409 {error:'konflikt', current}
 import { createHash, createHmac, randomBytes as nodeRandomBytes, randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { DOC_NAMES, isValidDoc, stable, type DocName } from '../../src/sync/docs';
@@ -92,6 +92,25 @@ const EXPORT_TEXT = 'Alt serveren har lagret om husstanden din i Middagsplanlegg
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 export const normalizeCode = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
+/**
+ * Dokumentanker fra `GET /api/sync?docs=`: «navn:versjon:rev» per dokument enheten har, kommaseparert (tom = ingen).
+ * Rev kan mangle (eldre klienttilstand); da sendes dokumentet alltid. Ugyldig form gir 400.
+ */
+function parseDocAnchors(raw: string | null): Map<DocName, { version: number; rev?: string }> | null {
+  if (raw === null) return null;
+  const out = new Map<DocName, { version: number; rev?: string }>();
+  if (raw === '') return out;
+  const parts = raw.split(',');
+  if (raw.length > 200 || parts.length > DOC_NAMES.length) throw new HttpError(400, 'ugyldig_forespørsel');
+  for (const p of parts) {
+    const m = /^([a-z]{1,20}):(\d{1,9})(?::([0-9a-f]{12}))?$/.exec(p);
+    const name = m?.[1] as DocName | undefined;
+    if (!m || !name || !DOC_NAMES.includes(name) || out.has(name)) throw new HttpError(400, 'ugyldig_forespørsel');
+    out.set(name, { version: Number(m[2]), rev: m[3] });
+  }
+  return out;
+}
+
 export function createSyncApi(opts: SyncApiOptions) {
   const storage = opts.storage;
   const now = opts.now ?? (() => new Date().toISOString());
@@ -153,7 +172,9 @@ export function createSyncApi(opts: SyncApiOptions) {
     id: d.publicId, label: d.label, role: d.role, createdAt: d.createdAt, lastSeen: d.lastSeen, me: d.id === me.id,
     ...(d.revokedAt ? { removed: true } : {}),
   });
-  const docOut = (d: DocOut): DocVersion => ({ name: d.name, version: d.version, body: JSON.parse(d.body), updatedBy: d.updatedBy, updatedAt: d.updatedAt });
+  const docOut = (d: DocOut): DocVersion => ({
+    name: d.name, version: d.version, body: JSON.parse(d.body), updatedBy: d.updatedBy, updatedAt: d.updatedAt, revs: d.revs,
+  });
   const nextLabel = (members: DeviceRow[]) => `Voksen ${members.length + 1}`;
   const deviceIdOf = (body: Record<string, unknown>) => {
     if (typeof body.deviceId !== 'string' || !DEVICE_ID.test(body.deviceId)) throw new HttpError(400, 'ugyldig_forespørsel');
@@ -307,13 +328,23 @@ export function createSyncApi(opts: SyncApiOptions) {
         if (!m) throw new HttpError(400, 'ugyldig_forespørsel');
         anchorSeq = Number(m[1]); anchorId = m[2];
       }
+      const docAnchors = parseDocAnchors(url.searchParams.get('docs'));
       const r = await storage.readSince(hh, after, LIMITS.pullPage);
       const members = (await storage.members(hh)).map((m) => memberInfo(m, me));
       if (after > r.head || (anchorSeq > 0 && (await storage.eventIdAt(hh, anchorSeq)) !== anchorId)) {
         return [200, { cursor: 0, more: true, events: [], docs: [], members, head: r.head, reset: true }];
       }
       const events: StoredEnvelope[] = r.events.map((e) => ({ seq: e.seq, stream: e.stream, event: cleanEvent(e.stream, JSON.parse(e.body)) }));
-      return [200, { cursor: r.cursor, more: r.more, events, docs: r.docs.map(docOut), members, head: r.head }];
+      // Med dokumentanker: hvert dokument der serverens versjon og rev er ulik enhetens, uansett seq. Enheten oppdager da
+      // selv om serveren har mistet en versjon den har sett (gjenopprettet fra eldre kopi), og fletter tre-veis (S1, S2).
+      // Uten rev i ankeret (eldre klienttilstand) sendes dokumentet alltid.
+      const docs = docAnchors
+        ? (await storage.currentDocs(hh)).filter((d) => {
+          const a = docAnchors.get(d.name);
+          return !a || a.version !== d.version || !a.rev || a.rev !== d.revs.at(-1);
+        })
+        : r.docs;
+      return [200, { cursor: r.cursor, more: r.more, events, docs: docs.map(docOut), members, head: r.head }];
     }
     if (parts[2] === 'docs' && parts.length === 4 && method === 'PUT') {
       const name = parts[3] as DocName;
@@ -323,12 +354,13 @@ export function createSyncApi(opts: SyncApiOptions) {
       if (!isValidDoc(name, body.body)) throw new HttpError(400, 'ugyldig_dokument');
       const text = stable(body.body);
       if (text.length > LIMITS.docBytes) throw new HttpError(413, 'for_stor');
-      const r = await storage.putDoc(hh, name, body.baseVersion as number, text, me.publicId, now());
+      const at = now();
+      const r = await storage.putDoc(hh, name, body.baseVersion as number, text, me.publicId, at);
       if (!r.ok) {
         res.setHeader('X-Conflict', '1');
         return [409, { error: 'konflikt', message: MESSAGES.konflikt, current: r.current ? docOut(r.current) : null }];
       }
-      return [200, { version: r.version }];
+      return [200, { version: r.version, revs: r.revs, updatedAt: at }];
     }
     throw new HttpError(404, 'ikke_funnet');
   }

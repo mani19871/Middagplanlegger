@@ -11,8 +11,15 @@ import { addVersion, type ListChange, type PlanVersion } from './engine/substitu
 /** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
 export interface DocMeta {
   version: number; base: DocBody;
-  /** Serveren er gjenopprettet fra en eldre kopi: neste versjon fra serveren tas som base, og lokal verdi sendes. */
+  /**
+   * Serveren er gjenopprettet fra en eldre kopi. Neste versjon fra serveren flettes tre-veis mot `base` (basen fra før
+   * gjenopprettingen) når den er nyere, og overses når den er eldre (slekt eller tid avgjør; se receiveDoc).
+   */
   restored?: boolean;
+  /** Slekten til `base` fra serveren (siste rev-er, eldst først; siste er `version`). Mangler i eldre tilstand. */
+  revs?: string[];
+  /** Når `base` ble skrevet på serveren (serverens klokke). Reserve når slekten ikke avgjør rekkefølgen. */
+  at?: string;
 }
 /** Felt i et dokument som er endret ulikt på to enheter. Lokal verdi gjelder til brukeren har valgt. */
 export interface DocConflict { theirs: DocBody; version: number; fields: string[]; by: string; at: string }

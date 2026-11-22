@@ -18,9 +18,24 @@ export type Role = 'eier' | 'voksen';
 export interface MemberInfo { id: string; label: string; role: Role; createdAt: string; lastSeen: string | null; me: boolean;
   /** Fjernet eller forlatt. Beholdes i synk-svaret bare så gamle avkrysninger kan vises med etikett. */
   removed?: boolean }
-export interface DocVersion { name: DocName; version: number; body: DocBody; updatedBy: string; updatedAt: string }
+export interface DocVersion {
+  name: DocName; version: number; body: DocBody; updatedBy: string; updatedAt: string;
+  /**
+   * Slekten: rev for de siste versjonene (høyst `LIMITS.docRevs`, eldst først; siste er denne versjonen). Brukes til å
+   * oppdage at serveren har mistet en versjon enheten har sett, og om serverens versjon er eldre eller nyere enn enhetens
+   * etter en gjenoppretting (docs/synk.md). Interne versjons-id-er, ikke med i eksporten.
+   */
+  revs?: string[];
+}
+/** Svar på PUT /api/sync/docs/:navn. */
+export interface PutDocResponse { version: number; revs?: string[]; updatedAt?: string }
+/** En rev: 12 små heksadesimale tegn. */
+export const DOC_REV = /^[0-9a-f]{12}$/;
 export interface SyncResponse {
-  cursor: number; more: boolean; events: StoredEnvelope[]; docs: DocVersion[]; members: MemberInfo[];
+  /** `seq` for siste hendelse i svaret (ellers `after`); aldri en dokumentskriving, så ankeret dekker hele cursoren. */
+  cursor: number; more: boolean; events: StoredEnvelope[];
+  /** Med dokumentanker (`docs=`): hvert dokument som er ulikt enhetens versjon og rev. Uten: dokumenter skrevet etter `after`. */
+  docs: DocVersion[]; members: MemberInfo[];
   /** Husstandens nåværende `seq` (siste skriving). */
   head?: number;
   /**
@@ -64,6 +79,8 @@ export const LIMITS = {
   bodyBytes: 256 * 1024, batch: 500, eventBytes: 4096, docBytes: 64 * 1024, label: 24, pullPage: 1000,
   /** En planversjon er et øyeblikksbilde av hele lista (opptil ~60 linjer) og får større ramme enn andre hendelser. */
   versionBytes: 48 * 1024,
+  /** Antall rev-er i et dokuments slekt (S1/S2 i docs/kodegjennomgang.md). */
+  docRevs: 100,
 };
 export const DEVICE_ID = /^enhet-[a-z0-9-]{4,40}$/;
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
