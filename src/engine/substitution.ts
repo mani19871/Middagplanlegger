@@ -21,6 +21,7 @@
 //    bygger på hverandre og holder ulike produkter blir en konflikt (`pinState`) som en voksen må avgjøre (`chooseVersion`).
 import type { Allergen, Alternatives, Basket, BasketLine, PriceObs, PriceStatus, Product, Recipe, Slot, Unit } from './types';
 import { alternatives, buildBasket, eligibleRecipes, type Ctx } from './planner';
+import { resolvePrice } from './prices';
 import { homeLineId, purchaseLineId, type InventoryEvent, type PurchaseState } from './inventory';
 
 const EPS = 1e-9;
@@ -129,19 +130,9 @@ export function withPrev(log: ListChange[], e: ListChange): ListChange {
 
 // ---------- Priser og allergener ----------
 
-/** En prisobservasjon gjelder ikke etter `validUntil` (et utløpt tilbud blir aldri dagens pris). */
-export const obsValidOn = (o: PriceObs, shopDate?: string) => !(shopDate && o.validUntil && o.validUntil < shopDate);
-
-/** Laveste gyldige pris på produktet i butikken. Fast regel ved likhet: nyeste observasjon, så status. */
+/** Prisen som gjelder for produktet i butikken (se prices.ts `resolvePrice`; gamle observasjoner er estimat). */
 export function priceIn(productId: string, storeId: string, ctx: Ctx): PriceObs | null {
-  let best: PriceObs | null = null;
-  for (const o of ctx.catalog.prices) {
-    if (o.productId !== productId || o.storeId !== storeId || !obsValidOn(o, ctx.shopDate)) continue;
-    if (!Number.isInteger(o.ore) || o.ore <= 0) continue;
-    const better = !best || o.ore < best.ore || (o.ore === best.ore && (o.observed > best.observed || (o.observed === best.observed && o.status < best.status)));
-    if (better) best = o;
-  }
-  return best;
+  return resolvePrice(productId, storeId, ctx)?.obs ?? null;
 }
 
 export type AllergenCheck = 'ok' | 'allergifilter' | 'uavklart-allergen';
@@ -478,8 +469,9 @@ export type PlanHistory = PlanVersion[];
 function validUntilOf(l: BasketLine, ctx: Ctx): string | null {
   if (!l.productId || !l.storeId || l.costOre === null || l.packs <= 0) return null;
   const unit = l.costOre / l.packs;
-  const o = ctx.catalog.prices.find((x) => x.productId === l.productId && x.storeId === l.storeId && x.ore === unit && x.status === l.status && x.observed === l.observed);
-  return o?.validUntil ?? null;
+  // Samme prisvalg som linja ble priset med (en gammel observasjon har status `estimat`, se prices.ts).
+  const o = priceIn(l.productId, l.storeId, ctx);
+  return o && o.ore === unit && o.status === l.status && o.observed === l.observed ? o.validUntil ?? null : null;
 }
 function versionLine(l: AdjustedLine, ctx: Ctx): VersionLine {
   return {

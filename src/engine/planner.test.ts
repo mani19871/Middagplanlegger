@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { catalog } from '../data/catalog';
 import { defaultSettings } from '../data/defaults';
 import { alternatives, budgetAnswer, buildBasket, generatePlan, swapOptions } from './planner';
-import type { Settings, Slot } from './types';
+import type { Basket, Catalog, PriceObs, Settings, Slot } from './types';
+import type { Ctx } from './planner';
+import { MAX_PRICE_AGE_DAYS } from './prices';
+import { priceIn } from './substitution';
+import { miniCatalog, miniSettings } from '../acceptance/util';
 import { recipeDeals, type OfferHint } from './deals';
 import { totalWithOffers } from './offerTotal';
 
@@ -281,5 +285,103 @@ describe('kodegjennomgang: motor', () => {
     const slots = [slot(0, 'linsegryte')];
     expect(buildBasket(slots, ['demoA'], ctx).complete).toBe(false);
     for (const o of swapOptions(slots, 0, ['demoA'], ctx)) expect(o.complete).toBe(false);
+  });
+});
+
+describe('regresjon: gamle prisobservasjoner er estimat (E7)', () => {
+  // Liten katalog: én rett med vare a (pa) og b (pb), butikk S1 (vanlig) og S2. Handledag 2026-11-23.
+  const SHOP = '2026-11-23';
+  type Row = [productId: string, storeId: string, ore: number, observed: string, status?: PriceObs['status'], validUntil?: string];
+  const cat = (rows: Row[]): Catalog => ({
+    ...miniCatalog({ prices: [] }),
+    prices: rows.map(([productId, storeId, ore, observed, status = 'ordinær', validUntil]) =>
+      ({ productId, storeId, ore, status, source: 'Test', observed, ...(validUntil ? { validUntil } : {}) })),
+  });
+  const c = (rows: Row[], shopDate: string | undefined = SHOP, over: Partial<Settings> = {}): Ctx =>
+    ({ catalog: cat(rows), settings: miniSettings(over), ...(shopDate ? { shopDate } : {}) });
+  const R1 = [slot(0, 'r1')];
+  const lineA = (b: Basket) => b.lines.find((l) => l.ingredient === 'a')!;
+
+  it('aldersgrensen er en navngitt konstant på 14 dager', () => {
+    expect(MAX_PRICE_AGE_DAYS).toBe(14);
+  });
+  it('ny observasjon vinner over en gammel og lavere (også et gammelt tilbud uten gyldighet)', () => {
+    const rows: Row[] = [
+      ['pa', 'S1', 1490, '2025-11-20', 'tilbud'], // tilbud fra i fjor, uten validUntil (eksempelet i E7)
+      ['pa', 'S1', 1990, '2026-10-01'], // gammel ordinær pris
+      ['pa', 'S1', 2290, '2026-11-20'], // ny ordinær pris
+      ['pb', 'S1', 1000, '2026-11-20'],
+    ];
+    const a = lineA(buildBasket(R1, ['S1'], c(rows)));
+    expect(a.costOre).toBe(2290);
+    expect(a.status).toBe('ordinær');
+    expect(a.observed).toBe('2026-11-20');
+    // Utsolgt / fant ikke bruker samme prisvalg.
+    expect(priceIn('pa', 'S1', c(rows))).toMatchObject({ ore: 2290, status: 'ordinær', observed: '2026-11-20' });
+  });
+  it('gammel observasjon alene blir estimat med dato og kilde; grensen er 14 dager', () => {
+    const at = (observed: string) => lineA(buildBasket(R1, ['S1'], c([['pa', 'S1', 1490, observed], ['pb', 'S1', 1000, '2026-11-20']])));
+    const old = at('2026-10-01');
+    expect(old).toMatchObject({ costOre: 1490, status: 'estimat', observed: '2026-10-01', source: 'Test' });
+    const b = buildBasket(R1, ['S1'], c([['pa', 'S1', 1490, '2026-10-01'], ['pb', 'S1', 1000, '2026-11-20']]));
+    expect(b.complete).toBe(true); // et estimat er en pris, men aldri et løfte (regel 2)
+    expect(b.estimatedCount).toBe(1);
+    expect(at('2026-11-09').status).toBe('ordinær'); // 14 dager før handledagen: fortsatt kjent pris
+    expect(at('2026-11-08').status).toBe('estimat'); // 15 dager: estimat
+    expect(at('ikke-en-dato').status).toBe('estimat'); // uten lesbar dato kan alderen ikke bekreftes
+    // Et gammelt tilbud uten gyldighet er bare historikk: aldri dagens tilbud, heller ikke estimat.
+    const histOffer = lineA(buildBasket(R1, ['S1'], c([['pa', 'S1', 990, '2026-10-01', 'tilbud'], ['pb', 'S1', 1000, '2026-11-20']])));
+    expect(histOffer.status).toBe('ukjent');
+    expect(histOffer.costOre).toBeNull();
+    // Blant gamle observasjoner er det den nyeste som er estimatet, ikke den laveste.
+    const newestOld = lineA(buildBasket(R1, ['S1'], c([['pa', 'S1', 990, '2026-09-01'], ['pa', 'S1', 1490, '2026-10-01'], ['pb', 'S1', 1000, '2026-11-20']])));
+    expect(newestOld).toMatchObject({ costOre: 1490, status: 'estimat', observed: '2026-10-01' });
+  });
+  it('blanding av gammel og ny: en gammel, lavere pris i en annen butikk gir verken valg eller besparelse', () => {
+    const rows: Row[] = [
+      ['pa', 'S1', 2290, '2026-11-20'], ['pa', 'S2', 1490, '2026-10-01'], // a: ny i S1, gammel og billigere i S2
+      ['pb', 'S1', 1000, '2026-11-20'], ['pb', 'S2', 900, '2026-11-21'], // b: ny i begge
+    ];
+    const ctx2 = c(rows, SHOP, { maxStops: 2 });
+    const combo = buildBasket(R1, ['S1', 'S2'], ctx2);
+    expect(lineA(combo)).toMatchObject({ storeId: 'S1', costOre: 2290, status: 'ordinær' });
+    expect(combo.estimatedCount).toBe(0);
+    const alt = alternatives(R1, ctx2);
+    expect(alt.savingOre).toBe(100); // bare den nye prisen på b (1000 → 900) teller
+    // Når S1 mangler a, er S2s gamle pris et estimat (ikke ukjent og ikke «ordinær»).
+    const onlyOld = buildBasket(R1, ['S1', 'S2'], c(rows.filter((r) => !(r[0] === 'pa' && r[1] === 'S1'))));
+    expect(lineA(onlyOld)).toMatchObject({ storeId: 'S2', costOre: 1490, status: 'estimat', observed: '2026-10-01' });
+  });
+  it('er deterministisk: rekkefølgen i katalogen avgjør aldri, og uten handledag måles alder mot nyeste observasjon', () => {
+    const rows: Row[] = [
+      ['pa', 'S1', 2290, '2026-11-20'], ['pa', 'S1', 2290, '2026-11-20', 'estimat'], ['pa', 'S2', 1490, '2026-10-01'],
+      ['pa', 'S2', 1490, '2026-10-01', 'tilbud', '2026-12-31'], ['pb', 'S1', 1000, '2026-11-20'], ['pb', 'S2', 900, '2026-10-02'],
+    ];
+    const ctx2 = c(rows, SHOP, { maxStops: 2 });
+    const rev: Ctx = { ...ctx2, catalog: { ...ctx2.catalog, prices: [...ctx2.catalog.prices].reverse() } };
+    const run = (x: Ctx) => JSON.stringify([buildBasket(R1, ['S1', 'S2'], x), alternatives(R1, x), generatePlan(x)]);
+    expect(run(ctx2)).toBe(run(ctx2));
+    expect(run(rev)).toBe(run(ctx2));
+    // Uten handledag er referansen nyeste observasjon i katalogen (2026-11-20): S2s priser er fortsatt estimat.
+    const noDate = c(rows, undefined, { maxStops: 2 });
+    expect(buildBasket(R1, ['S2'], noDate).lines.map((l) => l.status)).toEqual(['estimat', 'estimat']);
+    expect(run(noDate)).toBe(run({ ...noDate, catalog: { ...noDate.catalog, prices: [...noDate.catalog.prices].reverse() } }));
+  });
+  it('ukjent pris vinner aldri: et gammelt tilbud uten gyldighet fyller ikke et hull, og en kurv med hull anbefales ikke', () => {
+    // S1 mangler b. S2 har bare et gammelt tilbud på b uten gyldighet.
+    const rows: Row[] = [['pa', 'S1', 2290, '2026-11-20'], ['pa', 'S2', 2290, '2026-11-20'], ['pb', 'S2', 500, '2026-10-01', 'tilbud']];
+    const ctx2 = c(rows, SHOP, { maxStops: 2 });
+    const alt = alternatives(R1, ctx2);
+    expect(alt.regular.complete).toBe(false);
+    expect(alt.combo).toBeNull();
+    expect(alt.recommended).toBe('regular');
+    expect(alt.savingOre).toBeNull();
+    expect(budgetAnswer(alt.regular, 1_000_000)).toBe('ufullstendig');
+    // Med en gammel ordinær pris i S2 er b et estimat: kombinasjonen er komplett og vinner over kurven med ukjent pris.
+    const est = alternatives(R1, c([...rows, ['pb', 'S2', 1200, '2026-10-01']], SHOP, { maxStops: 2 }));
+    expect(est.combo?.complete).toBe(true);
+    expect(est.combo?.estimatedCount).toBe(1);
+    expect(est.recommended).toBe('combo');
+    expect(est.regular.complete).toBe(false);
   });
 });

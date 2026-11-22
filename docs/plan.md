@@ -133,6 +133,7 @@ Motoren er vanlig beregningskode: samme inndata og prisversjon gir alltid samme 
 - to voksne som krysser av samtidig
 - endring mens enheten er frakoblet
 - matpakke flyttet før middagen er laget
+- gammel prisobservasjon (mer enn 14 dager før handledagen) blir estimat med dato og taper mot en nyere pris
 
 Holdbarhet følger produkt- og oppskriftsspesifikke lagringsregler, ikke én felles grense for all mat.
 

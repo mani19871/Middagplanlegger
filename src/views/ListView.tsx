@@ -8,6 +8,8 @@ import type { Basket, BasketLine } from '../engine/types';
 import { amount, kr } from '../engine/format';
 import { catalog } from '../data/catalog';
 import { DEPT_EMOJI, ING_EMOJI } from './art';
+import { shopDate } from './dates';
+import { norDate, priceStatusText, staleNote } from './priceText';
 import OfferTotalNote from './OfferTotalNote';
 import type { OfferTotal } from '../engine/offerTotal';
 import { ChangePill, ChangeSheet, ChangesNote, DriftBanner, HistoryView, markable, SkippedLines, VersionConflictBanner, type ChangeKit } from './ListChanges';
@@ -67,6 +69,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
   if (detail) {
     const l = detail;
     const unitPrice = l.costOre !== null && l.packs > 0 ? l.costOre / l.packs : null;
+    const ageNote = staleNote(l.status, l.observed, kit?.ctx.shopDate ?? shopDate());
     return (
       <>
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={() => setDetail(null)}>←</button></div>
@@ -80,7 +83,8 @@ export default function ListView({ state, update, record, week, basket, offerTot
         </div>
         {l.costOre !== null ? (
           <div className="card"><div className="drow"><span>🏪 {storeName(l.storeId)}</span><span className={`pill ${l.status === 'estimat' ? 'warnp' : l.status === 'tilbud' ? 'up' : ''}`}>{statusText[l.status]}</span></div>
-            <p className="fine">Kilde: {l.source}, observert {l.observed}. Prisen er anslått og kan avvike i butikken.</p></div>
+            <p className="fine">Kilde: {l.source}, observert {l.observed ? norDate(l.observed) : 'ukjent dato'}. Prisen er anslått og kan avvike i butikken.</p>
+            {ageNote && <p className="fine warntext">{ageNote}</p>}</div>
         ) : <div className="banner warn">Ingen pris funnet i valgte butikker for denne varen. Den teller ikke i summen, og kurven kan ikke bekreftes innenfor budsjett. Du kan kjøpe den hvor som helst.</div>}
         {l.costOre !== null && <div className="card total2"><span>Sum</span><strong>{kr(l.costOre)}</strong></div>}
         {markable(l) && <PurchaseCard l={l} p={purchaseOf(l)} week={week} record={record} who={(bys) => whoList(state, bys)} />}
@@ -139,7 +143,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
                       <input type="checkbox" aria-label={checkLabel(l.name, key)} checked={isChecked(key)} onChange={() => toggle(key)} />
                       <button className="main" onClick={() => setDetail(l)}>
                         <b>{lineText(l)}</b>
-                        <small>{l.productId ? `${amount(l.packs * l.packSize, l.unit)} · ${kr(l.costOre ?? 0)} · ${statusText[l.status].toLowerCase()}` : 'ukjent pris'}</small>
+                        <small>{l.productId ? `${amount(l.packs * l.packSize, l.unit)} · ${kr(l.costOre ?? 0)} · ${priceStatusText(l.status, l.observed)}` : 'ukjent pris'}</small>
                         <small className="allergen">{productAllergenText(l.productId, catalog)}</small>
                         {who(key)}
                         {boughtPill(purchaseOf(l), l)}

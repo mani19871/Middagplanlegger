@@ -15,6 +15,7 @@ import {
 import { ALLERGEN_LABEL } from '../engine/allergens';
 import { amount, DAYS, kr, krSigned } from '../engine/format';
 import { Sheet } from './Sheet';
+import { priceStatusText } from './priceText';
 
 export interface ChangeKit {
   week: string; ctx: Ctx; storeIds: string[]; slots: Slot[]; base: Basket; changes: ChangeMap;
@@ -72,7 +73,7 @@ const when = (iso: string) => {
 const sideText = (s: LineSide | null) => {
   if (!s) return '–';
   const what = s.productName ? `${s.packs > 1 ? `${s.packs} × ` : ''}${s.productName}` : 'uten produkt';
-  const price = s.costOre === null ? 'ukjent pris' : `${kr(s.costOre)}${s.status === 'tilbud' ? ` (tilbud${s.validUntil ? ` til ${ddmm(s.validUntil)}` : ''})` : ''}`;
+  const price = s.costOre === null ? 'ukjent pris' : `${kr(s.costOre)}${s.status === 'tilbud' ? ` (tilbud${s.validUntil ? ` til ${ddmm(s.validUntil)}` : ''})` : s.status === 'estimat' ? ' (estimat)' : ''}`;
   return `${what}, ${price}`;
 };
 const sumText = (ore: number, complete: boolean) => (complete ? kr(ore) : `${kr(ore)} (delsum, ukjent pris)`);
@@ -132,7 +133,7 @@ export function ChangeSheet({ line, kit, blocked, onClose }: { line: AdjustedLin
             <button key={o.product.id} className="ghost bigbtn choice"
               onClick={() => done(substituteEvent(line, kit.week, o.product.id, stamp()), 'erstatning', `${shown} utsolgt → ${o.product.name}`)}>
               <b>{o.packs} × {o.product.name}</b>
-              <small>{amount(o.packs * o.packSize, line.unit)} · {kr(o.costOre)} · {o.obs.status === 'tilbud' ? 'tilbud' : o.obs.status === 'estimat' ? 'estimert pris' : 'ordinær pris'}
+              <small>{amount(o.packs * o.packSize, line.unit)} · {kr(o.costOre)} · {priceStatusText(o.obs.status, o.obs.observed)}
                 {' · '}{o.deltaOre === null ? 'kan ikke sammenlignes (kurven har ukjent pris)' : `${krSigned(o.deltaOre)} på handelen`}</small>
               {o.newAllergens.length > 0 && <small className="warntext">⚠ Inneholder {o.newAllergens.map((a) => ALLERGEN_LABEL[a]).join(', ')}, som ikke er oppgitt for retten.</small>}
               {o.allergenUnknown && <small className="warntext">⚠ Innholdet er ikke avklart. Sjekk pakningen.</small>}

@@ -45,6 +45,7 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Hver endring og godkjenning lagres som ny `PlanVersion` med årsak og `parents`; eldre versjoner endres aldri (opprinnelig anslag, også utløpt tilbud, står igjen). Versjonene synkes (strøm `planversjon`). En godkjent liste holder på produktene sine (`pinState`); gjeldende versjoner med ulike fastholdte produkter er en konflikt som løses med `chooseVersion`. Nye priser vises som avvik (`priceDrift`, brukerens valg regnes ikke som avvik) til brukeren velger «Bruk nye priser» eller «Behold godkjent liste».
 - Godkjenning (`approvalVersion`) gir ny versjon bare når grunnlaget (middager, priser, valg, beholdning) er endret. Rettebytte ved «fant ikke» opphever godkjenningen. Tilstandsovergangene ligger i `src/listActions.ts` (brukes av UI og synk-tester).
 - Planmotoren bruker aldri en pris med `validUntil` før handledagen (utløpt tilbud).
+- Prisalder (`src/engine/prices.ts`, `resolvePrice`): bare observasjoner høyst `MAX_PRICE_AGE_DAYS` (14) dager eldre enn handledagen er kjent pris; ellers brukes nyeste eldre observasjon som `estimat` med dato (aldri et gammelt tilbud uten gyldighet), og en gammel pris taper alltid mot en ny.
 
 ## Synk og husstand (`src/sync/`, `server/sync/`, `server/storage/`; se `docs/synk.md`)
 - Offline først: skriv alltid lokalt (hendelse + utboks, eller dokumentfelt i `AppState`), aldri direkte til serveren. Appen skal virke uten server.

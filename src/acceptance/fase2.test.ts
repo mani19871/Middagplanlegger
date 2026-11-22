@@ -146,7 +146,13 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
   });
   it('demokatalogens laksetilbud er satt langt frem (demodata), så laks ikke forsvinner fra demoen', () => {
     const l = buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2027-06-01' })).lines.find((x) => x.ingredient === 'laks')!;
-    expect(l.status).toBe('tilbud');
+    expect(l.costOre).not.toBeNull();
+    // Observasjonen (2026-11-17) er eldre enn aldersgrensen på handledagen, så den er bare estimat med dato (E7).
+    expect(l.status).toBe('estimat');
+    expect(l.observed).toBe('2026-11-17');
+    expect(l.source).toBe('Demodata');
+    const fresh = buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2026-11-23' })).lines.find((x) => x.ingredient === 'laks')!;
+    expect(fresh.status).toBe('tilbud');
   });
   it.todo('Tilbud med validFrom etter handledagen hoppes over: PriceObs har ingen validFrom i dag, så kommende katalogtilbud kan ikke uttrykkes ennå');
 

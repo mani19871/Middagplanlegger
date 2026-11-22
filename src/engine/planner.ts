@@ -22,6 +22,7 @@ export const portionsOnDay = (s: Settings, day: number) =>
 const byId = <T extends { id: string }>(xs: T[]) => new Map(xs.map((x) => [x.id, x]));
 
 import { hintsForChains, recipeDeals, type OfferHint, type RecipeDeals } from './deals';
+import { resolvePrice } from './prices';
 
 export interface Ctx {
   catalog: Catalog; settings: Settings; offers?: OfferHint[]; shopDate?: string;
@@ -141,25 +142,30 @@ function aggregateNeeds(slots: Slot[], ctx: Ctx): Map<string, Need> {
   return needs;
 }
 
-interface Offer { storeId: string; product: Product; packs: number; costOre: number; obs: PriceObs }
+interface Offer { storeId: string; product: Product; packs: number; costOre: number; obs: PriceObs; stale: boolean }
 
+/**
+ * Billigste pakning av varen i butikkene. Prisen per (produkt, butikk) velges av `resolvePrice` (prices.ts): en
+ * observasjon eldre enn `MAX_PRICE_AGE_DAYS` er bare estimat og taper alltid mot en ny nok pris, uansett beløp.
+ */
 function bestOffer(ing: string, need: number, storeIds: string[], ctx: Ctx): Offer | null {
   let best: Offer | null = null;
+  const products = ctx.catalog.products
+    .filter((p) => p.ingredient === ing && p.size > 0 && productAllowed(p, ctx.settings))
+    .sort((a, b) => a.id.localeCompare(b.id));
   for (const storeId of [...storeIds].sort()) {
-    for (const obs of ctx.catalog.prices) {
-      if (obs.storeId !== storeId) continue;
-      // En pris med gyldighet som er ute på handledagen (utløpt tilbud) brukes aldri som dagens pris (regel 2).
-      if (ctx.shopDate && obs.validUntil && obs.validUntil < ctx.shopDate) continue;
-      // Ugyldig pris (0, negativ, ikke hele øre) eller pakning uten størrelse er ikke en kjent pris.
-      if (!Number.isInteger(obs.ore) || obs.ore <= 0) continue;
-      const product = ctx.catalog.products.find((p) => p.id === obs.productId);
-      if (!product || product.ingredient !== ing || !(product.size > 0) || !productAllowed(product, ctx.settings)) continue;
+    for (const product of products) {
+      // Utløpte priser, ugyldige beløp og gamle tilbud uten gyldighet er allerede sortert bort (regel 2).
+      const price = resolvePrice(product.id, storeId, ctx);
+      if (!price) continue;
       const packs = Math.max(1, Math.ceil(need / product.size - EPS));
-      const costOre = packs * obs.ore;
+      const costOre = packs * price.obs.ore;
       const better =
-        !best || costOre < best.costOre ||
-        (costOre === best.costOre && (packs < best.packs || (packs === best.packs && product.id < best.product.id)));
-      if (better) best = { storeId, product, packs, costOre, obs };
+        !best || (best.stale && !price.stale) ||
+        (best.stale === price.stale &&
+          (costOre < best.costOre ||
+            (costOre === best.costOre && (packs < best.packs || (packs === best.packs && product.id < best.product.id)))));
+      if (better) best = { storeId, product, packs, costOre, obs: price.obs, stale: price.stale };
     }
   }
   return best;
