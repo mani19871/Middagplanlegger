@@ -53,3 +53,18 @@ describe('manuelle avislinjer', () => {
     expect(manualLineId('x'.repeat(200), 'u').length).toBeLessThanOrEqual(100);
   });
 });
+
+describe('kodegjennomgang: tilbud til ukeplan', () => {
+  it('foreslår aldri retter som bryter allergi- eller kostkrav (regel 4)', async () => {
+    const { catalog } = await import('../../data/catalog');
+    const { defaultSettings } = await import('../../data/defaults');
+    const { requirementViolation } = await import('../../engine/planner');
+    const { offerRecipes } = await import('./offerList');
+    const ctx = { catalog, settings: { ...defaultSettings, avoid: ['fisk' as const], vegetarian: true } };
+    const all = catalog.recipes.filter((r) => r.lines.some((l) => l.ingredient === 'laks'));
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.some((r) => requirementViolation(r, ctx) !== null)).toBe(true);
+    expect(offerRecipes('laks', ctx)).toEqual([]);
+    expect(offerRecipes('pasta', ctx).every((r) => requirementViolation(r, ctx) === null)).toBe(true);
+  });
+});

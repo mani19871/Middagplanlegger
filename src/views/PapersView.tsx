@@ -3,7 +3,7 @@ import { fetchLiveOffers, type LiveResponse } from '../offers/client';
 import type { LiveOffer } from '../offers/service';
 import { amount } from '../engine/format';
 import { recordList, stamp, type AppState } from '../store';
-import type { Ctx } from '../engine/planner';
+import { requirementViolation, type Ctx } from '../engine/planner';
 import { editions, offers, type Edition, type Offer } from '../data/newspapers';
 import { DAYS, kr } from '../engine/format';
 import { ING_EMOJI } from './art';
@@ -11,7 +11,7 @@ import { dayDate, editionInPeriod, isoDate, weekStart } from './dates';
 import ReviewView from './ReviewView';
 import { recipeAllergenText } from './allergenText';
 import LiveOffers from './papers/LiveOffers';
-import { hasManualLine, manualLineId, offerKey } from './papers/offerList';
+import { hasManualLine, manualLineId, offerKey, offerRecipes } from './papers/offerList';
 import { manualLines } from '../sync/list';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx; goWeek: () => void;
@@ -59,17 +59,21 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
     const pack = o.amount ? amount(o.amount, o.unit ?? 'g') : o.pieces ? `${o.pieces} stk` : 'mengde ukjent';
     const terms = `Gyldig ${o.validFrom.slice(8, 10)}.${o.validFrom.slice(5, 7)}.–${o.validUntil.slice(8, 10)}.${o.validUntil.slice(5, 7)}.${o.prePriceOre ? ` Før ${kr(o.prePriceOre)}.` : ''}`;
     setEdition({ id: o.dealerId, sender: o.dealerName, title: 'Tilbud', scope: 'nasjonal', validFrom: o.validFrom.slice(0, 10), validUntil: o.validUntil.slice(0, 10), validTo: o.validUntil.slice(0, 10), branch: 'dagligvare', rights: 'lenke' } as unknown as Edition);
-    setOffer({ editionId: 'live', text: o.heading, ingredient: l.ingredient, priceOre: o.priceOre ?? 0, pack, terms });
+    setOffer({ editionId: 'live', text: o.heading, ingredient: l.ingredient, priceOre: o.priceOre, pack, terms });
   };
 
   if (offer && edition) {
     const ing = ctx.catalog.ingredients.find((i) => i.id === offer.ingredient)!;
-    const matches = ctx.catalog.recipes.filter((r) => r.lines.some((l) => l.ingredient === offer.ingredient));
-    const rid = recipeId || matches[0]?.id;
+    // Bare retter som oppfyller absolutte krav (allergi, kost, råvarer). Et tilbud slår aldri disse (regel 4).
+    const matches = offerRecipes(offer.ingredient, ctx);
+    const rid = matches.some((r) => r.id === recipeId) ? recipeId : matches[0]?.id;
+    const recipeOf = (id: string) => ctx.catalog.recipes.find((r) => r.id === id)!;
     const days = state.slots.map((s) => s.day);
     const d = day >= 0 && days.includes(day) ? day : days[0];
     const start = weekStart();
-    const back = () => { setOffer(null); setRecipeId(''); setDay(-1); setLiveId(undefined); setJustAdded(false); };
+    // Fra et levende tilbud går ← tilbake til lista, ikke til en kunstig avisside (den er bare et bærelag for detaljen).
+    const back = () => { if (liveId) setEdition(null); setOffer(null); setRecipeId(''); setDay(-1); setLiveId(undefined); setJustAdded(false); };
+    const priceText = offer.priceOre !== null ? kr(offer.priceOre) : 'pris ukjent';
     const key = offerKey(offer, liveId);
     const already = hasManualLine(manualLines(state.list), key);
     // Idempotent per tilbud: er tilbudet allerede lagt i handlelista (og ikke fjernet), legges det ikke til på nytt.
@@ -77,15 +81,19 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
       if (already) return;
       const st = stamp();
       update((s) => hasManualLine(manualLines(s.list), key) ? s
-        : recordList(s, { type: 'manuell', ...st, line: { id: manualLineId(key, st.id), text: offer.text.slice(0, 200), note: `${edition.sender}, ${kr(offer.priceOre)}`.slice(0, 200) } }));
+        : recordList(s, { type: 'manuell', ...st, line: liveId
+          // Tilbud fra Tjek lagres og synkes ikke (bare live-visning): lista får varen og kjeden, ikke overskrift eller pris.
+          ? { id: manualLineId(key, st.id), text: ing.name.slice(0, 200), note: `tilbud hos ${edition.sender}`.slice(0, 200) }
+          : { id: manualLineId(key, st.id), text: offer.text.slice(0, 200), note: `${edition.sender}, ${priceText}`.slice(0, 200) } }));
       setJustAdded(true);
     };
     return (
       <>
         <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={back}>←</button><h2>Bruk tilbudet</h2><span /></div>
         <div className="card row"><span className="bigemoji" aria-hidden>{ING_EMOJI[ing.id] ?? '🛒'}</span>
-          <span className="rinfo"><strong className="big">{offer.text}</strong><span><b className="price">{kr(offer.priceOre)}</b> · {offer.pack}</span><small>{offer.terms}</small></span></div>
+          <span className="rinfo"><strong className="big">{offer.text}</strong><span><b className="price">{priceText}</b> · {offer.pack}</span><small>{offer.terms}</small></span></div>
         <h3>Velg en middag</h3>
+        {matches.length === 0 && <p className="fine">Ingen middager med denne varen passer kravene dine (allergi, kost eller råvarer).</p>}
         {matches.map((r) => (
           <label key={r.id} className={`row inner opt ${rid === r.id ? 'sel' : ''}`}>
             <input type="radio" name="m" checked={rid === r.id} onChange={() => setRecipeId(r.id)} />
@@ -98,7 +106,7 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
             {days.map((x) => <option key={x} value={x}>{DAYS[x]} {dayDate(start, x).getDate()}.</option>)}</select>
         )}
         <button className="cta" disabled={days.length === 0 || !rid} onClick={() => {
-          update((s) => ({ ...s, approved: false, slots: s.slots.map((x) => (x.day === d ? { ...x, recipeId: rid!, locked: true } : x)) }));
+          update((s) => ({ ...s, approved: false, slots: s.slots.map((x) => (x.day === d ? { ...x, recipeId: rid!, locked: requirementViolation(recipeOf(rid!), ctx) === null } : x)) }));
           back(); setEdition(null); goWeek();
         }}>Legg i ukeplan</button>
         <button className="ghost wide" disabled={already} onClick={addManual}>{already ? '✓ Allerede i handlelista' : 'Bare legg i handlelista'}</button>
@@ -123,7 +131,7 @@ export default function PapersView({ state, update, ctx, goWeek, resetKey = 0 }:
           {eOffers.map((o) => (
             <button key={o.text} className="tile" onClick={() => { setOffer(o); setRecipeId(''); setLiveId(undefined); setJustAdded(false); }}>
               <span className="bigemoji" aria-hidden>{ING_EMOJI[o.ingredient] ?? '🛒'}</span>
-              <b>{o.text}</b><span className="price">{kr(o.priceOre)}</span><small>{o.terms}</small><span className="plus" aria-hidden>＋</span></button>
+              <b>{o.text}</b><span className="price">{o.priceOre !== null ? kr(o.priceOre) : 'pris ukjent'}</span><small>{o.terms}</small><span className="plus" aria-hidden>＋</span></button>
           ))}
         </div>
       </>

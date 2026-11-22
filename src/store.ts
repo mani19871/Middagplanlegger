@@ -84,7 +84,13 @@ export function migrateState(raw: OldState, week = '1970-01-05', by = 'migrering
     inventory = applyEvent(inventory, e);
     outbox = enqueue(outbox, e);
   }
-  return { ...s, inventory, outbox, list, listOutbox, settings: { ...s.settings, pantry: {} } };
+  // Eldre versjoner kunne lagre matpakke «til dag 7» (søndag + 1). Det er ikke en dag i uka og stoppet plansynken.
+  const slots = (s.slots ?? []).map((x) => {
+    if (x.extraFor === undefined || (Number.isInteger(x.extraFor) && x.extraFor >= 0 && x.extraFor <= 6)) return x;
+    const { extraFor: _drop, ...keep } = x;
+    return keep;
+  });
+  return { ...s, slots, inventory, outbox, list, listOutbox, settings: { ...s.settings, pantry: {} } };
 }
 
 /** Tilfeldig enhets-id (ikke persondata), så hver avkrysning lagres med egen identitet. */

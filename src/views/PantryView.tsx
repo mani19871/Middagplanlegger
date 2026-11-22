@@ -127,7 +127,7 @@ export default function PantryView({ state, record, week, ctx, basket }: Props) 
         <button className="ghost" disabled title="Kvitteringslesing kommer i fase 4">📷 Les kvittering</button>
       </div>
       <p className="fine">Registrer det du hadde fra før, ikke det du har markert som handlet. Etter at noe er markert som handlet denne uka,
-        gjelder nye registreringer fra neste handel. {state.outbox.length > 0 && `${state.outbox.length} endring${state.outbox.length === 1 ? '' : 'er'} er lagret på denne enheten. Deling mellom enheter finnes ikke ennå.`}</p>
+        gjelder nye registreringer fra neste handel. {state.outbox.length > 0 && `${state.outbox.length} endring${state.outbox.length === 1 ? '' : 'er'} er lagret på denne enheten${state.sync ? ' og sendes til husstanden ved neste synk' : ''}.`}</p>
     </>
   );
 }

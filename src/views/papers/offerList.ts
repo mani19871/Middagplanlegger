@@ -1,6 +1,7 @@
 // Rene hjelpefunksjoner for «Tilbud nå»: filtrering, gruppering, paginering og id for manuelle avislinjer.
 // Ingen klokke, nett eller lagring her. Tilbudene lagres aldri; de er bare visningsdata.
 import type { LiveOffer } from '../../offers/service';
+import { requirementViolation, type Ctx } from '../../engine/planner';
 
 export type GroupBy = 'kjede' | 'vare';
 export const PAGE_SIZE = 16;
@@ -55,3 +56,7 @@ export function hasManualLine(lines: { id: string }[], offerKey: string): boolea
 }
 /** Nøkkel for et tilbud: live-tilbudets id, ellers utgave + tekst for demotilbud. */
 export const offerKey = (o: { editionId: string; text: string }, liveId?: string) => liveId ?? `${o.editionId}|${o.text}`;
+
+/** Middager et tilbud kan legges inn i: retter med varen som oppfyller absolutte krav (allergi, kost, råvarer). Regel 4. */
+export const offerRecipes = (ingredient: string, ctx: Ctx) =>
+  ctx.catalog.recipes.filter((r) => r.lines.some((l) => l.ingredient === ingredient) && requirementViolation(r, ctx) === null);

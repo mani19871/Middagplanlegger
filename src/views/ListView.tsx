@@ -43,7 +43,11 @@ const boughtPill = (p: PurchaseState | undefined, l: BasketLine) => {
 const lineText = (l: BasketLine) => (l.productId ? (l.packs > 1 ? `${l.packs} × ${l.productName}` : l.productName!) : `${l.name}: ${amount(l.need, l.unit)}`);
 
 export default function ListView({ state, update, record, week, basket, offerTotal, approvedHints, syncText, kit }: Props) {
-  const [detail, setDetail] = useState<BasketLine | null>(null);
+  // Detaljen holder bare varen; linja slås opp i gjeldende kurv ved hver gjengivelse, så et valg eller en synk mens
+  // detaljen er åpen aldri gir kjøp på en gammel kopi av linja (f.eks. et utsolgt produkt).
+  const [detailKey, setDetailKey] = useState<string | null>(null);
+  const detail = detailKey === null ? null : basket.lines.find((l) => l.ingredient === detailKey) ?? null;
+  const setDetail = (l: BasketLine | null) => setDetailKey(l ? l.ingredient : null);
   const [shop, setShop] = useState(false);
   const marks = useMemo(() => checks(state.list, week), [state.list, week]);
   const manual = useMemo(() => manualLines(state.list), [state.list]);

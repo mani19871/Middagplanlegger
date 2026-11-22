@@ -16,6 +16,14 @@ interface Props {
 const FOODS: [FoodTag, string][] = [['storfe', 'storfe'], ['svin', 'svin'], ['lam', 'lam'], ['kylling', 'kylling'], ['fisk', 'fisk'], ['skalldyr', 'skalldyr'], ['belgvekster', 'belgvekster']];
 const ALL = [true, true, true, true, true, true, true];
 
+// På modulnivå: en komponent definert inne i PlanForm ville vært en ny type ved hver gjengivelse, så knappene ble
+// montert på nytt etter hvert trykk og tastatur- og skjermleserbrukere mistet fokus.
+const Step = ({ label, n, on }: { label: string; n: number; on: (n: number) => void }) => (
+  <div className="step"><span>{label}</span>
+    <button aria-label={`Færre ${label}`} onClick={() => on(Math.max(0, n - 1))}>−</button><b>{n}</b>
+    <button aria-label={`Flere ${label}`} onClick={() => on(n + 1)}>+</button></div>
+);
+
 export default function PlanForm({ state, update, onDone, hasPlan, chains = [], lockWarnings = [] }: Props) {
   const s = state.settings;
   const [timeDay, setTimeDay] = useState(() => Math.max(0, s.days.findIndex((d) => d.enabled)));
@@ -33,11 +41,6 @@ export default function PlanForm({ state, update, onDone, hasPlan, chains = [], 
     set({ eaters: kind === 'v' ? [...next, ...kids] : [...adults, ...next] });
   };
   const setEater = (id: string, patch: Partial<Eater>) => set({ eaters: s.eaters.map((e) => (e.id === id ? { ...e, ...patch } : e)) });
-  const Step = ({ label, n, on }: { label: string; n: number; on: (n: number) => void }) => (
-    <div className="step"><span>{label}</span>
-      <button aria-label={`Færre ${label}`} onClick={() => on(Math.max(0, n - 1))}>−</button><b>{n}</b>
-      <button aria-label={`Flere ${label}`} onClick={() => on(n + 1)}>+</button></div>
-  );
 
   return (
     <>

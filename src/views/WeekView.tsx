@@ -1,3 +1,4 @@
+import { lunchDay } from './lunch';
 import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Alternatives, Basket } from '../engine/types';
@@ -283,7 +284,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                 {!lockable(sheetSlot.recipeId) && <small> (kan ikke låses: bryter kravene dine)</small>}</label>
               <label className="switch"><input type="checkbox" checked={(sheetSlot.extra ?? 0) > 0}
                 onChange={(e) => patchSlot(sheetSlot.day, e.target.checked
-                  ? { extra: 1, extraFor: slots.find((x) => x.day > sheetSlot.day)?.day ?? sheetSlot.day + 1 } : { extra: 0, extraFor: undefined })} /> Reserver 1 ekstra porsjon til matpakke</label>
+                  ? { extra: 1, extraFor: lunchDay(slots, sheetSlot.day) } : { extra: 0, extraFor: undefined })} /> Reserver 1 ekstra porsjon til matpakke</label>
             </div>
             <small className="lab" id="swaplab">Velg ny middag</small>
             <div className="opts" role="radiogroup" aria-labelledby="swaplab">

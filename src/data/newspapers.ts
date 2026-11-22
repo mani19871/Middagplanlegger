@@ -4,7 +4,8 @@ export interface Edition {
   postalPrefixes?: string[]; validFrom: string; validTo: string; branch: 'dagligvare' | 'annet';
   rights: 'visning' | 'lenke'; storeId?: string;
 }
-export interface Offer { editionId: string; text: string; ingredient: string; priceOre: number; pack: string; terms: string }
+/** `priceOre` null: prisen er ukjent (vises som «pris ukjent», aldri som 0 kr). */
+export interface Offer { editionId: string; text: string; ingredient: string; priceOre: number | null; pack: string; terms: string }
 export const editions: Edition[] = [
   { id: 'e1', sender: 'Demo Nærbutikk', title: 'Ukens tilbud uke 47', scope: 'nasjonal', validFrom: '2026-11-23', validTo: '2026-11-29', branch: 'dagligvare', rights: 'lenke', storeId: 'demoA' },
   { id: 'e2', sender: 'Demo Storsenter', title: 'Storsenter – Nord-Norge', scope: 'regional', postalPrefixes: ['8', '9'], validFrom: '2026-11-16', validTo: '2026-11-22', branch: 'dagligvare', rights: 'lenke', storeId: 'demoB' },
