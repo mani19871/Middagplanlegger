@@ -88,11 +88,17 @@ describe('regel 6: bare avtalte kilder, ingen egen henting av kundeaviser', () =
     for (const f of tracked.filter((x) => /^(src|server|scripts)\//.test(x) && code(x) && !isTest(x))) {
       for (const m of stripComments(text(f)).matchAll(/https?:\/\/([a-z0-9.-]+)/gi)) hosts.add(m[1]);
     }
-    expect([...hosts].filter((h) => !['localhost', 'api.etilbudsavis.dk', 'www.matvaretabellen.no'].includes(h))).toEqual([]);
+    expect([...hosts].filter((h) => !['localhost', '127.0.0.1', 'api.etilbudsavis.dk', 'www.matvaretabellen.no'].includes(h))).toEqual([]);
   });
-  it('serveren lagrer ikke tilbud: ingen filskriving eller database i server/', () => {
+  it('serveren lagrer ikke tilbud: ingen filskriving i server/index.ts, og tilbud når aldri synk-databasen', () => {
+    // Synk-databasen (server/storage/) holder bare husstand, hendelser og dokumenter (docs/synk.md).
     const src = stripComments(text('server/index.ts'));
-    expect(src).not.toMatch(/writeFile|appendFile|createWriteStream|sqlite|pg\b|mongodb|redis/i);
+    expect(src).not.toMatch(/writeFile|appendFile|createWriteStream|mongodb|redis/i);
+    // Tilbudsdata (cache/offers) sendes aldri inn i lagringen, og lagrings- og synk-koden kjenner ikke tilbudskildene.
+    expect(src).not.toMatch(/(storage|syncApi)[^\n]*(cache|offers)/i);
+    for (const f of tracked.filter((x) => /^server\/(storage|sync)\//.test(x) && code(x) && !isTest(x))) {
+      expect(stripComments(text(f)), f).not.toMatch(/from '[^']*offers[^']*'|LiveOffer|tjek/i);
+    }
   });
 });
 
