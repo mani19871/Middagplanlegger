@@ -17,13 +17,13 @@ const html = (C: unknown, props: Record<string, unknown>) => renderToStaticMarku
 const noop = () => {};
 const text = (h: string) => h.replace(/<[^>]*>/g, ' ').replace(/&#x27;|&quot;|&amp;/g, ' ').replace(/\s+/g, ' ');
 
-function setup(over: Parameters<typeof settings>[0], slots = generatePlan(ctx(over)), store: 'demoA' | 'demoB' = 'demoA') {
+function setup(over: Parameters<typeof settings>[0], slots = generatePlan(ctx(over)), store: 'demoA' | 'demoB' = 'demoA', shopDate = SHOP_DAY) {
   const s = settings({ ...over, regularStoreId: store, storeIds: [store] });
-  const c: Ctx = { catalog, settings: s, offers: [], shopDate: SHOP_DAY };
+  const c: Ctx = { catalog, settings: s, offers: [], shopDate };
   const alts = alternatives(slots, c);
   const basket: Basket = alts.regular;
   const state: AppState = { ...initialState, settings: s, slots, approved: true };
-  const offerTotal = totalWithOffers(basket, [], SHOP_DAY, s);
+  const offerTotal = totalWithOffers(basket, [], shopDate, s);
   return { state, basket, alts, c, offerTotal, slots };
 }
 
@@ -45,7 +45,8 @@ describe('handlelisten viser prisstatus som tekst for hver linje', () => {
     expect(out).toMatch(/mangler pris/); // advarsel om delsum
   });
   it('tilbudslinjer (katalogens laks i butikk A) merkes «tilbud», ikke «ordinær»', () => {
-    const x = setup({}, [slot(0, 'lakseris')]);
+    // Demotilbudet på laks gjelder til 23.11.; etter det brukes det ikke (regel 2), så handledagen settes innenfor.
+    const x = setup({}, [slot(0, 'lakseris')], 'demoA', '2026-11-23');
     const li = [...render(x).matchAll(/<li[\s\S]*?<\/li>/g)].map((m) => text(m[0])).find((t) => /Laksefilet/.test(t))!;
     expect(li).toMatch(/tilbud/i);
     expect(li).not.toMatch(/ordinær/i);

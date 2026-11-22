@@ -123,14 +123,16 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
     expect(t.complete).toBe(false);
   });
   it('tilbud endrer aldri basissummen, butikksammenligningen eller budsjettsvaret', () => {
-    const c0 = ctx();
+    // Samme handledag i begge: bare tilbudene skiller (en utløpt katalogpris gjelder ikke uansett, se under).
+    const c0 = ctx({}, { shopDate: SHOP_DAY });
     const c1 = ctx({}, { offers: [hint()], shopDate: SHOP_DAY });
     const plan = [slot(0, 'lakseris'), slot(1, 'bolognese')];
     expect(JSON.stringify(alternatives(plan, c1))).toBe(JSON.stringify(alternatives(plan, c0)));
   });
 
   // ---- Kjente hull (reproduksjoner). `it.fails` består så lenge hullet finnes og slår ut når det er rettet. ----
-  it.fails('HULL: utløpt katalog-tilbud (PriceObs.validUntil < handledagen) brukes ikke lenger som «tilbud»-pris', () => {
+  // Tidligere kjent hull, rettet i planner.ts (bestOffer hopper over priser med utløpt gyldighet).
+  it('utløpt katalog-tilbud (PriceObs.validUntil < handledagen) brukes ikke lenger som «tilbud»-pris', () => {
     // Demodata: laks i butikk A er «tilbud» til 2026-11-23. Handledag 2026-12-10: tilbudet er utløpt.
     const b = buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2026-12-10' }));
     const l = b.lines.find((x) => x.ingredient === 'laks')!;
