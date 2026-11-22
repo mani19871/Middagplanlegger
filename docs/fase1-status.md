@@ -67,7 +67,7 @@ Flyt og det jeg så:
 4. **Velg handletur**: «Én butikk 490 kr» mot «To butikker 434 kr», «Du sparer 56 kr med et ekstra stopp», terskel, og «Laveste beregnede pris blant sammenlignede alternativer, ikke en garanti».
 5. **Handleliste**: gruppert per butikk og avdeling, hver linje med pakning, mengde, pris og prisstatus; «Marker alt her som handlet (10)». Etter markering: 10 kjøp i logg og utboks.
 6. **Detalj («Hvorfor 30 kr?»)**: pakker × pris, behov, til overs, hvilke retter den dekker, butikk, «Ordinær pris», «Kilde: Demodata, observert 2026-11-17. Prisen er anslått».
-7. **Matskap**: «Bekreftet hjemme» (tom), «Kjøpt (ikke brukt)» (10 linjer), «Forventet rest» med «Bekreft rest», «Marker som laget», «Kan lages med det du har».
+7. **Matskap**: «Bekreftet hjemme» (tom), «Kjøpt (ikke brukt)» (10 linjer), «Forventet rest» med «Bekreft rest», «Marker som laget», «Kan lages med det du har» (senere erstattet av «Lag nå», se under).
 8. **Kundeaviser**: «Tilbud nå» (87 ekte Tjek-tilbud, «Kilde: Tjek. Lest …»), «Aviser (demo)» med to demoutgaver i denne uka, og utgavevisning. «Kontroll»-fanen (redaktør) åpnet.
 9. **Offline**: service worker aktiv; lasting uten nett, avkryssing og kjøp virket; ingen dubletter etter ny tilkobling.
 
@@ -113,6 +113,22 @@ Funn fra kjøringen:
 - Versjonering av lagret tilstand.
 - Skjermleser- og tastaturtest av hele flyten (opprydding/tilgjengelighet-økta).
 - Test på to ekte enheter når sync finnes.
+
+## Utvidelse A: «Lag nå» (2026-11-22)
+
+Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. **Bare A er bygd.** B (basisvarer/minstebeholdning) og C (husholdningsvarer) er ikke påbegynt, og ingen KI.
+
+**Hva:** Matskap → «🍳 Lag nå». Viser det som finnes hjemme (bekreftet hjemme + kjøpt og ikke brukt fra `deriveStock`; forventet rest er aldri med), lar brukeren krysse av, legge til, rette mengde eller merke «⏰ Bruk snart», og foreslår middager fra oppskriftsbasen. Hvert forslag viser tid, porsjoner, andel som finnes, hva som finnes (også «bare 200 g hjemme» og «mengde ikke oppgitt»), hva som mangler med pakning, pris og prisstatus, anslått sum eller «Ufullstendig prisgrunnlag», allergentekst og fremgangsmåte. «Legg manglende på handlelista» lager vanlige manuelle linjer (strøm `liste`, ingen nye felt), vist i handlelista under «Fra «Lag nå» (ikke kontrollert)», ikke med i beregnet sum, også uten ukeplan.
+
+**Regler (motor, `src/engine/cookNow.ts`):** absolutte krav filtrerer med `requirementViolation` (allergi, kost, råvarer), også mot full dekning og «snart». Dekning er mengdebevisst (har/behov per vare, skalert til porsjonene; basisvarer teller ikke; ukjent mengde = funnet og merket). Det som mangler prises med `basketForNeeds` (skilt ut av `buildBasket`, samme `resolvePrice`, allergifilter på produkt og hele pakninger), i vanlig butikk, med dagens dato som handledag. Rangering: dekning i promille + 200 per «snart»-vare, færrest manglende, kjent prisgrunnlag foran ufullstendig, lavest kjent pris, kortest tid, id. Tom tilstand har fire grunner (`ingen-varer`, `ingen-porsjoner`, `ingen-retter`, `ingen-dekning`).
+
+**Lagring og personvern:** egne valg i `AppState.cookNow` (bare på enheten, ikke i noe synkdokument eller noen strøm, endrer aldri beholdningsloggen), med i «Last ned mine data» via `lagretPåEnheten`, nevnt i personvernarket og `docs/synk.md`.
+
+**Bevis:** `src/engine/cookNow.test.ts` (22 tester, skrevet før koden og sett røde: determinisme også med omvendt rekkefølge i inndata og katalog, inndata endres ikke, allergi/kost/råvare vinner, uavklart allergenstatus gir ukjent pris, ukjent pris vinner aldri ved lik dekning, estimat, butikkvalg, «snart» løfter, mengdebevissthet, porsjonsskalering, tom tilstand); `planner.test.ts` «regresjon: «Lag nå» …»; `src/views/cookNow-ui.test.tsx` (6 tester, server-rendret tekst); `npm run check:a11y` utvidet med Lag nå (navn, overflyt på 360/420 px, tom tilstand som status, «bruk snart» med tastatur og `aria-pressed`, 44 px trykkflater, ingen dobbel innlegging i handlelista); `npm run check:contrast` uendret grønn.
+
+**Oppskriftsbasen er liten:** 31 enkle demooppskrifter laget for demoen (`src/data/catalog.ts`), ingen fra andre kilder. UI sier det. Mange kombinasjoner av varer gir derfor få eller ingen gode forslag; ingen oppskrifter er funnet på eller hentet inn (regel 6).
+
+**Ikke testet / åpent:** ikke prøvd med skjermleser eller på ekte telefon; demopriser bare (ingen ekte prisdekning, regel 5); «må brukes snart» er brukerens eget valg, appen kjenner ikke holdbarhet; vekten 200 promille er et skjønn, ikke målt mot brukere; manglende varer prises bare i vanlig butikk; avkrysning i «Lag nå» deles ikke med andre i husstanden (bevisst, men kan overraske).
 
 ## Hvordan kjøre kontrollen på nytt
 `npx tsc --noEmit && npx vitest run && npx vite build`. Nettleserflyten er ikke en sjekket inn test (Playwright er ikke avhengighet i repoet); stegene over kan gjentas manuelt på 420 px mot `npx tsx server/index.ts` etter bygg.

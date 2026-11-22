@@ -48,7 +48,7 @@ Planmotoren (`src/engine/`) er uendret og kjenner ikke synk.
 
 Alle tabeller har `ON DELETE CASCADE` fra `households`, og `PRAGMA secure_delete` er på, så sletting overskriver innholdet i databasefilen.
 
-**Lagres aldri i synk-databasen:** tilbud fra Tjek (de lagres i en egen tilbudsdatabase uten husstandsdata, se «Tilbud fra Tjek» under, og synkes aldri mellom enheter). **Lagres aldri på serveren:** postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`, mulige helseopplysninger, se `docs/personvern/06-samtykke-helsekost.md`), passord, e-post, navn, posisjon. Serveren avviser dokumenter med ukjente felt.
+**Lagres aldri i synk-databasen:** tilbud fra Tjek (de lagres i en egen tilbudsdatabase uten husstandsdata, se «Tilbud fra Tjek» under, og synkes aldri mellom enheter). **Lagres aldri på serveren:** valgene i «Lag nå» (`AppState.cookNow`: varer krysset av, lagt til eller merket «må brukes snart» i den visningen; bare lokalt, med i «Last ned mine data» via `lagretPåEnheten`), postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`, mulige helseopplysninger, se `docs/personvern/06-samtykke-helsekost.md`), passord, e-post, navn, posisjon. Serveren avviser dokumenter med ukjente felt.
 
 ## API
 

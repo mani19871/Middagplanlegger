@@ -131,3 +131,11 @@ main:focus { outline:none; }
 .plain { padding-left:20px; margin:6px 0; } .plain li { margin:6px 0; } code { overflow-wrap:anywhere; }
 .foot { display:flex; justify-content:center; margin:28px 0 0; } .foot .link { padding:12px; min-height:44px; }
 .cvr.tjek { background:#1f5a46; } .paperpage { margin:10px 0; } .paperpage img, .offerimg img { display:block; width:100%; height:auto; border-radius:12px; border:1px solid var(--line); background:#fff; } .offerimg { margin:8px 0; max-width:240px; } .paperpage figcaption, .offerimg figcaption { margin-top:4px; }
+/* Lag nå (src/views/CookNowView.tsx) */
+.plainlist { list-style:none; padding:0; margin:4px 0; } .plainlist li { padding:6px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; } .plainlist li:last-child { border:0; }
+.plainlist .sub { display:block; color:var(--mut); font-size:.8rem; }
+.haverow .chk { margin:0; } .haverow .chk span { flex:1; min-width:0; }
+.haveopts { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:0 0 4px 34px; } .haveopts .amt { display:flex; align-items:center; gap:6px; } .haveopts input { width:96px; padding:8px; }
+.haveopts .pill.pick { min-height:44px; padding:6px 14px; }
+.cookopts { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:10px; margin:12px 0; } .cookopts label { display:flex; flex-direction:column; gap:4px; color:var(--mut); font-size:.85rem; } .cookopts input, .cookopts select { width:100%; min-width:0; color:var(--ink); font-size:1rem; }
+.cooksugg h3 { margin:0 0 4px; } .cooksugg h4 { margin:10px 0 2px; font-size:.95rem; }

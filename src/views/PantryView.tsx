@@ -15,8 +15,8 @@ const weekText = (w: string | null, current: string) => {
   return `uka fra ${d}.${m}.`;
 };
 
-interface Props { state: AppState; record: (...e: InventoryEvent[]) => void; week: string; ctx: Ctx; basket: Basket }
-export default function PantryView({ state, record, week, ctx, basket }: Props) {
+interface Props { state: AppState; record: (...e: InventoryEvent[]) => void; week: string; ctx: Ctx; basket: Basket; openCookNow?: () => void }
+export default function PantryView({ state, record, week, ctx, basket, openCookNow }: Props) {
   const { ingredients, recipes } = ctx.catalog;
   const items = ingredients.filter((i) => !i.staple);
   const name = (id: string) => ingredients.find((i) => i.id === id)?.name ?? id;
@@ -37,8 +37,6 @@ export default function PantryView({ state, record, week, ctx, basket }: Props) 
   const rest = expectedRest(basket).filter((r) => rests[r.ingredient] === undefined);
   const boughtThisWeek = (ingredient: string) => basket.lines.some((l) => l.ingredient === ingredient
     && purchases.get(purchaseLineId(week, l.storeId, l.ingredient, l.productId))?.status === 'kjøpt');
-  const doable = recipes.filter((r) => r.lines.filter((l) => !ingredients.find((i) => i.id === l.ingredient)?.staple)
-    .every((l) => (now.total[l.ingredient] ?? 0) >= l.amount));
 
   return (
     <>
@@ -114,9 +112,9 @@ export default function PantryView({ state, record, week, ctx, basket }: Props) 
         </>
       )}
 
-      <h3>Kan lages med det du har</h3>
-      {doable.length === 0 ? <p className="fine">Ingen retter kan lages bare med skapet ennå.</p>
-        : doable.map((r) => <div key={r.id} className="card"><strong>{r.name}</strong><br /><small>{r.minutes} min · alle ingredienser finnes i skapet</small></div>)}
+      <h3>Hva kan vi lage nå?</h3>
+      <div className="card"><p>«Lag nå» foreslår middager ut fra det som finnes hjemme, med mengder for porsjonene dere skal lage og hva som mangler.</p>
+        {openCookNow && <button className="ghost" onClick={openCookNow}>🍳 Åpne «Lag nå»</button>}</div>
       <h3>Registrer vare hjemme</h3>
       <div className="row-field">
         <select aria-label="Vare" value={ing} onChange={(e) => setIng(e.target.value)}>{items.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select>

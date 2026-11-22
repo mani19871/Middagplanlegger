@@ -172,8 +172,16 @@ function bestOffer(ing: string, need: number, storeIds: string[], ctx: Ctx): Off
 }
 
 export function buildBasket(slots: Slot[], storeIds: string[], ctx: Ctx): Basket {
+  return basketForNeeds(aggregateNeeds(slots, ctx), storeIds, ctx);
+}
+
+/**
+ * Kurv for nettobehov som allerede er regnet ut (vare → mengde og hvilke retter den dekker). Samme prisregler som
+ * ukeplanen: `resolvePrice`, allergifilter på produkt, hele pakninger, ukjent pris gir ufullstendig kurv.
+ * Brukes av `buildBasket` og «Lag nå» (cookNow.ts).
+ */
+export function basketForNeeds(needs: Map<string, { amount: number; covers: Set<string> }>, storeIds: string[], ctx: Ctx): Basket {
   const ingredients = byId(ctx.catalog.ingredients);
-  const needs = aggregateNeeds(slots, ctx);
   const lines: BasketLine[] = [];
   for (const [ing, n] of [...needs].sort((a, b) => a[0].localeCompare(b[0]))) {
     if (n.amount <= 0) continue; // dekket av beholdning

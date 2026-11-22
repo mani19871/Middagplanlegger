@@ -7,6 +7,7 @@ import { applyListEvent, type ListEvent, type ListLog } from './sync/list';
 import type { DocBody, DocName } from './sync/docs';
 import type { MemberInfo } from './sync/protocol';
 import { addVersion, type ListChange, type PlanVersion } from './engine/substitution';
+import type { CookNowLocal } from './engine/cookNow';
 
 /** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
 export interface DocMeta {
@@ -56,6 +57,11 @@ export interface AppState {
   filterBannerDismissed?: boolean;
   /** Planversjoner (godkjente lister og historikk) som ikke er levert til husstanden ennå. */
   versionOutbox?: PlanVersion[];
+  /**
+   * «Lag nå»: varer brukeren har krysset av, lagt til, fjernet eller merket «må brukes snart» i den visningen
+   * (engine/cookNow.ts). Bare på denne enheten, synkes ikke og endrer aldri beholdningsloggen.
+   */
+  cookNow?: CookNowLocal;
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',

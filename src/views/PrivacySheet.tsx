@@ -77,6 +77,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
       <ul className="plain">
         <li>Postnummer (for «Nær meg» i kundeavisene), allergier og kostkrav (vegetar, allergener, matvarer som skal unngås).</li>
         <li>En kopi av planen, innstillingene, handlelista, matskapet, valg i butikken og tidligere lister, så appen virker uten nett.</li>
+        <li>Det du krysser av eller merker «må brukes snart» i «Lag nå». Det deles ikke med husstanden og endrer ikke matskapet.</li>
         <li>En tilfeldig enhets-id: <code>{deviceId()}</code>. Oppgi den hvis du kontakter oss om personvern (se «Det du kan gjøre»).</li>
         <li>Hvis enheten er med i en husstand: nøkkelen som viser at den er med. Den som får bruke en ulåst telefon eller
           nettleserprofil, kan bruke nøkkelen. Lås telefonen, og be eieren fjerne enheten hvis du mister den.</li>

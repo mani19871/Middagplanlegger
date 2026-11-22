@@ -9,6 +9,7 @@ import { priceIn } from './substitution';
 import { miniCatalog, miniSettings } from '../acceptance/util';
 import { recipeDeals, type OfferHint } from './deals';
 import { totalWithOffers } from './offerTotal';
+import { cookNow } from './cookNow';
 
 const ctx = (over: Partial<Settings> = {}) => ({ catalog, settings: { ...defaultSettings, ...over } });
 const slot = (day: number, recipeId: string, locked = false): Slot => ({ day, recipeId, locked });
@@ -383,5 +384,19 @@ describe('regresjon: gamle prisobservasjoner er estimat (E7)', () => {
     expect(est.combo?.estimatedCount).toBe(1);
     expect(est.recommended).toBe('combo');
     expect(est.regular.complete).toBe(false);
+  });
+});
+
+describe('regresjon: «Lag nå» (cookNow.ts) følger planmotorens regler', () => {
+  it('allergi vinner over dekning og «må brukes snart», og ukjent pris blir aldri en kjent sum', () => {
+    const c = { ...ctx({ avoid: ['egg'] }), shopDate: '2026-11-23' };
+    const have = [{ ingredient: 'egg', amount: 12, soon: true }, { ingredient: 'poteter', amount: 1000, soon: false }];
+    const r = cookNow(have, c, { portions: 4, storeIds: ['demoA'] });
+    for (const s of r.suggestions) expect(s.recipe.allergens).not.toContain('egg');
+    // Samme pris som ukeplanen: hver manglende vare har samme status og beløp som i en kurv for retten alene.
+    const first = r.suggestions[0];
+    for (const l of first.missing) expect(['ordinær', 'tilbud', 'estimat', 'ukjent']).toContain(l.status);
+    if (!first.priceComplete) expect(first.missing.some((l) => l.costOre === null)).toBe(true);
+    expect(JSON.stringify(cookNow(have, c, { portions: 4, storeIds: ['demoA'] }))).toBe(JSON.stringify(r));
   });
 });

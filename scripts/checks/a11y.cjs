@@ -59,6 +59,29 @@ const unnamed = (p) => p.evaluate(() => {
       await p.getByRole('tab', { name: t }).click(); bad = await unnamed(p);
       ok(bad.length === 0, `${w}px ${t}: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk(t);
     }
+    // Matskap → Lag nå: navn, overflyt, tom tilstand som status, avkrysning og «bruk snart» med tastatur, 44 px trykkflater
+    await p.getByRole('tab', { name: 'Matskap' }).click();
+    await p.getByRole('button', { name: /Lag nå/ }).first().click();
+    ok(await p.getByRole('heading', { level: 1, name: 'Lag nå' }).count() === 1, `${w}px Lag nå: overskrift`);
+    ok(await p.getByRole('button', { name: /Lag nå/, pressed: true }).count() === 1, 'Lag nå-valget har aria-pressed');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Lag nå (tom): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Lag nå (tom)');
+    ok(await p.getByRole('status').filter({ hasText: 'Ingen varer er krysset av' }).count() === 1, 'Lag nå: tom tilstand er et status-område');
+    await p.getByRole('combobox', { name: 'Legg til vare' }).selectOption({ label: 'Egg' });
+    await p.getByRole('spinbutton', { name: /^Mengde i stykk/ }).fill('8');
+    await p.getByRole('button', { name: '＋ Legg til' }).click();
+    await p.getByRole('combobox', { name: 'Legg til vare' }).selectOption({ label: 'Ost' });
+    await p.getByRole('button', { name: '＋ Legg til' }).click();
+    const soonBtn = p.getByRole('button', { name: 'Egg må brukes snart' }); await soonBtn.focus(); await p.keyboard.press('Enter');
+    ok(await soonBtn.getAttribute('aria-pressed') === 'true', 'Lag nå: «bruk snart» kan slås på med tastatur (aria-pressed)');
+    ok(await p.getByRole('article').count() > 0, 'Lag nå: forslag vises som artikler med overskrift');
+    ok(await p.getByRole('checkbox', { name: 'Egg' }).isChecked(), 'Lag nå: avkrysningsboks har varenavn');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Lag nå (forslag): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Lag nå (forslag)');
+    const smallLn = await p.evaluate(() => [...document.querySelectorAll('.haverow input[type=checkbox], .haveopts .pill.pick, .cooksugg .ghost')].filter((e) => e.getClientRects().length).map((e) => { const el = e.closest('label') ?? e; const r = el.getBoundingClientRect(); return { c: e.className || e.tagName, h: r.height }; }).filter((r) => r.h < 43.5));
+    ok(smallLn.length === 0, `${w}px Lag nå: trykkflater minst 44 px høye ${JSON.stringify(smallLn.slice(0, 3))}`);
+    const addBtn = p.getByRole('button', { name: /^Legg manglende for / }).first();
+    if (await addBtn.count()) { await addBtn.click(); ok(await addBtn.isDisabled(), 'Lag nå: «Legg manglende på handlelista» kan ikke legge samme varer inn to ganger'); }
+    await p.getByRole('button', { name: 'Nullstill valgene her' }).click();
+    await p.getByRole('button', { name: /Matskapet/ }).first().click();
     await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Kontroll' }).click();
     bad = await unnamed(p); ok(bad.length === 0, `${w}px Kontroll: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Kontroll');
     // Handleliste: avkrysning med tastatur og tilgjengelig navn, handlemodus med 44 px trykkflater

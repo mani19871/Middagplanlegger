@@ -14,6 +14,7 @@ import OfferTotalNote from './OfferTotalNote';
 import type { OfferTotal } from '../engine/offerTotal';
 import { ChangePill, ChangeSheet, ChangesNote, DriftBanner, HistoryView, markable, SkippedLines, VersionConflictBanner, type ChangeKit } from './ListChanges';
 import { changeBlocked, versionsFor, type AdjustedBasket, type AdjustedLine } from '../engine/substitution';
+import { COOK_NOW_PREFIX } from '../engine/cookNow';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; record: (...e: InventoryEvent[]) => void; week: string;
@@ -60,7 +61,46 @@ export default function ListView({ state, update, record, week, basket, offerTot
   const purchases = useMemo(() => lineStates(state.inventory).purchases, [state.inventory]);
   const purchaseOf = (l: BasketLine) => purchases.get(purchaseLineId(week, l.storeId, l.ingredient, l.productId));
   const isBought = (l: BasketLine) => { const p = purchaseOf(l); return !!p && p.status !== 'angret'; };
-  if (state.slots.length === 0) return <><h1 className="page">Handleliste</h1><section className="card"><p>Lag en ukeplan først.</p></section></>;
+  // Hver avkrysning lagres med egen identitet. Å fjerne et kryss fjerner bare kryssene du har sett (src/sync/list.ts).
+  const toggle = (key: string) => update((s) => recordList(s, toggleEvent(s.list, week, key, stamp())));
+  const checkLabel = (name: string, key: string) => {
+    const m = marks.get(key);
+    return m && m.length > 0 ? `${name}, avkrysset av ${whoList(state, m.map((x) => x.by))}. Trykk for å fjerne krysset` : `Kryss av ${name}`;
+  };
+  const who = (key: string) => {
+    const m = marks.get(key);
+    return m && m.length > 0 ? <small className="who">✓ Avkrysset av {whoList(state, m.map((x) => x.by))}</small> : null;
+  };
+  // Manuelle linjer: fra kundeaviser og fra «Lag nå». Ikke kontrollert og ikke med i beregnet sum.
+  const manualGroup = (title: string, ms: typeof manual) => ms.length > 0 && (
+    <section key={title}>
+      <div className="deptbar"><strong>{title}</strong></div>
+      <ul className={`list ${shop ? 'shop' : ''}`}>
+        {ms.map((m) => (
+          <li key={m.id} className={isChecked(m.id) ? 'done' : ''}>
+            <input type="checkbox" aria-label={checkLabel(m.text, m.id)} checked={isChecked(m.id)} onChange={() => toggle(m.id)} />
+            <span className="main"><b>{m.text}</b><small>{m.note} · ikke med i beregnet sum</small>{who(m.id)}</span>
+            <button className="x" aria-label={`Fjern ${m.text}`} onClick={() => recordL({ type: 'manuell-fjern', ...stamp(), lineId: m.id })}>✕</button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+  const manualSection = (
+    <>
+      {manualGroup('🍳 Fra «Lag nå» (ikke kontrollert)', manual.filter((m) => m.id.startsWith(COOK_NOW_PREFIX)))}
+      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX)))}
+    </>
+  );
+  if (state.slots.length === 0) {
+    return (
+      <>
+        <h1 className="page">Handleliste</h1>
+        <section className="card"><p>Lag en ukeplan først.</p></section>
+        {manualSection}
+      </>
+    );
+  }
   if (kit && history) return <HistoryView kit={kit} onBack={() => setHistory(false)} />;
   const oosButton = (l: BasketLine) => kit && (
     <button className="ghost sm oos" aria-label={`Utsolgt eller fant ikke: ${l.name}`} onClick={() => setOos(l as AdjustedLine)}>Utsolgt / fant ikke</button>);
@@ -94,16 +134,6 @@ export default function ListView({ state, update, record, week, basket, offerTot
     );
   }
 
-  // Hver avkrysning lagres med egen identitet. Å fjerne et kryss fjerner bare kryssene du har sett (src/sync/list.ts).
-  const toggle = (key: string) => update((s) => recordList(s, toggleEvent(s.list, week, key, stamp())));
-  const checkLabel = (name: string, key: string) => {
-    const m = marks.get(key);
-    return m && m.length > 0 ? `${name}, avkrysset av ${whoList(state, m.map((x) => x.by))}. Trykk for å fjerne krysset` : `Kryss av ${name}`;
-  };
-  const who = (key: string) => {
-    const m = marks.get(key);
-    return m && m.length > 0 ? <small className="who">✓ Avkrysset av {whoList(state, m.map((x) => x.by))}</small> : null;
-  };
   const resetChecks = () => update((s) => {
     const cur = checks(s.list, week);
     return recordList(s, ...[...cur].map(([key, m]) => ({ type: 'avkryss' as const, ...stamp(), week, key, seen: m.map((x) => x.id) })));
@@ -167,20 +197,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
       {kit && <SkippedLines basket={basket as AdjustedBasket} kit={kit} />}
       {kit && <button className="ghost" onClick={() => setHistory(true)}>🕘 Endringer i listen ({versionsFor(kit.history, week).length})</button>}
       {sheet}
-      {manual.length > 0 && (
-        <section>
-          <div className="deptbar">🏷 <strong>Fra kundeaviser (ikke kontrollert)</strong></div>
-          <ul className={`list ${shop ? 'shop' : ''}`}>
-            {manual.map((m) => (
-              <li key={m.id} className={isChecked(m.id) ? 'done' : ''}>
-                <input type="checkbox" aria-label={checkLabel(m.text, m.id)} checked={isChecked(m.id)} onChange={() => toggle(m.id)} />
-                <span className="main"><b>{m.text}</b><small>{m.note} · ikke med i beregnet sum</small>{who(m.id)}</span>
-                <button className="x" aria-label={`Fjern ${m.text}`} onClick={() => recordL({ type: 'manuell-fjern', ...stamp(), lineId: m.id })}>✕</button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {manualSection}
       <p className="fine">Avkrysninger lagres på enheten og virker uten nett. I en delt husstand ser alle voksne hvem som har krysset av, og
         endringer gjort uten nett sendes når enheten er på nett igjen. «Marker som handlet» lagrer et kjøp i matskapet, også uten nett.
         Et kjøp registreres én gang selv om det trykkes to ganger eller to voksne markerer samme vare; er dere uenige om antall, må det bekreftes.
