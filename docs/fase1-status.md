@@ -1,0 +1,118 @@
+# Fase 1: uavhengig kontroll mot godkjenningskriteriene
+
+Kontrollert 2026-11-22 på branch `claude/middagsplanner-app-wwuq1p`. Kontrolløren skriver bare dette dokumentet, tester i `src/acceptance/` og (etter melding) små motorrettinger; produksjonskode utenfor `src/engine/` er ikke endret.
+
+**«Oppfylt» betyr at en test eller en kjøring som kan gjentas beviser det, ikke at koden finnes.** Alt som krever ekte prisdata, kvitteringer eller ekte brukere står som «ikke testbart uten ekte data». Alle priser, butikker og aviser i appen er demodata (regel 5), så ingen av prismålene i planen er målt.
+
+## Kjøringer
+
+| Kjøring | Resultat |
+| --- | --- |
+| `npx tsc --noEmit` | grønn |
+| `npx vitest run` | 21 filer, 281 bestått, 1 forventet feil (`it.fails`), 5 `todo`. 126 av testene ligger i `src/acceptance/` |
+| `npx vite build` | grønn (45 moduler, 323 kB JS / 100 kB gzip) |
+| Server (`NODE_USE_ENV_PROXY=1 npx tsx server/index.ts` etter bygg) | Startet. `/api/offers` var «loading» i ca. 30–60 s, deretter ble 87 ekte Tjek-tilbud koblet til varer. Stier utenfor `dist/` kan ikke leses (prøvd med `--path-as-is` og kodede punktum) |
+| Playwright, 420 px bred, Chromium | Se «Nettleserkjøring». Ingen konsollfeil utenom forventet `ERR_INTERNET_DISCONNECTED` under offline-testen |
+
+## Matrise: godkjenningskriterier
+
+Status: **oppfylt** / **delvis** / **ikke oppfylt** / **ikke testbart uten ekte data**.
+
+### Fase 0 (bare for sammenheng; porten er ikke min oppgave)
+`phase0/RESULTS.md` rapporterer «delvis»: Kassalapp-importen og Tjek-dekningen er målt, men kjedeavtaler og kundeavisrettigheter er ikke startet. Ingen ferske priser fra Rema 1000 og Coop, og Kiwi bare for 5 av 24 varer. Porten er derfor ikke passert for «ti prøvekurver mot faktiske kjøp» og «tillatt visningsmåte per avis». Fase 1 bygges likevel, som planlagt for en demo, men ingen prisløfter kan gis.
+
+### Fase 1 – familieversjon
+
+| Kriterium | Status | Bevis | Mangler |
+| --- | --- | --- | --- |
+| Alle varer har synlig prisstatus | **oppfylt** | `fase1.test.ts` «alle varer har synlig prisstatus» (8 innstillingsscenarier × 3 butikkvalg: gyldig status, kilde og dato når pris er kjent, `ukjent` ⇒ ingen pris). `prisstatus-ui.test.tsx`: server-rendret handleliste har statusetikett på hver `<li>` (ordinær/estimert/tilbud/ukjent), ukeplanen viser «Anslått … innenfor/over», «N estimert · N ukjent pris» og «Ufullstendig prisgrunnlag» med varene som mangler. Nettleser: 11 av 11 handlelinjer hadde status; detaljvisningen viste «Ordinær pris», kilde og observasjonsdato | Geografisk omfang vises ikke per linje (butikknavn vises, omfang «utsalg/region/kjede» bare i «Rediger uke»). Manuelle linjer fra aviser er merket «ikke kontrollert», ikke med prisstatus (bevisst). Skjermleserlesing er ikke verifisert av meg (opprydding/tilgjengelighet-økta eier det) |
+| To retter som deler én pakning gir én handlelinje | **oppfylt** | `fase1.test.ts`: alle 528 par av katalogens 33 retter gir én linje per vare, begge retter i `covers`, behov = sum før avrunding, pakker = ⌈sum / pakning⌉; deling er aldri dyrere enn separate kurver. Eksisterende: `planner.test.ts` «delt pasta», `inventory.test.ts` «delt rispose» | – |
+| Tre beregninger med samme inndata og prisversjon gir lik kurv, sum og begrunnelse | **oppfylt** for motoren | `fase1.test.ts`: plan, alternativer, budsjettsvar, tilbudssum, bytteforslag og budsjettforslag, 3 kjøringer × 8 scenarier, byte-identisk `JSON.stringify`; også etter JSON-rundtur av inndata og med omvendt rekkefølge på alle katalogtabeller; inndata endres aldri | I appen blir inndata ikke de samme mellom kjøringer, fordi live-tilbud og beholdning endrer seg (se «Prisgrunnlag lagres ikke») |
+| Rettbytte bevarer låste retter | **delvis** | `fase1.test.ts`: et bytte rører bare den dagen; låste retter er uendret; bytteforslag foreslår aldri en rett som en annen dag bruker; «Lag ny uke» beholder byttet og alle låste, stabilt over runder (også med tilbud og beholdning); budsjettforslag rører aldri låste. Nettleser: byttet rett fikk 🔒 og var uendret etter «Lag ny uke» | **Hull:** en låst rett som bryter et allergen eller kost som aktiveres senere, blir liggende (`it.fails` i `fase1.test.ts`; se funn 2). En låst rett på en dag som slås av, forsvinner stille |
+| Planlegge, endre, handle offline og komme tilbake på nett uten doble kjøp | **delvis** | Nettleser: service worker registrert; med nettet av ble siden lastet på nytt, handlelisten (11 linjer) vistes, avkryssing og «Marker som handlet» virket, og lagret tilstand var uendret etter innlasting og ny tilkobling (11 hendelser, 11 unike id-er). `fase1.test.ts`: lagring→innlasting er idempotent, gjentatt kjøp gir én rad i logg og utboks, 50 tilfeldige rekkefølger og dubletter gir lik beholdning. `inventory.test.ts`: frakoblet enhet, feilet levering, tapt kvittering | Det finnes ingen server eller transport for hendelser (`src/sync/queue.ts` har bare grensesnittet; utboksen vokser). «Komme tilbake på nett» er derfor bare bevist mot en tenkt minneserver, ikke ende til ende, og to ekte enheter er aldri prøvd sammen. Å planlegge på nytt offline er ikke prøvd i nettleser. Første besøk må skje på nett |
+
+### Fase 2 – priset kurv
+
+| Kriterium | Status | Bevis | Mangler |
+| --- | --- | --- | --- |
+| En kurv med ukjent pris vinner aldri butikksammenligningen | **oppfylt** | `fase2.test.ts` (8 tester): ufullstendig kombinasjon med latterlig lav sum blir aldri valgt; ufullstendig vanlig butikk kåres ikke billigst og gir ingen «du sparer»; begge ufullstendige ⇒ ingen vinner; delsum under budsjettet gir fortsatt «Ufullstendig prisgrunnlag»; bytteforslag med ukjent pris havner sist; alle 33 retter. Eksisterende: `planner.test.ts`, `allergens.test.ts` | – |
+| Utløpte, utilgjengelige og geografisk feil rabatter gir ingen rabatt | **delvis** | Utløpt/kommende (handledagen avgjør, grensedatoer inkludert): `fase2.test.ts`, `deals.test.ts`, `offerTotal.test.ts`, `offers.test.ts`. Utilgjengelig (uten pris, mengde, feil enhet, ikke regelgodkjent, ikke heltall i øre, allergifilter, «tilbud av»): `fase2.test.ts`. Utløpt katalogpris (`PriceObs.validUntil`) brukes ikke lenger på handledagen: `fase2.test.ts` (rettet i `planner.ts` etter min melding; testen viser at siste gyldige dag fortsatt gjelder) | **Geografisk feil: ikke oppfylt.** `OfferHint` har ingen butikk, kjede eller område, så et regelgodkjent tilbud fra hvilken som helst kjede senker «Med kontrollerte tilbud»-summen og flytter valget av middager (`it.todo` i `fase2.test.ts`). I nettleseren sto «laks hos MENY» og «reker hos Price Lagerbutikk» som tilbud i en plan for «Demo Nærbutikk». «Utilgjengelig» i betydningen utsolgt er utsolgt-økta sitt område (`substitution.ts`, pågår) |
+| Prisreglene kan gjenskapes fra en lagret uke | **delvis** | `fase2.test.ts`: innstillinger, plan, tilbud, handledag og beholdning lest tilbake fra JSON gir byte-identisk kurv, sum, budsjettsvar og tilbudssum; hver linje bærer behov, pakke, pris, status, kilde, dato og dekte retter | **Prisgrunnlag lagres ikke:** `AppState` har bare `settings` og `slots`. Tilbud, handledag og beholdning leses på nytt hver gang, og katalogprisene ligger i koden, så en eldre uke kan ikke gjenskapes i appen etter at noe av dette endres. Planens punkt 8 («lagre planversjon med prisgrunnlag og regelversjon») er ikke gjort i appen; `substitution.ts` har begynt på planversjoner, men er ikke vurdert her |
+| En avbrutt eller gjentatt kjøpsbekreftelse dobler ikke beholdningen | **oppfylt** på logikknivå | `inventory.test.ts` (samme kjøp to ganger, tapt kvittering, rekkefølge), `fase1.test.ts` (tilfeldige rekkefølger og dubletter), `store.test.ts` | Ingen ekte mottaker (se offline) |
+| ≥ 90 % ferskt prisede linjer og ≤ 5 % median avvik mot kassakjøp | **ikke testbart uten ekte data** | `it.todo` i `fase2.test.ts`. Fase 0 fant ingen ferske priser for Rema og Coop (eldste 929 dager) og målte ikke avvik mot kvittering | Prisavtale for minst én av Rema 1000, Kiwi og Coop, eller pilotområder der de dekkede kjedene dominerer; kvitteringer |
+| Brukerne finner lokal avis, bruker et tilbud i planen og besøker butikk nummer to | **ikke testbart uten ekte data** | `it.todo`. Flyten finnes og ble klikket gjennom (se under) | Pilot |
+
+### Fase 3 og 4
+Ikke vurdert: de er utenfor omfanget i CLAUDE.md.
+
+## Matrise: regler 1–8 i CLAUDE.md
+
+| Regel | Status | Bevis | Mangler / merknad |
+| --- | --- | --- | --- |
+| 1. Motoren er ren og deterministisk | **oppfylt** | `regler.test.ts` skanner hver fil i `src/engine/` (utenom tester): ingen `Date`, `Math.random`, `fetch`, `crypto`, lagring, miljøvariabler, tidtakere eller nettleser-API, og de importerer bare andre motorfiler (mutasjon med `Date.now()` ga rødt). Determinisme: se fase 1. Beløp er heltall i øre | Skanningen er en stikkprøve på tekst. `server/index.ts` og `store.ts` bruker klokke og tilfeldighet, men ligger utenfor motoren som det skal |
+| 2. Hver pris har kilde, omfang, dato og status; historisk pris blir aldri dagens tilbud | **delvis** | `regler.test.ts`: alle katalogpriser har kilde, ISO-dato, status, butikk med omfang; «tilbud» krever utløpsdato. Utløpt tilbud brukes ikke (rettet). UI viser «anslått», «ikke en garanti for sluttpris» | Omfanget ligger på butikken, ikke på prisen, og vises ikke på handlelinjen. Utløpt tilbud gir `ukjent`, ikke en gammel pris |
+| 3. Ukjent pris vinner aldri; svaret «Ufullstendig prisgrunnlag» | **oppfylt** | Se fase 2. `prisstatus-ui.test.tsx` viser at teksten står i ukeplanen | – |
+| 4. Allergener: aldri garanti; uavklart godkjennes aldri; absolutte krav filtrerer, preferanser rangerer | **delvis** | `allergens.test.ts` (hver av 14 allergener i 7-dagers plan, flere samtidig, uavklart status, tilbud slår aldri allergi), `catalog.test.ts`. `regler.test.ts`: setning for setning står «garant», «allergenfri», «sluttpris» og «billigste» bare i benektende setninger (mutasjon ga rødt) | **Brudd:** en låst rett overstyrer et senere krav (funn 2). Nedlastede tilbudsvarer er alltid uavklart og blokkeres ved aktivt filter (bra, testet). Katalogens allergendata er forenklet demodata, ikke ekte |
+| 5. Demodata er merket | **oppfylt** | `regler.test.ts`: `DEMODATA` i filhodene, alle butikker/aviser heter «Demo …», alle priser har kilde «Demodata», banneret står i `App.tsx`, avisfanen heter «Aviser (demo)». Nettleser: banner synlig på alle faner | **Blandet i visningen:** «Tilbud nå» viser ekte Tjek-tilbud (MENY, Coop, Price …) ved siden av demobutikker og demopriser. Fanen sier «Kilde: Tjek», men demomerknaden gjelder da bare resten |
+| 6. Bare avtalte kilder; ikke hent aviser selv | **delvis** | `regler.test.ts`: `fetch` bare i `src/offers/client.ts` og `server/index.ts`; eneste eksterne verter er Tjek og Matvaretabellen (byggeskript); serveren skriver ingenting til disk | Tjek-godkjenningen er ikke dokumentert i `phase0/tjek-avtale.md`, bare opplyst. Det er bare live-visning i minnet, som CLAUDE.md sier. Avissidene og «Les hos kjeden» er ikke bygd (knapp deaktivert) |
+| 7. Personvern, ingen hemmeligheter | **delvis** | `regler.test.ts`: ingen kjente nøkkelformater, `.env`/nøkkelfiler er ikke sporet, miljøvariabler leses ikke i `src/`, ingen geolokasjon, lagret tilstand har bare etikett, porsjon og dager (+ postnummer, tomt fra start), ingen personfelt. `PlanForm.tsx:88` råder nå til etiketter, ikke navn | Etikettfeltet er fortsatt fritekst, så barnenavn kan skrives (kontrollerer ikke). Enhets-id (`crypto.randomUUID`) lagres i `localStorage`; det er ikke persondata, men bør nevnes i personvernteksten. «Slett lokale data» finnes (`localStorage.clear()`) men er bare synlig etter at en plan finnes |
+| 8. Importer og kjøpsbekreftelser tåler dobbelt mottak | **oppfylt** på logikknivå | `inventory.test.ts`, `store.test.ts`, `fase1.test.ts`, `rules.test.ts` («samme regel to ganger gir én rad») | Tilbudsimport lagres ikke. Ingen ekte mottaker for kjøp |
+
+## Nettleserkjøring (420 px, Chromium, bygg + server)
+
+Flyt og det jeg så:
+1. **Forside uten plan** («Planlegg uka»): skjema for hvem som spiser, budsjett, dager, tid, butikk, «Flere valg». Demodata-banner øverst.
+2. **«Lag ukeplan»**: fem dagkort med rett, tid, porsjoner og «På tilbud»-linje. Sammendrag: «655 kr · Anslått innenfor budsjett · margin 245 kr · 1 butikk · 0 estimert · 0 ukjent pris» og «Anslått pris, ikke en garanti for sluttpris».
+3. **Bytt rett**: dialogen viser dagens rett, fremgangsmåte, næring, «Lås», «Reserver ekstra porsjon» og alternativer med «+20 kr på handelen». Valgte «Omelett» → raden fikk 🔒. «Lag ny uke» beholdt den.
+4. **Velg handletur**: «Én butikk 490 kr» mot «To butikker 434 kr», «Du sparer 56 kr med et ekstra stopp», terskel, og «Laveste beregnede pris blant sammenlignede alternativer, ikke en garanti».
+5. **Handleliste**: gruppert per butikk og avdeling, hver linje med pakning, mengde, pris og prisstatus; «Marker alt her som handlet (10)». Etter markering: 10 kjøp i logg og utboks.
+6. **Detalj («Hvorfor 30 kr?»)**: pakker × pris, behov, til overs, hvilke retter den dekker, butikk, «Ordinær pris», «Kilde: Demodata, observert 2026-11-17. Prisen er anslått».
+7. **Matskap**: «Bekreftet hjemme» (tom), «Kjøpt (ikke brukt)» (10 linjer), «Forventet rest» med «Bekreft rest», «Marker som laget», «Kan lages med det du har».
+8. **Kundeaviser**: «Tilbud nå» (87 ekte Tjek-tilbud, «Kilde: Tjek. Lest …»), «Aviser (demo)» med to demoutgaver i denne uka, og utgavevisning. «Kontroll»-fanen (redaktør) åpnet.
+9. **Offline**: service worker aktiv; lasting uten nett, avkryssing og kjøp virket; ingen dubletter etter ny tilkobling.
+
+Funn fra kjøringen:
+- «Tilbud nå» viser alle 87 tilbud i én lang liste (siden er ca. 11 000 px høy) og har **28 px horisontal overflyt** på 420 px. De andre fanene har ingen overflyt.
+- Ukeplanen setter «På tilbud: …» for tilbud fra kjeder som ikke er husstandens butikker (se geografisk hull).
+- Å trykke på den aktive fanen («Kundeaviser») nullstiller ikke en åpen utgave, så «Kontroll» ligger bak «Tilbake».
+- Ikke prøvd av meg: sammenlignet to enheter, bytte av område/postnummer ut over feltet, skjermleser.
+
+## Funn (fil og linje)
+
+1. **Utløpt katalogpris ble brukt som «tilbud»** (`src/engine/planner.ts`, `bestOffer`, regel 2). **Rettet** av en annen økt etter min melding: `if (ctx.shopDate && obs.validUntil && obs.validUntil < ctx.shopDate) continue;`. Gir nå `ukjent` etter siste gyldige dag, så demolaksen blir «ufullstendig» fra 24.11. Testet i `fase2.test.ts`.
+2. **Låst rett overstyrer senere allergi- eller kostkrav** (`planner.ts:174–176`, `generatePlan` legger alle `locked` inn uten `eligibleRecipes`; `WeekView.tsx` låser hver rett brukeren bytter til). Kurven blir «ufullstendig» (den bruddvarens linje får ukjent pris), men retten står i planen og er ikke merket. Ikke rettet; avventer produktvalg (slippe ut låsen, eller varsle). Reproduksjon: `it.fails` i `fase1.test.ts`. En låst rett på en dag som slås av (`planner.ts:176`) forsvinner stille.
+3. **Tilbud har ingen butikk eller område** (`src/engine/deals.ts` `OfferHint`, `offerTotal.ts` `usableHint`). Alle regelgodkjente tilbud teller uansett kjede. Gjelder planlegging (`dealsFor`) og «Med kontrollerte tilbud».
+4. **Prisgrunnlag lagres ikke med uka** (`src/store.ts` `AppState`).
+5. **Handleliste uten sync-server** (`src/sync/queue.ts`): utboksen blir aldri sendt; `store.ts` utboks vokser uten tak.
+6. **Etikettfelt er fritekst** (`PlanForm.tsx:~87`): hjelpeteksten er lagt til, men feltet hindrer ikke barnenavn.
+7. **Manuelle avislinjer** får id `m${s.manual.length}-${tekst}` (`PapersView.tsx:64`): etter sletting og ny linje med samme tekst kan to linjer få samme id og avkrysning.
+8. **Ingen språkbrudd funnet**: ingen «garantert», «allergenfri» eller «sluttpris» uten benektelse (skannet).
+9. **Ingen hemmeligheter, ingen `Date`/`Math.random`/nettverk i motoren, ingen geolokasjon** (skannet; se regel 1 og 7).
+10. Brukernes `localStorage` har nøkkelen `middag-state-v1`; migrering fra `settings.pantry` er idempotent (`store.test.ts`). Ny, inkompatibel tilstand ville trenge en versjon (ingen i dag utenom nøkkelnavnet).
+
+## Prioritert liste
+
+**Må fikses før en pilot**
+- Tilbud må knyttes til husstandens butikker eller område (funn 3), ellers får brukeren tilbud fra kjeder hen ikke handler i, og kriteriet om geografisk feil rabatt er ikke oppfylt.
+- Låst rett vs. allergi/kost (funn 2): produktbeslutning og fiks. Det gjelder regel 4 (helse).
+- Ekte prisdata for minst én av Rema 1000, Kiwi og Coop, eller snevre inn løftet (fase 0-porten). Uten det kan 90 %-målet aldri måles.
+- Skriftlig Tjek-avtale i `phase0/tjek-avtale.md`; til da bare live-visning i minnet.
+- Sync-server for kjøpshendelser (funn 5), eller si tydelig i appen at deling mellom enheter ikke virker ennå. Fase 1-kriteriet om offline og tilbake på nett er ellers ikke ende-til-ende.
+- Personvern: tekst om enhets-id og lokal lagring; DPIA-vurdering før ekte husstander (se `docs/personvern/`).
+
+**Bør fikses**
+- Lagre prisgrunnlag, handledag, tilbud og regelversjon sammen med uka (funn 4), så en rapportert feil kan gjenskapes.
+- «Tilbud nå»: paginering eller grense, og rett 28 px overflyt på 420 px.
+- Vis omfang (utsalg/region/kjede) og «anslått» på hver handlelinje og i detaljvisningen.
+- Merk ekte Tjek-tilbud og demopriser tydeligere som ulike kilder i samme skjerm.
+- Nullstill åpen utgave når brukeren trykker på den aktive fanen; unik id for manuelle linjer (funn 7).
+- La «Slett lokale data» være synlig også før første plan.
+
+**Kan vente**
+- Avissider og «Les hos kjeden» (avhenger av avtaler, fase 0).
+- Versjonering av lagret tilstand.
+- Skjermleser- og tastaturtest av hele flyten (opprydding/tilgjengelighet-økta).
+- Test på to ekte enheter når sync finnes.
+
+## Hvordan kjøre kontrollen på nytt
+`npx tsc --noEmit && npx vitest run && npx vite build`. Nettleserflyten er ikke en sjekket inn test (Playwright er ikke avhengighet i repoet); stegene over kan gjentas manuelt på 420 px mot `npx tsx server/index.ts` etter bygg.
