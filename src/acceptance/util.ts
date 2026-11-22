@@ -5,7 +5,8 @@ import type { OfferHint } from '../engine/deals';
 import type { Ctx } from '../engine/planner';
 import type { Catalog, Ingredient, PriceObs, Product, Recipe, Settings, Slot, Store } from '../engine/types';
 
-export const SHOP_DAY = '2026-11-24';
+/** Handledag der demokatalogens laksetilbud (til 2026-11-23) fortsatt gjelder. */
+export const SHOP_DAY = '2026-11-23';
 export const slot = (day: number, recipeId: string, locked = false, extra?: number): Slot =>
   ({ day, recipeId, locked, ...(extra ? { extra, extraFor: day + 1 } : {}) });
 export const settings = (over: Partial<Settings> = {}): Settings => ({ ...defaultSettings, ...over });

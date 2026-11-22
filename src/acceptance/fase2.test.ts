@@ -98,7 +98,7 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
   });
   it('utløpt og kommende tilbud påvirker verken summen eller rangeringen av middager', () => {
     const lakseris = catalog.recipes.find((r) => r.id === 'lakseris')!;
-    for (const h of [hint({ validUntil: '2026-11-23' }), hint({ validFrom: '2026-11-25', validUntil: '2026-11-30' })]) {
+    for (const h of [hint({ validFrom: '2026-11-15', validUntil: '2026-11-22' }), hint({ validFrom: '2026-11-25', validUntil: '2026-11-30' })]) {
       expect(total(h).savingOre).toBe(0);
       expect(recipeDeals(lakseris, 0.8, catalog.ingredients, [h], SHOP_DAY).lines).toEqual([]);
     }
@@ -130,13 +130,15 @@ describe('F2: utløpte, utilgjengelige og geografisk feil rabatter gir ingen rab
     expect(JSON.stringify(alternatives(plan, c1))).toBe(JSON.stringify(alternatives(plan, c0)));
   });
 
-  // ---- Kjente hull (reproduksjoner). `it.fails` består så lenge hullet finnes og slår ut når det er rettet. ----
-  // Tidligere kjent hull, rettet i planner.ts (bestOffer hopper over priser med utløpt gyldighet).
-  it('utløpt katalog-tilbud (PriceObs.validUntil < handledagen) brukes ikke lenger som «tilbud»-pris', () => {
-    // Demodata: laks i butikk A er «tilbud» til 2026-11-23. Handledag 2026-12-10: tilbudet er utløpt.
-    const b = buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2026-12-10' }));
-    const l = b.lines.find((x) => x.ingredient === 'laks')!;
-    expect(l.status).not.toBe('tilbud');
+  // ---- Rettet hull og kjente hull. ----
+  it('utløpt katalog-tilbud (PriceObs.validUntil < handledagen) brukes ikke som dagens pris (rettet i planner.ts etter melding fra kontrollør)', () => {
+    // Demodata: laks i butikk A er «tilbud» til og med 2026-11-23.
+    const priceOn = (day: string) => buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: day })).lines.find((x) => x.ingredient === 'laks')!;
+    expect(priceOn('2026-11-23').status).toBe('tilbud'); // siste gyldige dag
+    const expired = priceOn('2026-11-24');
+    expect(expired.status).toBe('ukjent'); // aldri «tilbud», og ikke stilltiende en annen pris
+    expect(expired.costOre).toBeNull();
+    expect(buildBasket([slot(0, 'lakseris')], ['demoA'], ctx({}, { shopDate: '2026-11-24' })).complete).toBe(false);
   });
   it.todo('HULL: tilbud fra en kjede/region som ikke dekker husstandens butikker gir ingen rabatt (OfferHint har ingen butikk eller område)');
 });
