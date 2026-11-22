@@ -34,7 +34,7 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Forventet rest (`pantry.ts`) er aldri beholdning. Bare bekreftet hjemme (`telling`, bekreftet `rest`) og kjøpt-ikke-brukt trekkes fra behovet, via `Ctx.stock` = `deriveStock(log, { planWeek })`. Ukas egne kjøp, «laget» og rester holdes utenfor ukas egen kurv, og hendelser etter ukas første kjøp gjelder neste handel.
 - Kjøp har linje-id (uke, butikk, vare, produkt): to voksne på samme linje gir ett kjøp. Ulikt antall fra ulike enheter er `konflikt`, teller ikke og må bekreftes med `løs`. En bekreftet rest er total mengde igjen etter ukas middager og erstatter ukas kjøp og forbruk av varen.
 - En kjøpt pakke betyr ikke at retten er laget; forbruk registreres bare med `laget` (mengder fra `slotUses`).
-- Utboksen (`src/sync/queue.ts`) lagres lokalt; det finnes ingen server for hendelser ennå. En mottaker må være idempotent på id.
+- Utboksen (`src/sync/queue.ts`) lagres lokalt og leveres til synk-serveren når enheten er med i en husstand. En mottaker må være idempotent på id.
 
 ## Utsolgt / fant ikke og planversjoner (`src/engine/substitution.ts`)
 - Brukerens valg i butikken er en egen idempotent hendelseslogg (`erstatt`, `fant-ikke`, `angre-endring`), nøkkel (uke, butikk, vare, utsolgt produkt); siste valg etter (at, id) gjelder. Basiskurven endres aldri; `applyChanges` legger valgene oppå.
@@ -42,3 +42,11 @@ Landsdekkende norsk middagsplanlegger: ukeplan, én handlekurv, anslått pakning
 - Hver endring og godkjenning lagres som ny `PlanVersion` med årsak; eldre versjoner endres aldri (opprinnelig anslag, også utløpt tilbud, står igjen). En godkjent liste holder på produktene sine (`activePin`); nye priser vises som avvik (`priceDrift`) til brukeren velger «Bruk nye priser» eller «Behold godkjent liste».
 - Planmotoren bruker aldri en pris med `validUntil` før handledagen (utløpt tilbud).
 
+## Synk og husstand (`src/sync/`, `server/sync/`, `server/storage/`; se `docs/synk.md`)
+- Offline først: skriv alltid lokalt (hendelse + utboks, eller dokumentfelt i `AppState`), aldri direkte til serveren. Appen skal virke uten server.
+- Ingen siste-skriving-vinner. Delt data er enten idempotente hendelser (beholdning, handleliste) eller versjonerte dokumenter med tre-veis fletting og eksplisitt konflikt (plan, innstillinger). Ny delt data må passe inn i en av de to modellene.
+- Avkrysning lagres per person (`by`); «fjern kryss» fjerner bare kryss enheten har sett. `by` er enhetens offentlige id; serveren avviser hendelser som utgir seg for et annet medlem.
+- Identitet uten passord/e-post: enhetstoken (bare sha256 på serveren), engangsinvitasjon med utløp. Etiketter, ikke navn.
+- Synkes aldri: postnummer, kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`; mulige helseopplysninger), tilbud fra Tjek. Serveren avviser ukjente felt.
+- Alle endepunkter: autentisering avgrenset til husstanden, ratebegrensning, størrelses- og lengdegrenser, norske feilkoder. Ny lagring implementerer `SyncStorage` (PostgreSQL senere).
+- Endringer i synk krever test i `server/sync/api.test.ts` eller `src/sync/engine.test.ts`.

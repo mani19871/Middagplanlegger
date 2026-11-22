@@ -175,7 +175,9 @@ Porten bindes til `127.0.0.1` så bare en proxy på samme maskin (f.eks. Caddy) 
 | Miljøvariabel | Standard | Status |
 | --- | --- | --- |
 | `PORT` | `8787` | I bruk. Porten serveren lytter på. |
-| `DATA_DIR` | `/data` | **Reservert, ikke i bruk ennå.** Katalogen (montert som volum) der synk-serveren skal lagre databasefilen. Navnet må avstemmes med synk-løsningen i `server/` når den er ferdig. |
+| `DATA_DIR` | `/data` | I bruk. Katalogen (montert som volum) der synk-serveren lagrer `middag.sqlite`. Uten volum forsvinner husstandene når containeren byttes. `SYNC_DB` overstyrer hele stien. Se `docs/synk.md`. |
+| `SYNC_SECRET` | tilfeldig per start | Hemmelighet for invitasjonskoder (HMAC). Mangler den, slutter aktive invitasjoner å virke ved omstart. Send den inn som hemmelighet (som `KASSALAPP_TOKEN` under), aldri i Dockerfile eller git. |
+| `TRUST_PROXY` | ikke satt | `1` når serveren står bak en egen reverse proxy (Caddy), så ratebegrensningen bruker klientens IP fra `X-Forwarded-For`. |
 | `KASSALAPP_TOKEN` | ikke satt | **Reservert, ikke i bruk av serveren ennå.** Brukes i dag bare av `phase0/kassalapp-import/probe.mjs`. Hemmelighet: send den inn ved oppstart, aldri i Dockerfile eller git (se under). |
 | `NODE_USE_ENV_PROXY` | ikke satt | Bare hvis serveren står bak en utgående proxy (f.eks. firmanettverk). |
 
@@ -194,7 +196,7 @@ På PaaS og skyleverandører legges nøkkelen i plattformens hemmelighetslager (
 
 Sjekk at den kjører: `docker ps` viser `healthy` etter ca. 20–30 sekunder; `curl -I http://127.0.0.1:8787/` gir `200`.
 
-**Hva som er testet (2026-11-22):** imaget ble bygd og startet i en sandkasse, kjørte som bruker `node` (uid 1000), svarte `200` på `/` og `/api/offers` (status «loading» før første tilbudshenting), og helsesjekken ble `healthy`. Imaget er ca. 416 MB fordi serveren kjører TypeScript direkte (`tsx`) og trenger hele `node_modules`; det kan gjøres mindre når serveren får eget byggesteg. For å få `npm ci` til å virke i sandkassen måtte byggingen kjøres med vertens nettverk og sandkassens sertifikat. Den innsjekkede Dockerfilen er uendret, men det er ikke testet at den bygger på en vanlig maskin med direkte internett. Volum (`/data`) er ikke testet mot noen databasefil ennå, siden synk-serveren ikke er ferdig. Ikke testet: HTTPS/Caddy, sikkerhetskopi, gjenoppretting, utrulling hos noen leverandør.
+**Hva som er testet (2026-11-22):** imaget ble bygd og startet i en sandkasse, kjørte som bruker `node` (uid 1000), svarte `200` på `/` og `/api/offers` (status «loading» før første tilbudshenting), og helsesjekken ble `healthy`. Imaget er ca. 416 MB fordi serveren kjører TypeScript direkte (`tsx`) og trenger hele `node_modules`; det kan gjøres mindre når serveren får eget byggesteg. For å få `npm ci` til å virke i sandkassen måtte byggingen kjøres med vertens nettverk og sandkassens sertifikat. Den innsjekkede Dockerfilen er uendret, men det er ikke testet at den bygger på en vanlig maskin med direkte internett. Volum (`/data`) er ikke testet mot databasefilen: synk-serveren (`docs/synk.md`) er ferdig og prøvd med `npm run server`, men ikke i Docker-imaget. Ikke testet: HTTPS/Caddy, sikkerhetskopi, gjenoppretting, utrulling hos noen leverandør.
 
 ## 9. Må verifiseres av en person før beslutning
 
