@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Alternatives, Basket } from '../engine/types';
 import { budgetAnswer, budgetSuggestions, dealsFor, swapOptions, type Ctx } from '../engine/planner';
-import { DAYS, kr } from '../engine/format';
+import { DAYS, kr, num } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import PlanForm from './PlanForm';
@@ -21,7 +21,7 @@ interface Props {
 }
 export type Mode = 'home' | 'plan' | 'edit' | 'trip';
 const storeName = (ctx: Ctx, id: string) => ctx.catalog.stores.find((s) => s.id === id)?.name ?? id;
-const pill = (d: number) => (d === 0 ? { t: 'Samme pris', c: 'pill' } : d > 0 ? { t: `+${Math.round(d / 100)} kr på handelen`, c: 'pill up' } : { t: `−${Math.round(-d / 100)} kr på handelen`, c: 'pill down' });
+const pill = (d: number) => (d === 0 ? { t: 'Samme pris', c: 'pill' } : d > 0 ? { t: `+${num(d / 100, 0)} kr på handelen`, c: 'pill up' } : { t: `−${num(-d / 100, 0)} kr på handelen`, c: 'pill down' });
 
 export default function WeekView({ state, update, ctx, alts, basket, activeStores, regenerate, openList, mode, setMode, offerTotal, approvedHints }: Props) {
   const { settings, slots } = state;
@@ -39,7 +39,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   };
   const weekSaving = slots.reduce((sum, x) => sum + dealsFor(recipe(x.recipeId), x.day, ctx).savingOre, 0);
   const weekDealLines = slots.reduce((sum, x) => sum + dealsFor(recipe(x.recipeId), x.day, ctx).lines.length, 0);
-  const fmtP = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
+  const fmtP = (n: number) => num(n, 1);
 
   if (slots.length === 0 || mode === 'edit') {
     return <PlanForm state={state} update={update} hasPlan={slots.length > 0}
@@ -163,10 +163,10 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
         <summary>Næring i uka (veiledende)</summary>
         {weekN.eaters.map((e) => (
           <div key={e.id} className="nrow"><span>{e.label} <small>({fmtP(e.portion)} porsjon)</small></span>
-            <span>{e.kcalPerDay === null ? 'ikke hjemme på middag' : `ca. ${e.kcalPerDay} kcal · ${fmtP(e.proteinPerDay ?? 0)} g protein per middagsdag`}</span></div>
+            <span>{e.kcalPerDay === null ? 'ikke hjemme på middag' : `ca. ${num(e.kcalPerDay, 0)} kcal · ${fmtP(e.proteinPerDay ?? 0)} g protein per middagsdag`}</span></div>
         ))}
         {weekN.reserved.portions > 0 && <div className="nrow"><span>Reserverte porsjoner</span>
-          <span>{fmtP(weekN.reserved.portions)} porsjon, ca. {weekN.reserved.kcal} kcal totalt. Ikke fordelt på person.</span></div>}
+          <span>{fmtP(weekN.reserved.portions)} porsjon, ca. {num(weekN.reserved.kcal, 0)} kcal totalt. Ikke fordelt på person.</span></div>}
         <p className="fine">Gjelder bare middagene i planen, regnet fra generelle matvarer i Matvaretabellen, uten salt, olje og krydder. Veiledende tall for planlegging. Ikke kostråd eller anbefalt inntak.</p>
       </details>
       {summary}
@@ -192,7 +192,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
               <div className="fine">Næring per porsjonstype, ca. (veiledende):
                 {groups.map((g) => { const x = scaleNutrition(n, g.f); return (
                   <div key={g.f} className="nrow"><span>{g.names} <small>({fmtP(g.f)} porsjon)</small></span>
-                    <span>{x.kcal} kcal · {fmtP(x.protein)} g protein · {fmtP(x.fat)} g fett · {fmtP(x.carbs)} g karbohydrat</span></div>); })}
+                    <span>{num(x.kcal, 0)} kcal · {fmtP(x.protein)} g protein · {fmtP(x.fat)} g fett · {fmtP(x.carbs)} g karbohydrat</span></div>); })}
                 {n.assumed.length > 0 && <div>Omtrentlig (mengde i ml regnet som gram).</div>}
               </div>); })()}
             <div className="toggles">
@@ -210,7 +210,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
                     <input type="radio" name="swap" checked={pick === o.recipe.id} onChange={() => setPick(o.recipe.id)} />
                     <Thumb id={o.recipe.id} size={48} />
                     <span className="rinfo"><strong>{o.recipe.name}</strong>
-                      <small>ca. {nutr(o.recipe.id).kcal} kcal · {nutr(o.recipe.id).protein} g protein</small>
+                      <small>ca. {num(nutr(o.recipe.id).kcal, 0)} kcal · {fmtP(nutr(o.recipe.id).protein)} g protein</small>
                       {dealText(o.recipe.id, sheetSlot.day) && <small className="dealtxt">{dealText(o.recipe.id, sheetSlot.day)}</small>}
                       {o.complete ? <span className={p.c}>{p.t}</span> : <span className="pill warnp">ufullstendig pris</span>}</span>
                   </label>

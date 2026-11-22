@@ -1,9 +1,17 @@
 import type { Unit } from './types';
-export const kr = (ore: number) => `${Math.round(ore / 100).toLocaleString('nb-NO')} kr`;
-export const krSigned = (ore: number) => (ore === 0 ? '± 0 kr' : `${ore > 0 ? '+' : '−'}${Math.round(Math.abs(ore) / 100)} kr`);
+
+const NB = 'nb-NO';
+/** Norsk tall: komma som desimaltegn, mellomrom (smalt/hardt) som tusenskille, ekte minustegn. */
+export const num = (n: number, maxDecimals = 1): string => {
+  const f = 10 ** maxDecimals;
+  const r = Math.round(n * f) / f;
+  return (Object.is(r, -0) ? 0 : r).toLocaleString(NB, { maximumFractionDigits: maxDecimals });
+};
+export const kr = (ore: number) => `${num(ore / 100, 0)} kr`;
+export const krSigned = (ore: number) => (ore === 0 ? '± 0 kr' : `${ore > 0 ? '+' : '−'}${num(Math.abs(ore) / 100, 0)} kr`);
 export function amount(n: number, unit: Unit): string {
-  if (unit === 'stk') return `${Math.round(n * 10) / 10} stk`;
-  if (unit === 'g') return n >= 1000 ? `${Math.round(n / 10) / 100} kg` : `${Math.round(n)} g`;
-  return n >= 1000 ? `${Math.round(n / 10) / 100} l` : `${Math.round(n)} ml`;
+  if (unit === 'stk') return `${num(n, 1)} stk`;
+  if (unit === 'g') return n >= 1000 ? `${num(n / 1000, 2)} kg` : `${num(n, 0)} g`;
+  return n >= 1000 ? `${num(n / 1000, 2)} l` : `${num(n, 0)} ml`;
 }
 export const DAYS = ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'];
