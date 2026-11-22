@@ -164,7 +164,8 @@ Monteres volumet feil (eller ikke), lager serveren en ny, tom database uten å s
 - **Endepunkt:** anonymt (tilbud er ikke husstandsdata), bare `GET`/`HEAD` (`405` med `Allow` ellers), ingen spørreparametre (`400`), **60 kall per minutt per IP** (`429 for_mange_forespørsler` med `Retry-After`; IPv6 per /64, `TRUST_PROXY` som synk-API-et), høyst **1500 tilbud** per svar (`truncated`), `Cache-Control: no-store`, API-CSP (`default-src 'none'`). Svaret bygges én gang per (dag, siste henting) og gjenbrukes, så mange kall gir ikke mange spørringer. Lagringsfeil gir `500 serverfeil` med fast tekst; loggen får bare feilens navn (testet i `server/offers/api.test.ts`).
 - **Lagringsgrenser:** id høyst 100 tegn (ellers avvist), overskrift 200, beskrivelse 500, forhandler 100 (kortes ned), pris i hele øre ≥ 0, mengder endelige og positive, gyldighet som dato; høyst 5000 per runde og **200 000 rader totalt** (nye avvises over taket; eksisterende oppdateres). Oppbevaring sletter utløpte rader som ikke er sett på `OFFER_RETENTION_DAYS` dager.
 - **Mot Tjek:** kallbudsjett per norsk døgn (`OFFER_MAX_CALLS_PER_DAY`, standard 1000) for alle kall, bakoff ved feil (5 min doblet, høyst intervallet), tidsavbrudd 15 s per kall. Loggen får bare feilens navn, aldri sti eller statuskode fra Tjek. `TJEK_FETCH=0` slår av alle kall (brukt i røyktest, e2e og CSP-sjekk, så de ikke kaller eksterne tjenester).
-- **Gjenstår:** ratebegrensningen er i minnet (S16). Tilbudsfila tas ikke med i `docs/drift/backup.sh` (kan hentes på nytt, men prishistorikken går tapt ved tap av volumet); avgjøres sammen med oppbevaringstiden når avtalens grense er kjent.
+- **Sikkerhetskopi:** `docs/drift/backup.sh` tar tilbudsfila med (egen kryptert fil, samme slettefrist; `docs/hosting.md`, avsnitt 8).
+- **Gjenstår:** ratebegrensningen er i minnet (S16). Oppbevaringstiden (180 dager) beholdes til Tjek bekrefter grensen.
 
 ### S22 Lav: bilder fra Tjek og `GET /api/aviser`
 

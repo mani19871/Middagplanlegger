@@ -323,7 +323,7 @@ Bare Caddy publiserer porter; appen er nåbar bare gjennom Caddy, som `TRUST_PRO
 
 **Ikke kopier `middag.sqlite` med `cp` mens serveren kjører.** Nyere endringer ligger i `-wal`-filen, så en kopi av bare hovedfilen kan mangle dem eller være ufullstendig. (I en test manglet en kopi av bare hovedfilen hele husstanden som var opprettet like før.) To brukbare måter:
 
-1. **`backup.sh` i `docs/drift/`** (prøvd): kjører SQLite sin `VACUUM INTO` inne i app-containeren, som gir én konsistent, fullstendig fil mens serveren kjører; kontrollerer den med `PRAGMA integrity_check`; krypterer den med `age` (offentlig nøkkel) eller `gpg` **før** den forlater containeren (ukryptert kopi skrives aldri til verten); og sletter lokale kopier eldre enn 30 dager (`BACKUP_KEEP_DAYS`, forslag fra personvernutkastet; se «Slettefrist for sikkerhetskopier» under). Kjør det daglig, f.eks. fra cron:
+1. **`backup.sh` i `docs/drift/`** (prøvd): tar **begge databasene**, synk-databasen (`middag.sqlite`, husstander) og tilbudsdatabasen med prishistorikk fra Tjek (`tilbud.sqlite`, uten persondata; `docs/synk.md`, «Tilbud fra Tjek»), som hver sin krypterte fil (`backup/middag-<tid>.sqlite.age` og `backup/tilbud-<tid>.sqlite.age`) med samme kryptering og samme slettefrist. Mangler `middag.sqlite`, stopper skriptet med feil (feil volum?) uten å opprette en tom database; mangler `tilbud.sqlite` (f.eks. `OFFER_STORE=0`), hoppes den over med en melding. For hver database kjører skriptet SQLite sin `VACUUM INTO` inne i app-containeren, som gir én konsistent, fullstendig fil mens serveren kjører; kontrollerer den med `PRAGMA integrity_check`; krypterer den med `age` (offentlig nøkkel) eller `gpg` **før** den forlater containeren (ukryptert kopi skrives aldri til verten); og sletter lokale kopier eldre enn 30 dager (`BACKUP_KEEP_DAYS`, forslag fra personvernutkastet; se «Slettefrist for sikkerhetskopier» under). Kjør det daglig, f.eks. fra cron:
    ```
    17 3 * * *  cd /srv/middagsplanlegger/docs/drift && BACKUP_AGE_RECIPIENT=age1… ./backup.sh >> /var/log/middag-backup.log 2>&1
    ```
@@ -336,14 +336,15 @@ Bare Caddy publiserer porter; appen er nåbar bare gjennom Caddy, som `TRUST_PRO
 cd /srv/middagsplanlegger/docs/drift
 docker compose --env-file .env.drift stop app
 age -d -i <privat-nøkkel> -o /tmp/restore/middag.sqlite backup/middag-<tid>.sqlite.age       # på en trygg maskin
+age -d -i <privat-nøkkel> -o /tmp/restore/tilbud.sqlite backup/tilbud-<tid>.sqlite.age       # samme tidspunkt
 docker volume create middag-data-gjenopprettet
 docker run --rm --user 1000:1000 -v middag-data-gjenopprettet:/data -v /tmp/restore:/in:ro \
-  middagsplanlegger:pilot sh -c 'cp /in/middag.sqlite /data/middag.sqlite'
+  middagsplanlegger:pilot sh -c 'cp /in/middag.sqlite /data/middag.sqlite && cp /in/tilbud.sqlite /data/tilbud.sqlite'
 echo "DATA_VOLUME=middag-data-gjenopprettet" >> .env.drift      # peker Compose på det nye volumet
 docker compose --env-file .env.drift up -d
 ```
 
-Kontroller etterpå at en kjent enhet får `200` fra `/api/household` med sitt token og at medlemslisten er riktig. Bruk **samme `SYNC_SECRET`** som før, ellers er åpne invitasjoner ugyldige (enhetstokenene er upåvirket). Slett den dekrypterte filen i `/tmp/restore` straks. Når alt virker: fjern det gamle volumet **og** gamle kopier etter slettefristen (de inneholder data til husstander som kan være slettet siden; se «slett igjen» i `docs/personvern/05-innsyn-retting-sletting.md`).
+Kontroller etterpå at en kjent enhet får `200` fra `/api/household` med sitt token og at medlemslisten er riktig, og at `/api/offers/lagret` svarer `"status":"ok"` med tilbud (serveren skriver ved oppstart «Tilbudslagring: … (N observasjoner, M kjeder)»). Finnes ingen tilbudskopi, starter serveren med tom tilbudsdatabase og henter på nytt; prishistorikken før tapet er da borte. **Prøvd 2026-11-22 (tilbudsdelen):** `backup.sh` kjørt med en kommando som erstatter `docker compose exec` lokalt (ikke Docker) og ekte `age`: to krypterte filer; dekryptert til en ny katalog startet den bygde serveren med 1 husstand og 1 tilbudsobservasjon, og `/api/offers/lagret` ga tilbudet med opprinnelig observasjonsdato. Manglende tilbudsdatabase ble hoppet over; manglende synk-database ga feil og ingen tom fil. **Ikke prøvd i Docker-oppsettet** med den nye versjonen av skriptet. Bruk **samme `SYNC_SECRET`** som før, ellers er åpne invitasjoner ugyldige (enhetstokenene er upåvirket). Slett den dekrypterte filen i `/tmp/restore` straks. Når alt virker: fjern det gamle volumet **og** gamle kopier etter slettefristen (de inneholder data til husstander som kan være slettet siden; se «slett igjen» i `docs/personvern/05-innsyn-retting-sletting.md`).
 
 **Enhetene etter en gjenoppretting (rettet 2026-11-22):** hver enhet husker hvor langt den har lest (`cursor`) og siste hendelse den så (anker). Er kopien eldre, svarer serveren `reset`; enheten begynner på nytt fra 0 og sender hele sin egen lokale logg og sine dokumenter på nytt (idempotent på id, ingen doble rader, `docs/synk.md`, «Klient»). Det som bare fantes på serveren etter kopitidspunktet og ikke på noen enhet som kobler seg til igjen, er tapt. Prøvd i `npm run e2e:sync` (databasefil byttes, serveren startes på nytt) og `src/sync/engine.test.ts`. Gjenopprettingsøvelsen bør likevel kontrollere at alle enheter viser «Synket» etterpå.
 
