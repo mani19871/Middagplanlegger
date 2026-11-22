@@ -4,7 +4,7 @@ import { initialState, migrateState, recordEvent, recordList, type AppState } fr
 import { conflicts, deriveStock, lineStates, purchaseLineId, type InventoryEvent } from '../engine/inventory';
 import { checks, manualLines, toggleEvent } from './list';
 import { SyncApi, syncErrorText } from './api';
-import { connect, isDirty, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
+import { connect, docAnchors, isDirty, lostDoc, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
 import { merge3 } from './docs';
 import { activeChanges, applyChange, changeLineId, notFoundEvent, substituteEvent, versionsFor, type AdjustedLine, type ListChange } from '../engine/substitution';
 import * as act from '../listActions';
@@ -308,6 +308,67 @@ describe('plan og innstillinger', () => {
   });
 });
 
+describe('dokumenter etter gjenoppretting uten server (S1, S2)', () => {
+  const plan = (recipeId: string) => ({ slots: [{ day: 0, recipeId, locked: false }], approved: false, option: 'regular' as const });
+  const doc = (version: number, recipeId: string, revs?: string[], updatedAt = '2026-11-23T10:00:00.000Z') =>
+    ({ name: 'plan' as const, version, body: plan(recipeId), updatedBy: 'enhet-x', updatedAt, revs });
+  const r = (n: number) => n.toString(16).padStart(12, '0');
+  const at = (state: AppState, meta: Partial<NonNullable<AppState['sync']>['docs']['plan']>, local = 'taco'): AppState => ({
+    ...state, slots: plan(local).slots,
+    sync: { token: 't', me: { id: 'enhet-a', label: 'A', role: 'eier', createdAt: '', lastSeen: null, me: true }, cursor: 0, docs: { plan: { version: 2, base: plan('taco'), ...meta } },
+      conflicts: {}, members: [], rejected: 0, lastSync: null },
+  });
+
+  it('lostDoc: lavere versjon, samme versjon med annen rev, eller feil rev i slekten betyr at serveren har mistet noe', () => {
+    const meta = { version: 2, base: plan('taco'), revs: [r(1), r(2)] };
+    expect(lostDoc(meta, doc(1, 'pasta', [r(1)]))).toBe(true);
+    expect(lostDoc(meta, doc(2, 'taco', [r(1), r(2)]))).toBe(false);
+    expect(lostDoc(meta, doc(2, 'taco', [r(1), r(9)]))).toBe(true);
+    expect(lostDoc(meta, doc(3, 'laks', [r(1), r(2), r(3)]))).toBe(false);
+    expect(lostDoc(meta, doc(3, 'laks', [r(1), r(8), r(3)]))).toBe(true);
+    // Utenfor slekten (mange versjoner siden): kan ikke avgjøres, regnes som nyere.
+    expect(lostDoc(meta, doc(200, 'laks', Array.from({ length: 100 }, (_, i) => r(101 + i))))).toBe(false);
+    // Eldre tilstand uten slekt: samme versjon med annet innhold er også tap.
+    expect(lostDoc({ version: 2, base: plan('taco') }, doc(2, 'pasta'))).toBe(true);
+    expect(lostDoc({ version: 2, base: plan('taco') }, doc(2, 'taco'))).toBe(false);
+    // Venter allerede etter gjenoppretting, eller ugyldig: ikke tap.
+    expect(lostDoc({ ...meta, restored: true }, doc(1, 'pasta', [r(1)]))).toBe(false);
+    expect(lostDoc(meta, { ...doc(1, 'pasta'), body: { slots: 'x' } as never })).toBe(false);
+  });
+
+  it('S1: eldre kopi (i basens slekt eller eldre tid) overses; nyere flettes; ukjent rekkefølge gir konflikt for hvert ulikt felt', async () => {
+    const { a } = await pair();
+    // Eldre kopi etter slekt: lokal verdi beholdes og sendes (base = serverens versjon, så dokumentet er endret).
+    let s = receiveDoc(at(a.state, { restored: true, version: 0, revs: [r(1), r(2)] }, 'laks'), doc(1, 'pasta', [r(1)]));
+    expect(s.slots[0].recipeId).toBe('laks');
+    expect(s.sync!.docs.plan).toMatchObject({ version: 1, revs: [r(1)] });
+    expect(s.sync!.docs.plan!.restored).toBeUndefined();
+    expect(isDirty(s, 'plan')).toBe(true);
+    // Eldre kopi etter tid (utenfor slekten).
+    s = receiveDoc(at(a.state, { restored: true, version: 0, revs: [r(2)], at: '2026-11-23T11:00:00.000Z' }, 'laks'), doc(1, 'pasta', [r(7)]));
+    expect(s.slots[0].recipeId).toBe('laks');
+    expect(s.sync!.conflicts).toEqual({});
+    // Nyere (basen er i serverens slekt), uendret lokalt: serverens versjon gjelder.
+    s = receiveDoc(at(a.state, { restored: true, version: 0, revs: [r(1), r(2)] }), doc(3, 'pasta', [r(1), r(2), r(3)]));
+    expect(s.slots[0].recipeId).toBe('pasta');
+    // Nyere og endret lokalt i samme felt: konflikt, lokal verdi står.
+    s = receiveDoc(at(a.state, { restored: true, version: 0, revs: [r(1), r(2)] }, 'laks'), doc(3, 'pasta', [r(1), r(2), r(3)]));
+    expect(s.sync!.conflicts.plan?.fields).toEqual(['slot:0']);
+    expect(s.slots[0].recipeId).toBe('laks');
+    // Ukjent rekkefølge (eldre tilstand uten slekt og tid): også et felt bare serveren har endret, blir konflikt.
+    s = receiveDoc(at(a.state, { restored: true, version: 0 }), doc(1, 'pasta', undefined, 'x'));
+    expect(s.sync!.conflicts.plan?.fields).toEqual(['slot:0']);
+    expect(s.slots[0].recipeId).toBe('taco');
+  });
+
+  it('dokumentanker: bare dokumenter enheten har sett, med rev når den finnes', async () => {
+    const { a } = await pair();
+    expect(docAnchors(at(a.state, { revs: [r(1), r(2)] }))).toEqual([`plan:2:${r(2)}`]);
+    expect(docAnchors(at(a.state, {}))).toEqual(['plan:2']);
+    expect(docAnchors(at(a.state, { restored: true }))).toEqual([]);
+  });
+});
+
 describe('godkjent liste og «utsolgt / fant ikke» i husstanden', () => {
   const slots = [{ day: 0, recipeId: 'lakseris', locked: false }, { day: 1, recipeId: 'bolognese', locked: false }];
   // Ny prisimport: 800 g kjøttdeig blir billigere enn 400 g (motoren ville byttet produkt).
@@ -526,7 +587,93 @@ describe('gjenoppretting av serveren fra en eldre kopi', () => {
     await syncOk(a); await syncOk(a); await syncOk(b);
     expect(await serverIds(b)).toContain(lost);
     expect(b.state.inventory.map((e) => e.id)).toContain(lost);
-    // Hvilket budsjett som vinner etter gjenoppretting, er et åpent funn (docs/kodegjennomgang.md, S1).
+    // S1: A endret budsjettet etter gjenopprettingen, B ikke. A sin endring vinner hos begge, uten konflikt.
+    for (const d of [a, b]) {
+      expect(d.state.settings.budgetOre).toBe(333_300);
+      expect(d.state.sync!.conflicts).toEqual({});
+    }
+  });
+
+  it('S1: etter gjenoppretting flettes dokumentene tre-veis: en enhet uten egne endringer overskriver ikke den andres', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    // Etter kopien: begge har sett budsjettet 222 200 (samme versjon).
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 222_200 } };
+    await a.sync(); await b.sync();
+    expect(b.state.settings.budgetOre).toBe(222_200);
+    await restore(backup);
+    // A endrer budsjettet etter gjenopprettingen og synker først. B har ikke endret noe.
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 333_300 } };
+    await syncOk(a); await syncOk(b); await syncOk(a);
+    for (const d of [a, b]) {
+      expect(d.state.settings.budgetOre).toBe(333_300);
+      expect(d.state.sync!.conflicts).toEqual({});
+    }
+  });
+
+  it('S1: begge har endret samme felt etter gjenoppretting: konflikt, ingen siste-skriving-vinner', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 222_200 } };
+    await a.sync(); await b.sync();
+    await restore(backup);
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 333_300 } };
+    b.state = { ...b.state, settings: { ...b.state.settings, budgetOre: 444_400 } };
+    await syncOk(a); await syncOk(b); await syncOk(a);
+    // B ser konflikten og beholder sin verdi lokalt; serveren og A har fortsatt A sin verdi til en voksen velger.
+    expect(b.state.sync!.conflicts.innstillinger?.fields).toEqual(['budgetOre']);
+    expect(b.state.settings.budgetOre).toBe(444_400);
+    expect(a.state.settings.budgetOre).toBe(333_300);
+    b.state = resolveConflict(b.state, 'innstillinger', 'mine');
+    await syncOk(b); await syncOk(a);
+    expect(a.state.settings.budgetOre).toBe(444_400);
+    expect(a.state.sync!.conflicts).toEqual({});
+  });
+
+  it('S1: en eldre kopi av dokumentet tar ikke tilbake verdier enheten allerede har sett', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 222_200 } };
+    await a.sync(); await b.sync();
+    // B har endret noe annet lokalt; kopien har det gamle budsjettet.
+    await restore(backup);
+    b.state = { ...b.state, settings: { ...b.state.settings, maxStops: 2 } };
+    await syncOk(b); await syncOk(a); await syncOk(b);
+    for (const d of [a, b]) {
+      expect(d.state.settings.budgetOre).toBe(222_200);
+      expect(d.state.settings.maxStops).toBe(2);
+      expect(d.state.sync!.conflicts).toEqual({});
+    }
+  });
+
+  it('S2: ankeret dekker cursor som har flyttet seg på grunn av dokumenter', async () => {
+    await fileServer();
+    const { a, b } = await pair();
+    a.record(tell(a, 1));
+    await a.sync(); await b.sync();
+    // Bare dokumentskrivinger etter siste hendelse: B sin cursor flytter seg forbi ankeret (siste hendelse).
+    a.state = { ...a.state, settings: { ...a.state.settings, budgetOre: 111_100 } };
+    await a.sync();
+    const backup = join(dir, 'kopi.sqlite');
+    srv.storage.backupTo(backup);
+    a.state = { ...a.state, slots: [{ day: 0, recipeId: 'taco', locked: false }] };
+    await a.sync(); await b.sync();
+    expect(b.state.slots.map((s) => s.recipeId)).toEqual(['taco']);
+    await restore(backup);
+    // A skriver en ny hendelse; den får samme seq som planen hadde før gjenopprettingen.
+    a.record(tell(a, 2));
+    const fresh = a.state.outbox[0].id;
+    await syncOk(a); await syncOk(b); await syncOk(a);
+    expect(b.state.inventory.map((e) => e.id)).toContain(fresh);
+    for (const d of [a, b]) expect(d.state.slots.map((s) => s.recipeId)).toEqual(['taco']);
+    const plan = (await retry(() => b.api.withToken(b.state.sync!.token).pull(0))).docs.find((x) => x.name === 'plan');
+    expect((plan?.body as { slots: { recipeId: string }[] }).slots.map((s) => s.recipeId)).toEqual(['taco']);
   });
 });
 

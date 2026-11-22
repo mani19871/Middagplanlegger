@@ -10,6 +10,11 @@ import { buildBasket } from '../../src/engine/planner';
 import { catalog } from '../../src/data/catalog';
 import { defaultSettings } from '../../src/data/defaults';
 import { startTestServer } from './testkit';
+import { docRev, SqliteStorage } from '../storage/sqlite';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DEFAULT_RETENTION_DAYS, retentionDaysFrom, runRetention, startRetention } from '../retention';
 
 type Srv = Awaited<ReturnType<typeof startTestServer>>;
@@ -370,6 +375,61 @@ describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () =>
     expect(await A.pull(r.cursor + 5)).toMatchObject({ reset: true, events: [], cursor: 0 });
     expect(await A.pull(r.cursor, `${r.events[1].seq}:noe-annet`)).toMatchObject({ reset: true });
     expect(await code(A.pull(0, 'feil-format'))).toBe('400 ugyldig_forespørsel');
+  });
+
+  it('cursor står alltid på en hendelse (ankeret), også når dokumenter er skrevet etterpå (S2)', async () => {
+    const { A } = await household();
+    await A.push([telling('t1', 'enhet-aaaa1111')]);
+    const e = (await A.pull(0)).events[0].seq;
+    await A.putDoc('plan', 0, { slots: [], approved: false, option: 'regular' });
+    const r = await A.pull(e, `${e}:t1`);
+    expect(r.head).toBe(e + 1);
+    expect(r.cursor).toBe(e); // ikke head: dokumentet på e + 1 er ikke en hendelse ankeret kan sjekke
+  });
+
+  it('dokumenter har en slekt (revs); med dokumentanker sendes bare dokumenter som er ulike enhetens (S1, S2)', async () => {
+    const { A, B } = await household();
+    const plan = (recipeId: string) => ({ slots: [{ day: 1, recipeId, locked: false }], approved: false, option: 'regular' as const });
+    const v1 = await A.putDoc('plan', 0, plan('taco'));
+    const v2 = await A.putDoc('plan', 1, plan('laks'));
+    expect(v1.revs).toHaveLength(1);
+    expect(v2.revs).toEqual([...v1.revs!, v2.revs!.at(-1)]);
+    expect(v2.revs!.at(-1)).toMatch(/^[0-9a-f]{12}$/);
+    expect(v2.updatedAt).toBe(srv.now());
+    // Uten anker for planen: dokumentet sendes. Med samme versjon og rev: ikke sendt igjen.
+    const all = await B.pull(0, undefined, []);
+    expect(all.docs.map((d) => [d.name, d.version, d.revs])).toEqual([['plan', 2, v2.revs]]);
+    expect((await B.pull(0, undefined, [`plan:2:${v2.revs!.at(-1)}`])).docs).toEqual([]);
+    // Annen rev eller annen versjon enn serverens: sendes, så enheten kan oppdage at serveren har mistet noe.
+    expect((await B.pull(0, undefined, ['plan:2:000000000000'])).docs.map((d) => d.version)).toEqual([2]);
+    expect((await B.pull(0, undefined, [`plan:3:${v2.revs!.at(-1)}`])).docs.map((d) => d.version)).toEqual([2]);
+    // Samme innhold på samme grunnlag gir samme rev (innholdsadressert): en enhet som sender det samme igjen etter en
+    // gjenoppretting, lager ikke en ny slekt.
+    const c = await anon().createHousehold('enhet-cccc3333');
+    const C = anon().withToken(c.token);
+    await C.putDoc('plan', 0, plan('taco'));
+    expect((await C.putDoc('plan', 1, plan('laks'))).revs).toEqual(v2.revs);
+  });
+
+  it('eldre database uten slekt for dokumenter får revs ved oppstart; neste versjon bygger videre på den', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'middag-revs-'));
+    try {
+      const file = join(dir, 'db.sqlite');
+      const old = new SqliteStorage(file);
+      await old.createHousehold('h1', { id: 'd1', publicId: 'enhet-aaaa1111', label: 'A', tokenHash: 'x'.repeat(64) }, srv.now());
+      await old.putDoc('h1', 'plan', 0, '{"approved":false,"option":"regular","slots":[]}', 'enhet-aaaa1111', srv.now());
+      await old.close();
+      // Som før denne endringen: uten kolonnen revs.
+      const db = new DatabaseSync(file);
+      db.exec('ALTER TABLE docs DROP COLUMN revs');
+      db.close();
+      const st = new SqliteStorage(file);
+      const [d] = await st.currentDocs('h1');
+      expect(d.revs).toEqual([docRev('', 1, d.body)]);
+      const r = await st.putDoc('h1', 'plan', 1, d.body, 'enhet-aaaa1111', srv.now());
+      expect(r).toEqual({ ok: true, version: 2, revs: [d.revs[0], docRev(d.revs[0], 2, d.body)] });
+      await st.close();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
   it('et hendelses-id med linjeskift låser ikke andre enheters synk (ankeret godtas)', async () => {

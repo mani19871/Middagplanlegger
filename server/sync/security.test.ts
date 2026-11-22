@@ -317,6 +317,32 @@ describe('autentisering og lekkasje', () => {
   });
 });
 
+describe('dokumentanker (synk etter gjenoppretting)', () => {
+  it('ugyldig dokumentanker gir 400 uten logg; gyldig gir 200', async () => {
+    const { a } = await household();
+    const h = { Authorization: `Bearer ${a.token}` };
+    const bad = ['postnummer:1:abcdefabcdef', 'plan:x:abcdefabcdef', 'plan:1:ABCDEFABCDEF', 'plan:1:abc', 'plan:1:abcdefabcdef,plan:2:abcdefabcdef',
+      'plan:1,innstillinger:1,plan:2', 'plan:-1', 'plan:1:abcdefabcdef:x', `plan:${'9'.repeat(20)}`, 'plan:1\n', 'x'.repeat(5000)];
+    for (const v of bad) {
+      const r = await req(`/api/sync?after=0&docs=${encodeURIComponent(v)}`, { headers: h });
+      expect(r.status, v).toBe(400);
+      expect((await r.json()).error).toBe('ugyldig_forespørsel');
+    }
+    for (const v of ['', 'plan:1', 'plan:1:abcdefabcdef,innstillinger:3:0123456789ab']) {
+      expect((await req(`/api/sync?after=0&docs=${encodeURIComponent(v)}`, { headers: h })).status, v).toBe(200);
+    }
+    expect(logs).toEqual([]);
+  });
+
+  it('slekten (revs) er interne versjons-id-er: de er ikke med i eksporten', async () => {
+    const { A } = await household();
+    const r = await A.putDoc('plan', 0, { slots: [], approved: false, option: 'regular' });
+    const x = JSON.stringify(await A.exportData());
+    expect(x).not.toContain(r.revs![0]);
+    expect(x).toContain('"versjon":1');
+  });
+});
+
 describe('eksport', () => {
   it('ingen lekkasje mellom husstander, og loggen får aldri innhold', async () => {
     const one = await household();
