@@ -15,7 +15,8 @@ const ctx = (offers: OfferHint[] = [], over: Partial<typeof defaultSettings> = {
   catalog, settings: { ...defaultSettings, ...over }, offers, shopDate: DAY,
 });
 const slot = (day: number, recipeId: string): Slot => ({ day, recipeId, locked: false });
-const basketFor = (slots: Slot[]) => buildBasket(slots, ['demoA'], ctx());
+// Kurven prises 23.11., siste dag for demotilbudet på laks i Demo Nærbutikk; utløpte priser brukes ikke (regel 2).
+const basketFor = (slots: Slot[]) => buildBasket(slots, ['demoA'], { ...ctx(), shopDate: '2026-11-23' });
 const laks = basketFor([slot(0, 'lakseris')]); // 4 spisere × 0,8 → 400 g laks, én pakke à 99,90 kr
 const total = (hints: OfferHint[], basket = laks, settings = defaultSettings) => totalWithOffers(basket, hints, DAY, settings);
 

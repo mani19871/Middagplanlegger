@@ -33,6 +33,12 @@ describe('planmotor', () => {
     const alt = alternatives([slot(0, 'bolognese')], ctx());
     expect(alt.combo === null || alt.combo.complete).toBe(true);
   });
+  it('en pris med utløpt gyldighet (utløpt tilbud) brukes aldri på handledagen', () => {
+    // Laks i Demo Nærbutikk er demotilbud til 23.11. og har ingen annen pris der.
+    const laks = (shopDate: string) => buildBasket([slot(0, 'lakseris')], ['demoA'], { ...ctx(), shopDate }).lines.find((l) => l.ingredient === 'laks')!;
+    expect(laks('2026-11-23')).toMatchObject({ status: 'tilbud', costOre: 9990 });
+    expect(laks('2026-11-24')).toMatchObject({ status: 'ukjent', costOre: null });
+  });
   it('låste retter beholdes ved ny generering', () => {
     const c = ctx();
     const locked = [slot(2, 'taco', true)];

@@ -112,6 +112,8 @@ function bestOffer(ing: string, need: number, storeIds: string[], ctx: Ctx): Off
   for (const storeId of [...storeIds].sort()) {
     for (const obs of ctx.catalog.prices) {
       if (obs.storeId !== storeId) continue;
+      // En pris med gyldighet som er ute på handledagen (utløpt tilbud) brukes aldri som dagens pris (regel 2).
+      if (ctx.shopDate && obs.validUntil && obs.validUntil < ctx.shopDate) continue;
       const product = ctx.catalog.products.find((p) => p.id === obs.productId);
       if (!product || product.ingredient !== ing || !productAllowed(product, ctx.settings)) continue;
       const packs = Math.max(1, Math.ceil(need / product.size - EPS));
