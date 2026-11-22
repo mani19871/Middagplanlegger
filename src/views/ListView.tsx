@@ -15,6 +15,9 @@ import type { OfferTotal } from '../engine/offerTotal';
 import { ChangePill, ChangeSheet, ChangesNote, DriftBanner, HistoryView, markable, SkippedLines, VersionConflictBanner, type ChangeKit } from './ListChanges';
 import { changeBlocked, versionsFor, type AdjustedBasket, type AdjustedLine } from '../engine/substitution';
 import { COOK_NOW_PREFIX } from '../engine/cookNow';
+import { parseStapleLine, STAPLE_PREFIX, stapleStatus, stapleSuggestions } from '../engine/staples';
+import { stapleListFacts } from '../sync/list';
+import { STAPLE_INFO } from './StaplesView';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; record: (...e: InventoryEvent[]) => void; week: string;
@@ -71,25 +74,62 @@ export default function ListView({ state, update, record, week, basket, offerTot
     const m = marks.get(key);
     return m && m.length > 0 ? <small className="who">✓ Avkrysset av {whoList(state, m.map((x) => x.by))}</small> : null;
   };
-  // Manuelle linjer: fra kundeaviser og fra «Lag nå». Ikke kontrollert og ikke med i beregnet sum.
+  // Basisvarer (engine/staples.ts): forslag som må godkjennes eller avvises, og godkjente linjer. En basisvarelinje
+  // krysses av for sin egen uke (linje-id per uke og vare), så krysset står også etter ukeskiftet.
+  const stapleFacts = useMemo(() => stapleListFacts(state.list), [state.list]);
+  const stapleSugg = useMemo(() => stapleSuggestions(stapleStatus(state.settings.staples ?? [], state.inventory, stapleFacts, STAPLE_INFO), stapleFacts, week),
+    [state.settings.staples, state.inventory, stapleFacts, week]);
+  const weekOf = (id: string) => parseStapleLine(id)?.week ?? week;
+  const lineMarks = (id: string) => (id.startsWith(STAPLE_PREFIX) ? checks(state.list, weekOf(id)) : marks).get(id) ?? [];
+  const manualChecked = (id: string) => lineMarks(id).length > 0;
+  const toggleManual = (id: string) => update((s) => recordList(s, toggleEvent(s.list, weekOf(id), id, stamp())));
+  const manualLabel = (name: string, id: string) => {
+    const m = lineMarks(id);
+    return m.length > 0 ? `${name}, avkrysset av ${whoList(state, m.map((x) => x.by))}. Trykk for å fjerne krysset` : `Kryss av ${name}`;
+  };
+  const manualWho = (id: string) => {
+    const m = lineMarks(id);
+    return m.length > 0 ? <small className="who">✓ Avkrysset av {whoList(state, m.map((x) => x.by))}</small> : null;
+  };
+  // Manuelle linjer: fra kundeaviser, «Lag nå» og basisvarer. Ikke kontrollert og ikke med i beregnet sum.
   const manualGroup = (title: string, ms: typeof manual) => ms.length > 0 && (
     <section key={title}>
       <div className="deptbar"><strong>{title}</strong></div>
       <ul className={`list ${shop ? 'shop' : ''}`}>
         {ms.map((m) => (
-          <li key={m.id} className={isChecked(m.id) ? 'done' : ''}>
-            <input type="checkbox" aria-label={checkLabel(m.text, m.id)} checked={isChecked(m.id)} onChange={() => toggle(m.id)} />
-            <span className="main"><b>{m.text}</b><small>{m.note} · ikke med i beregnet sum</small>{who(m.id)}</span>
+          <li key={m.id} className={manualChecked(m.id) ? 'done' : ''}>
+            <input type="checkbox" aria-label={manualLabel(m.text, m.id)} checked={manualChecked(m.id)} onChange={() => toggleManual(m.id)} />
+            <span className="main"><b>{m.text}</b><small>{m.note} · ikke med i beregnet sum</small>{manualWho(m.id)}</span>
             <button className="x" aria-label={`Fjern ${m.text}`} onClick={() => recordL({ type: 'manuell-fjern', ...stamp(), lineId: m.id })}>✕</button>
           </li>
         ))}
       </ul>
     </section>
   );
+  // Godkjenn og avvis bruker samme linje-id (uke, vare): samme valg to ganger eller fra to voksne gir én linje, og et
+  // avvist forslag kommer ikke igjen samme uke. Fjerning vinner (src/sync/list.ts).
+  const approveStaple = (sg: (typeof stapleSugg)[number]) => recordL({ type: 'manuell', ...stamp(), line: { id: sg.lineId, text: sg.text.slice(0, 200), note: sg.note.slice(0, 200) } });
+  const rejectStaple = (sg: (typeof stapleSugg)[number]) => recordL({ type: 'manuell-fjern', ...stamp(), lineId: sg.lineId });
+  const stapleSection = stapleSugg.length > 0 && (
+    <section aria-labelledby="basis-forslag">
+      <div className="deptbar"><strong id="basis-forslag">🧂 Forslag: basisvarer</strong></div>
+      <ul className="plainlist card">
+        {stapleSugg.map((sg) => (
+          <li key={sg.lineId}><b>{sg.text}</b><small className="sub">{sg.note} · ingen pris, ikke med i beregnet sum</small>
+            <div className="stapleact">
+              <button className="ghost sm" aria-label={`Legg ${sg.text} på handlelista`} onClick={() => approveStaple(sg)}>＋ Legg på lista</button>
+              <button className="ghost sm" aria-label={`Ikke nå: ${sg.text}`} onClick={() => rejectStaple(sg)}>Ikke nå</button>
+            </div></li>
+        ))}
+      </ul>
+    </section>
+  );
   const manualSection = (
     <>
+      {stapleSection}
+      {manualGroup('🧂 Basisvarer (ikke kontrollert)', manual.filter((m) => m.id.startsWith(STAPLE_PREFIX)))}
       {manualGroup('🍳 Fra «Lag nå» (ikke kontrollert)', manual.filter((m) => m.id.startsWith(COOK_NOW_PREFIX)))}
-      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX)))}
+      {manualGroup('🏷 Fra kundeaviser (ikke kontrollert)', manual.filter((m) => !m.id.startsWith(COOK_NOW_PREFIX) && !m.id.startsWith(STAPLE_PREFIX)))}
     </>
   );
   if (state.slots.length === 0) {

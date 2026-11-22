@@ -36,7 +36,19 @@ export interface Settings {
    * rangering og «Med kontrollerte tilbud». Mangler eller tom: ingen tilbud brukes.
    */
   offerChains?: string[];
+  /**
+   * Basisvarer husstanden alltid vil ha hjemme (engine/staples.ts). Delt i innstillingsdokumentet, flettet per vare.
+   * Påvirker aldri planmotorens kurv, butikksum eller sammenligning; gir bare forslag på handlelista.
+   */
+  staples?: Staple[];
 }
+/**
+ * En basisvare: valg fra den generelle lista (`src/data/staples.ts`) eller egen vare (`egen:<navn>`, med `name`).
+ * `min` (i varens enhet) bare for varer som kan telles i matskapet; uten `min` brukes nivå («har / snart tom / tom»).
+ */
+export interface Staple { id: string; name?: string; min?: number }
+/** En vare i den generelle lista over basisvarer. `ingredient`: katalogvaren den svarer til, når den finnes. */
+export interface StapleChoice { id: string; name: string; department: string; ingredient?: string }
 export type LunchBox = 'termos' | 'matboks';
 export interface Slot { day: number; recipeId: string; locked: boolean; extra?: number; extraFor?: number; /** Hvordan den reserverte matpakken pakkes. Påvirker ikke planmotoren. */ lunchBox?: LunchBox }
 

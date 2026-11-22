@@ -5,7 +5,7 @@ import { isValidChange, VERSION_REASONS, type ListChange, type PlanVersion } fro
 import type { DocBody, DocName } from './docs';
 
 /**
- * beholdning: kjøp, telling, rest, laget, hjemme · liste: avkrysning og manuelle linjer · endring: utsolgt / fant ikke ·
+ * beholdning: kjøp, telling, rest, laget, hjemme, nivå (basisvarer) · liste: avkrysning og manuelle linjer · endring: utsolgt / fant ikke ·
  * planversjon: godkjente lister og historikk («Endringer i listen»), uforanderlige og idempotente på id.
  */
 export type Stream = 'beholdning' | 'liste' | 'endring' | 'planversjon';
@@ -101,6 +101,8 @@ function inventoryOk(e: InventoryEvent): boolean {
     case 'telling': return str(e.ingredient, 64) && num(e.amount);
     case 'rest': return str(e.week, 10) && str(e.ingredient, 64) && num(e.amount);
     case 'hjemme': return str(e.week, 10) && str(e.line, 300) && str(e.ingredient, 64) && num(e.amount);
+    // Basisvare markert «har / snart tom / tom»: id fra lista eller «egen:…» (høyst 45 tegn), aldri fritekst.
+    case 'nivå': return str(e.staple, 45);
   }
 }
 
@@ -169,6 +171,7 @@ const KEYS: Record<string, Record<string, string[]>> = {
     'kjøp': ['week', 'line', 'ingredient', 'productId', 'storeId', 'packs', 'packSize', 'unit'],
     'løs': ['line', 'packs'], angre: ['line'], laget: ['week', 'line', 'day', 'recipeId', 'uses'],
     telling: ['ingredient', 'amount'], rest: ['week', 'ingredient', 'amount'], hjemme: ['week', 'line', 'ingredient', 'amount'],
+    'nivå': ['staple', 'level'],
   },
   liste: { kryss: ['week', 'key'], avkryss: ['week', 'key', 'seen'], manuell: ['line'], 'manuell-fjern': ['lineId'] },
   endring: {

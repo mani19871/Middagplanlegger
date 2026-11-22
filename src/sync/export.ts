@@ -21,7 +21,9 @@ export interface DeviceExport {
 
 const TEXT = 'Kopi av opplysningene Husvett har om deg og husstanden din. «enhet» er det som er lagret i nettleseren på '
   + 'denne enheten. «server» er det serveren har lagret om husstanden (bare hvis enheten er med i en husstand). Nøkkelen som '
-  + 'gir tilgang til husstanden er ikke med. Formatet er JSON og kan leses av andre programmer.';
+  + 'gir tilgang til husstanden er ikke med. Basisvarer med minstegrenser står i innstillingene (settings.staples) og '
+  + 'markeringene «har / snart tom / tom» i beholdningsloggen (type «nivå»); i en husstand er begge også delt med de '
+  + 'andre voksne. Formatet er JSON og kan leses av andre programmer.';
 
 export function buildExport(state: AppState, deviceId: string, now: string, server: ServerExport | null, serverNote?: string): DeviceExport {
   let sync: Omit<SyncMeta, 'token'> | null = null;

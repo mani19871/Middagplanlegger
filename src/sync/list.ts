@@ -8,7 +8,9 @@
 //    enhet blir stående. Ingen siste-skriving-vinner, og ingen avkrysning forsvinner uten at noen så den.
 // Tilstanden er en ren mengdeoperasjon over hele loggen, så rekkefølgen hendelsene kommer i spiller ingen rolle.
 //
-// Manuelle linjer (fra kundeaviser): `manuell` legger til en linje med egen id, `manuell-fjern` fjerner den for godt.
+// Manuelle linjer (fra kundeaviser, «Lag nå» og basisvarer): `manuell` legger til en linje med egen id, `manuell-fjern` fjerner den for godt.
+
+import { STAPLE_PREFIX, type StapleListFacts } from '../engine/staples';
 
 interface Base { id: string; at: string; by: string }
 export interface ManualLineData { id: string; text: string; note: string }
@@ -76,4 +78,21 @@ export function manualLines(log: ListLog): ManualLineData[] {
     out.push(e.line);
   }
   return out;
+}
+
+// ---------- Basisvarer (engine/staples.ts) ----------
+
+/**
+ * Basisvarelinjer i lista for motoren: linjer som ligger der, linjer som er fjernet eller avvist, og aktive avkrysninger
+ * på dem (alle uker: en basisvarelinje krysses av for sin egen uke). Uavhengig av rekkefølge.
+ */
+export function stapleListFacts(log: ListLog): StapleListFacts {
+  const isStaple = (id: string) => id.startsWith(STAPLE_PREFIX);
+  const lines = manualLines(log).map((m) => m.id).filter(isStaple).sort();
+  const removed = [...new Set(log.flatMap((e) => (e.type === 'manuell-fjern' && isStaple(e.lineId) ? [e.lineId] : [])))].sort();
+  const unchecked = new Set(log.flatMap((e) => (e.type === 'avkryss' ? e.seen : [])));
+  const checks = log.filter((e): e is Extract<ListEvent, { type: 'kryss' }> => e.type === 'kryss' && isStaple(e.key) && !unchecked.has(e.id))
+    .map((e) => ({ key: e.key, at: e.at, id: e.id }))
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : 1)).map(({ key, at }) => ({ key, at }));
+  return { lines, removed, checks };
 }

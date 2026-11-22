@@ -2,10 +2,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { initialState, migrateState, recordEvent, recordList, type AppState } from '../store';
 import { conflicts, deriveStock, lineStates, purchaseLineId, type InventoryEvent } from '../engine/inventory';
-import { checks, manualLines, toggleEvent } from './list';
+import { checks, manualLines, stapleListFacts, toggleEvent } from './list';
 import { SyncApi, syncErrorText } from './api';
 import { connect, docAnchors, isDirty, lostDoc, receiveDoc, resolveConflict, syncOnce, syncStatus } from './engine';
-import { merge3 } from './docs';
+import { fieldText, merge3 } from './docs';
+import { stapleLineId, stapleStatus, stapleSuggestions } from '../engine/staples';
+import { stapleChoices } from '../data/staples';
+import type { Staple } from '../engine/types';
 import { activeChanges, applyChange, changeLineId, notFoundEvent, substituteEvent, versionsFor, type AdjustedLine, type ListChange } from '../engine/substitution';
 import * as act from '../listActions';
 import { catalog } from '../data/catalog';
@@ -688,5 +691,76 @@ describe('synkstatus ved feil', () => {
     expect(syncErrorText('kvote_full')).toMatch(/grense/);
     expect(syncErrorText('nett')).toBeNull();
     expect(syncErrorText('noe-nytt')).toMatch(/lagret på denne enheten/);
+  });
+});
+
+describe('basisvarer i husstanden (utvidelse B)', () => {
+  const staplesOf = (d: Device) => d.state.settings.staples ?? [];
+  const facts = (d: Device) => stapleListFacts(d.state.list);
+  const sugg = (d: Device) => stapleSuggestions(stapleStatus(staplesOf(d), d.state.inventory, facts(d), { choices: stapleChoices, ingredients: catalog.ingredients }), facts(d), WEEK);
+  const setStaples = (d: Device, staples: Staple[]) => { d.state = { ...d.state, settings: { ...d.state.settings, staples } }; };
+  const approve = (d: Device, lineId: string) => { d.state = recordList(d.state, { type: 'manuell', ...d.stamp(), line: { id: lineId, text: 'Kaffe', note: 'Basisvare: tom' } }); };
+
+  it('basisvarer lagt til på to enheter samtidig flettes per vare uten konflikt', async () => {
+    const { a, b } = await pair();
+    setStaples(a, [{ id: 'ris', min: 500 }]);
+    setStaples(b, [{ id: 'kaffe' }]);
+    await a.sync(); await b.sync(); await a.sync();
+    for (const d of [a, b]) {
+      expect(staplesOf(d)).toEqual([{ id: 'kaffe' }, { id: 'ris', min: 500 }]);
+      expect(d.state.sync!.conflicts).toEqual({});
+    }
+  });
+
+  it('samme basisvare endret ulikt er en konflikt som må avgjøres; andre varer flettes', async () => {
+    const { a, b } = await pair();
+    setStaples(a, [{ id: 'ris', min: 500 }]);
+    await a.sync(); await b.sync();
+    setStaples(a, [{ id: 'kaffe' }, { id: 'ris', min: 1000 }]);
+    setStaples(b, [{ id: 'ris', min: 200 }]);
+    await a.sync(); await b.sync();
+    expect(b.state.sync!.conflicts.innstillinger?.fields).toEqual(['basis:ris']);
+    expect(fieldText('basis:ris')).toBe('basisvaren Ris');
+    expect(staplesOf(b)).toEqual([{ id: 'kaffe' }, { id: 'ris', min: 200 }]);
+    b.state = resolveConflict(b.state, 'innstillinger', 'theirs');
+    await b.sync(); await a.sync();
+    for (const d of [a, b]) expect(staplesOf(d)).toEqual([{ id: 'kaffe' }, { id: 'ris', min: 1000 }]);
+  });
+
+  it('«tom» på én enhet gir samme forslag hos begge; godkjent på begge uten nett gir én linje, også ved dobbel levering', async () => {
+    const { a, b } = await pair();
+    setStaples(a, [{ id: 'kaffe' }]);
+    a.record({ type: 'nivå', ...a.stamp(), staple: 'kaffe', level: 'tom' });
+    await a.sync(); await b.sync();
+    const line = stapleLineId(WEEK, 'kaffe');
+    expect(sugg(a).map((s) => s.lineId)).toEqual([line]);
+    expect(sugg(b)).toEqual(sugg(a));
+    a.online = false; b.online = false;
+    approve(a, line); approve(b, line);
+    a.online = true; b.online = true;
+    b.dropNextResponse = true;
+    await b.sync().catch(() => {}); await b.sync(); await a.sync(); await b.sync();
+    for (const d of [a, b]) {
+      expect(manualLines(d.state.list).filter((m) => m.id === line)).toHaveLength(1);
+      expect(sugg(d)).toEqual([]);
+      expect(d.state.listOutbox).toEqual([]);
+    }
+    // Krysset av på B: markeringen er opphevet hos begge.
+    b.state = recordList(b.state, toggleEvent(b.state.list, WEEK, line, b.stamp()));
+    await b.sync(); await a.sync();
+    const st = stapleStatus(staplesOf(a), a.state.inventory, facts(a), { choices: stapleChoices, ingredients: catalog.ingredients });
+    expect(st[0]).toMatchObject({ id: 'kaffe', state: 'ok', mark: null });
+  });
+
+  it('basisvarer endrer aldri allergi- eller kostkrav, og kravene synkes fortsatt ikke', async () => {
+    const { a, b } = await pair();
+    a.state = { ...a.state, settings: { ...a.state.settings, avoid: ['gluten'], avoidFoods: ['svin'], vegetarian: true, staples: [{ id: 'mel', min: 500 }] } };
+    await a.sync(); await b.sync();
+    expect(staplesOf(b)).toEqual([{ id: 'mel', min: 500 }]);
+    expect(b.state.settings).toMatchObject({ avoid: [], vegetarian: false });
+    expect(a.state.settings).toMatchObject({ avoid: ['gluten'], avoidFoods: ['svin'], vegetarian: true });
+    const household = (await srv.storage.authenticate(sha(a.state.sync!.token), srv.now()))!.householdId;
+    const stored = await srv.storage.readSince(household, 0, 100);
+    expect(stored.docs.map((d) => d.body).join('')).not.toMatch(/gluten|svin|vegetarian|avoid/);
   });
 });

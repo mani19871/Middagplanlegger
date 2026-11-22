@@ -400,3 +400,17 @@ describe('regresjon: «Lag nå» (cookNow.ts) følger planmotorens regler', () =
     expect(JSON.stringify(cookNow(have, c, { portions: 4, storeIds: ['demoA'] }))).toBe(JSON.stringify(r));
   });
 });
+
+describe('regresjon: basisvarer (staples.ts) påvirker aldri kurv, sum, sammenligning eller filtre', () => {
+  it('samme plan, kurv, sum og alternativer med og uten basisvarer; allergi- og kostkrav uendret', () => {
+    const staples = [{ id: 'ris', min: 5000 }, { id: 'kaffe' }, { id: 'mel', min: 1000 }];
+    for (const over of [{}, { avoid: ['gluten' as const] }, { vegetarian: true }, { avoidFoods: ['svin' as const] }]) {
+      const without = { ...ctx(over), shopDate: '2026-11-23' };
+      const withStaples = { ...ctx({ ...over, staples }), shopDate: '2026-11-23' };
+      const slots = generatePlan(without);
+      expect(generatePlan(withStaples)).toEqual(slots);
+      expect(JSON.stringify(buildBasket(slots, ['demoA', 'demoB'], withStaples))).toBe(JSON.stringify(buildBasket(slots, ['demoA', 'demoB'], without)));
+      expect(JSON.stringify(alternatives(slots, withStaples))).toBe(JSON.stringify(alternatives(slots, without)));
+    }
+  });
+});

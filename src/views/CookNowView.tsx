@@ -12,6 +12,9 @@ import { recipeAllergenText } from './allergenText';
 import { isoDate } from './dates';
 import { priceStatusText } from './priceText';
 import { ING_EMOJI } from './art';
+import { stapleStatus } from '../engine/staples';
+import { stapleListFacts } from '../sync/list';
+import { STAPLE_INFO, stapleStateText } from './StaplesView';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx }
 
@@ -50,6 +53,9 @@ export default function CookNowView({ state, update, ctx }: Props) {
   const result = useMemo(() => cookNow(have, { ...ctx, shopDate: today }, { portions, storeIds: [storeId], maxMinutes }),
     [have, ctx, today, portions, storeId, maxMinutes]);
   const lines = useMemo(() => manualLines(state.list), [state.list]);
+  // Basisvarer vises bare som «finnes» / «snart tom» / «tom». De endrer ikke hva som regnes som hjemme her eller rangeringen.
+  const staples = useMemo(() => stapleStatus(settings.staples ?? [], state.inventory, stapleListFacts(state.list), STAPLE_INFO),
+    [settings.staples, state.inventory, state.list]);
 
   const toggleHave = (id: string, on: boolean) => setLocal((l) => {
     if (id in stock) {
@@ -148,6 +154,20 @@ export default function CookNowView({ state, update, ctx }: Props) {
         {(local.removed.length > 0 || Object.keys(local.added).length > 0 || local.soon.length > 0) &&
           <button className="ghost" onClick={reset}>Nullstill valgene her</button>}
       </div>
+
+      {staples.length > 0 && (
+        <>
+          <h2 id="lagna-basis">Basisvarer</h2>
+          <div className="card" role="group" aria-labelledby="lagna-basis">
+            <ul className="plainlist">
+              {staples.map((b) => (
+                <li key={b.id}><b>{b.name}</b><small className="sub">{b.state === 'ok' ? `Finnes · ${stapleStateText(b)}` : stapleStateText(b)}</small></li>
+              ))}
+            </ul>
+            <p className="fine">Basisvarer vises her bare som informasjon. De regnes ikke med i forslagene utover det som står i matskapet.</p>
+          </div>
+        </>
+      )}
 
       <div className="cookopts">
         <label htmlFor="lagna-porsjoner">Porsjoner

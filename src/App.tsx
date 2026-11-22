@@ -15,6 +15,7 @@ import { changeSummary } from './engine/substitution';
 import PapersView from './views/PapersView';
 import PantryView from './views/PantryView';
 import CookNowView from './views/CookNowView';
+import StaplesView from './views/StaplesView';
 import { icons } from './views/art';
 import symbolGreen from './assets/symbol-skoggronn.svg';
 import symbolWhite from './assets/symbol-hvit.svg';
@@ -55,7 +56,7 @@ export default function App() {
   const filterBanner = otherMembers > 0 && !hasDietFilter(state.settings) && !state.filterBannerDismissed;
   const [mode, setMode] = useState<Mode>('home');
   const [privacy, setPrivacy] = useState(false);
-  const [pantryMode, setPantryMode] = useState<'skap' | 'lagnå'>('skap');
+  const [pantryMode, setPantryMode] = useState<'skap' | 'lagnå' | 'basis'>('skap');
   const [papersReset, setPapersReset] = useState(0); // trykk på aktiv fane nullstiller åpen utgave/detalj
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
   const kids = state.settings.eaters.length - adults;
@@ -140,13 +141,16 @@ export default function App() {
           purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
         {tab === 'Matskap' && (
           <>
-            <div className="chips tabs" role="group" aria-label="Matskap eller Lag nå">
+            <div className="chips tabs" role="group" aria-label="Matskap, Lag nå eller Basisvarer">
               <button className={pantryMode === 'skap' ? 'chip on' : 'chip'} aria-pressed={pantryMode === 'skap'} onClick={() => setPantryMode('skap')}>🥫 Matskapet</button>
               <button className={pantryMode === 'lagnå' ? 'chip on' : 'chip'} aria-pressed={pantryMode === 'lagnå'} onClick={() => setPantryMode('lagnå')}>🍳 Lag nå</button>
+              <button className={pantryMode === 'basis' ? 'chip on' : 'chip'} aria-pressed={pantryMode === 'basis'} onClick={() => setPantryMode('basis')}>🧂 Basisvarer</button>
             </div>
             {pantryMode === 'lagnå'
               ? <CookNowView state={state} update={update} ctx={ctx} />
-              : <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} openCookNow={() => setPantryMode('lagnå')} />}
+              : pantryMode === 'basis'
+                ? <StaplesView state={state} update={update} record={record} week={week} openList={() => setTab('Handleliste')} />
+                : <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} openCookNow={() => setPantryMode('lagnå')} />}
           </>
         )}
         <footer className="foot"><button className="link" onClick={() => setPrivacy(true)}>Personvern</button></footer>

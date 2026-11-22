@@ -524,6 +524,26 @@ describe('dataminimering', () => {
   });
 });
 
+describe('basisvarer: egne varenavn', () => {
+  it('logges aldri, deles bare i husstanden, og kvoten for dokumentet gjelder', async () => {
+    const { A, B } = await household();
+    const settings = { eaters: [], days: Array.from({ length: 7 }, () => ({ enabled: true, maxMinutes: 30 })), budgetOre: 90_000, storeIds: ['demoA'], regularStoreId: 'demoA', maxStops: 1, extraStoreThresholdOre: 0 };
+    const name = 'Glutenfritt mel';
+    await A.putDoc('innstillinger', 0, { ...settings, staples: [{ id: 'egen:glutenfritt-mel', name }] } as never);
+    await A.push([{ stream: 'beholdning', event: { type: 'nivå', id: 'n1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', staple: 'egen:glutenfritt-mel', level: 'tom' } as never }]);
+    // Ugyldig navn (for langt, tall) og ugyldig nivå: avvises uten at innholdet havner i loggen.
+    await code(A.putDoc('innstillinger', 1, { ...settings, staples: [{ id: 'egen:x', name: `${name} 12345678 ${'x'.repeat(40)}` }] } as never));
+    expect(JSON.stringify((await B.pull(0)).docs)).toContain(name);
+    const other = await anon().createHousehold('enhet-cccc3333');
+    expect(JSON.stringify(await anon().withToken(other.token).pull(0))).not.toContain(name);
+    expect(JSON.stringify(logs)).not.toMatch(/Glutenfritt|12345678|egen:/);
+    // Hele lista med 40 egne varer på 30 tegn er godt under dokumentgrensen (64 KB).
+    const many = Array.from({ length: 40 }, (_, i) => { const n = `${'a'.repeat(27)} ${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`; return { id: `egen:${'a'.repeat(27)}-${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`, name: n }; });
+    expect(JSON.stringify(many).length).toBeLessThan(4096);
+    expect(await code(A.putDoc('innstillinger', 1, { ...settings, staples: many } as never))).toBe('ok');
+  });
+});
+
 describe('sletting på disk (WAL)', () => {
   it('etter fjerning og sletting finnes etikett og hendelser verken i databasefilen eller i -wal', async () => {
     const file = join(root, 'middag.sqlite');

@@ -4,7 +4,7 @@
 //  - bytt-arket: dialog, fokus inn, fokusfelle (Tab og Shift+Tab), Escape lukker, fokus tilbake
 //  - hele appen kan nås med tastatur (Tab når alle faner)
 //  - ingen horisontal scrolling på 360 og 420 px
-//  - handleliste (også handlemodus), Husstand og Kontroll: navn, 44 px trykkflater i handlemodus, dialog for «Slett», ingen overflyt
+//  - Matskap → Lag nå og Basisvarer (forslag i handlelista én gang), handleliste (også handlemodus), Husstand og Kontroll: navn, 44 px trykkflater i handlemodus, dialog for «Slett», ingen overflyt
 // Bruk: node scripts/checks/a11y.cjs
 const { chromium } = require('playwright');
 const url = process.env.APP_URL || 'http://localhost:5173/';
@@ -81,6 +81,35 @@ const unnamed = (p) => p.evaluate(() => {
     const addBtn = p.getByRole('button', { name: /^Legg manglende for / }).first();
     if (await addBtn.count()) { await addBtn.click(); ok(await addBtn.isDisabled(), 'Lag nå: «Legg manglende på handlelista» kan ikke legge samme varer inn to ganger'); }
     await p.getByRole('button', { name: 'Nullstill valgene her' }).click();
+    // Matskap → Basisvarer: navn, overflyt, tom tilstand, legg til, «Tom» med tastatur (aria-pressed), 44 px, forslag i handlelista én gang
+    await p.getByRole('button', { name: /Basisvarer/ }).first().click();
+    ok(await p.getByRole('heading', { level: 1, name: 'Basisvarer' }).count() === 1, `${w}px Basisvarer: overskrift`);
+    ok(await p.getByRole('button', { name: /Basisvarer/, pressed: true }).count() === 1, 'Basisvarer-valget har aria-pressed');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Basisvarer (tom): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Basisvarer (tom)');
+    await p.getByRole('combobox', { name: 'Velg basisvare' }).selectOption({ label: 'Kaffe' });
+    await p.getByRole('button', { name: '＋ Legg til', exact: true }).click();
+    await p.getByRole('combobox', { name: 'Velg basisvare' }).selectOption({ label: 'Ris' });
+    await p.getByRole('spinbutton', { name: /^Minstemengde i g/ }).fill('500');
+    await p.getByRole('button', { name: '＋ Legg til', exact: true }).click();
+    await p.getByRole('textbox', { name: /Egen vare/ }).fill('Knekkebrød');
+    await p.getByRole('button', { name: /Legg til egen vare/ }).click();
+    ok(await p.getByRole('button', { name: 'Fjern basisvare Knekkebrød' }).count() === 1, 'Basisvarer: egen vare lagt til');
+    const tomBtn = p.getByRole('button', { name: 'Kaffe: tom' }); await tomBtn.focus(); await p.keyboard.press('Enter');
+    ok(await tomBtn.getAttribute('aria-pressed') === 'true', 'Basisvarer: «Tom» kan velges med tastatur (aria-pressed)');
+    ok(await p.getByRole('status').filter({ hasText: 'forslag venter i handlelista' }).count() === 1, 'Basisvarer: forslag meldes i et status-område');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Basisvarer (med varer): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Basisvarer (med varer)');
+    const smallSt = await p.evaluate(() => [...document.querySelectorAll('.haveopts .pill.pick, .stapletop .x')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { c: e.className || e.tagName, h: r.height }; }).filter((r) => r.h < 43.5));
+    ok(smallSt.length === 0, `${w}px Basisvarer: trykkflater minst 44 px høye ${JSON.stringify(smallSt.slice(0, 3))}`);
+    await p.getByRole('tab', { name: 'Handleliste' }).click();
+    ok(await p.getByText('Forslag: basisvarer').count() === 1, `${w}px handleliste: forslag om basisvarer vises`);
+    const approveBtn = p.getByRole('button', { name: 'Legg Kaffe på handlelista' });
+    await approveBtn.focus(); await p.keyboard.press('Enter');
+    ok(await approveBtn.count() === 0, 'handleliste: godkjent forslag forsvinner (kan ikke legges inn to ganger)');
+    ok(await p.getByRole('checkbox', { name: 'Kryss av Kaffe' }).count() === 1, 'handleliste: basisvaren ligger én gang på lista med navn');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px handleliste med basisvarer: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('handleliste med basisvarer');
+    await p.getByRole('button', { name: 'Fjern Kaffe' }).click();
+    await p.getByRole('tab', { name: 'Matskap' }).click();
+    for (const n of ['Kaffe', 'Ris', 'Knekkebrød']) await p.getByRole('button', { name: `Fjern basisvare ${n}` }).click();
     await p.getByRole('button', { name: /Matskapet/ }).first().click();
     await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Kontroll' }).click();
     bad = await unnamed(p); ok(bad.length === 0, `${w}px Kontroll: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Kontroll');

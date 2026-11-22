@@ -91,12 +91,14 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
           til matlaging, budsjett, butikker, antall butikkstopp, om tilbud brukes og hvilke kjeder.</li>
         <li>Handlelista: avkrysninger med hvem som krysset av, og egne linjer du skriver.</li>
         <li>Matskapet: kjøp, tellinger, rester, hva som er laget og «bruk noe vi har hjemme».</li>
+        <li>Basisvarer: hvilke varer dere alltid vil ha hjemme (fra en fast liste, eller et eget varenavn på høyst 30 tegn),
+          minstemengder og markeringene «har», «snart tom» og «tom». Forslag dere godkjenner eller avviser, lagres som linjer i handlelista.</li>
         <li>Valg ved utsolgt eller fant ikke, og godkjente lister (planversjoner).</li>
         <li>Medlemmer: enhets-id, etiketten du velger, rolle, når enheten ble med og sist var i kontakt med serveren (avrundet til
           minutt). Nøkkelen og invitasjonskoder lagres bare i uleselig form.</li>
         <li>For hver endring: tidspunkt fra enhetens klokke, når serveren mottok den og hvilken enhet som sendte den.</li>
       </ul>
-      <p className="fine">Etiketter og egne handlelinjer er fritekst. Skriv ikke navn eller helseopplysninger der. Planen og handlelista
+      <p className="fine">Etiketter, egne handlelinjer og egne basisvarer er fritekst. Skriv ikke navn eller helseopplysninger der. Planen og handlelista
         kan likevel si noe om hva dere spiser.</p>
       <p className="fine">Tilbud hentes av serveren fra Tjek og lagres der uten noe om deg eller husstanden. Ingenting om deg eller husstanden sendes til Tjek.
         Unntak: når du åpner et tilbud med bilde eller blar i en kundeavis fra Tjek, henter enheten din bildene direkte fra Tjek, som da ser

@@ -37,9 +37,20 @@ export type InventoryEvent =
    * to voksne som velger det samme gir én registrering; ulik mengde gir den største (uavhengig av rekkefølge).
    * Angres med `angre` på samme linje.
    */
-  | (Base & { type: 'hjemme'; week: string; line: string; ingredient: string; amount: number });
+  | (Base & { type: 'hjemme'; week: string; line: string; ingredient: string; amount: number })
+  /**
+   * Basisvare markert som «har», «snart tom» eller «tom» (engine/staples.ts). Endrer aldri beholdningen (mengdene) og
+   * aldri ukas kurv; gir bare forslag på handlelista. Siste markering per vare etter (at, id) gjelder, som for `telling`.
+   */
+  | (Base & { type: 'nivå'; staple: string; level: StapleLevel });
 
 export type InventoryLog = InventoryEvent[];
+
+/** Nivå for en basisvare (engine/staples.ts). */
+export type StapleLevel = 'har' | 'snart-tom' | 'tom';
+export const STAPLE_LEVELS: readonly StapleLevel[] = ['har', 'snart-tom', 'tom'];
+/** Id for en basisvare: id fra den generelle lista (små bokstaver) eller «egen:» + navn med små bokstaver og bindestrek. */
+export const STAPLE_ID = /^(?:[a-z]{1,20}|egen:[\p{Ll}\p{Lo}\p{M}-]{1,40})$/u;
 
 export const purchaseLineId = (week: string, storeId: string | null, ingredient: string, productId: string | null) =>
   `kjøp|${week}|${storeId ?? '-'}|${ingredient}|${productId ?? '-'}`;
@@ -60,6 +71,7 @@ export function isValidEvent(e: InventoryEvent): boolean {
     case 'telling': return okAmount(e.amount) && !!e.ingredient;
     case 'rest': return okAmount(e.amount) && !!e.ingredient && !!e.week;
     case 'hjemme': return okAmount(e.amount) && e.amount > 0 && !!e.ingredient && e.line === homeLineId(e.week, e.ingredient);
+    case 'nivå': return typeof e.staple === 'string' && STAPLE_ID.test(e.staple) && STAPLE_LEVELS.includes(e.level);
     default: return false;
   }
 }

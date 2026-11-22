@@ -116,7 +116,7 @@ Funn fra kjøringen:
 
 ## Utvidelse A: «Lag nå» (2026-11-22)
 
-Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. **Bare A er bygd.** B (basisvarer/minstebeholdning) og C (husholdningsvarer) er ikke påbegynt, og ingen KI.
+Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. A og B er bygd (B: se under). C (husholdningsvarer) er ikke påbegynt, og ingen KI.
 
 **Hva:** Matskap → «🍳 Lag nå». Viser det som finnes hjemme (bekreftet hjemme + kjøpt og ikke brukt fra `deriveStock`; forventet rest er aldri med), lar brukeren krysse av, legge til, rette mengde eller merke «⏰ Bruk snart», og foreslår middager fra oppskriftsbasen. Hvert forslag viser tid, porsjoner, andel som finnes, hva som finnes (også «bare 200 g hjemme» og «mengde ikke oppgitt»), hva som mangler med pakning, pris og prisstatus, anslått sum eller «Ufullstendig prisgrunnlag», allergentekst og fremgangsmåte. «Legg manglende på handlelista» lager vanlige manuelle linjer (strøm `liste`, ingen nye felt), vist i handlelista under «Fra «Lag nå» (ikke kontrollert)», ikke med i beregnet sum, også uten ukeplan.
 
@@ -129,6 +129,22 @@ Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. **Bare A er bygd.
 **Oppskriftsbasen er liten:** 31 enkle demooppskrifter laget for demoen (`src/data/catalog.ts`), ingen fra andre kilder. UI sier det. Mange kombinasjoner av varer gir derfor få eller ingen gode forslag; ingen oppskrifter er funnet på eller hentet inn (regel 6).
 
 **Ikke testet / åpent:** ikke prøvd med skjermleser eller på ekte telefon; demopriser bare (ingen ekte prisdekning, regel 5); «må brukes snart» er brukerens eget valg, appen kjenner ikke holdbarhet; vekten 200 promille er et skjønn, ikke målt mot brukere; manglende varer prises bare i vanlig butikk; avkrysning i «Lag nå» deles ikke med andre i husstanden (bevisst, men kan overraske).
+
+## Utvidelse B: basisvarer med minstebeholdning (2026-11-22)
+
+**Bare A og B er bygd.** C (husholdningsvarer som toalettpapir og vaskemidler) og KI er ikke påbegynt.
+
+**Hva:** Matskap → «🧂 Basisvarer». Husstanden velger varer den alltid vil ha hjemme fra en generell liste (18 vanlige varer, `src/data/staples.ts`, ingen priser) eller som egen vare (kort varenavn). Varer som telles i matskapet (mel, ris, pasta, tomater, linser, melk, egg, ost, soyasaus) kan få minstemengde i g/ml/stk; alle kan markeres «Har», «Snart tom» eller «Tom». Når beholdningen (bekreftet hjemme + kjøpt og ikke brukt, `deriveStock`) er under grensen, eller varen er markert «snart tom»/«tom», foreslås den i handlelista under «🧂 Forslag: basisvarer» med «Legg på lista» og «Ikke nå». Godkjente linjer står under «🧂 Basisvarer (ikke kontrollert)», uten pris og ikke med i beregnet sum, også uten ukeplan. «Lag nå» viser basisvarene som informasjon («Finnes · Har»), uten å endre det som regnes som hjemme eller rangeringen.
+
+**Regler (motor, `src/engine/staples.ts`):** ren og deterministisk; tilstanden avledes av hele loggen sortert på (at, id). Siste markering gjelder; «snart tom»/«tom» oppheves av kjøp, telling, bekreftet rest eller avkrysset basisvarelinje (ikke av «laget»); «har» gjelder til beholdningen endres. Uten markering avgjør grensen; en vare som aldri er telt eller kjøpt er ukjent (ingen forslag), ikke null. Akkurat på grensen er nok. Forslag har linje-id `basis:<uke>|<vare>`: godkjent to ganger eller på to enheter gir én linje, avvist kommer ikke igjen samme uke, og så lenge en basisvarelinje ligger åpen foreslås varen ikke igjen. En basisvarelinje krysses av for sin egen uke. Basisvarer påvirker aldri kurv, butikksum, sammenligning, budsjettsvar eller allergi-/kostfilter (planmotoren leser dem ikke).
+
+**Synk (begrunnelse i `docs/synk.md`, «Basisvarer»):** varer og grenser i innstillingsdokumentet, flettet per vare (`basis:<id>`; samme vare endret ulikt = konflikt); markeringer som `nivå`-hendelser i `beholdning`; forslag som vanlige manuelle linjer. Ingen ny serverlagring, strøm eller dokumenttype. Strenge feltlister (`cleanEvent`, `isValidStaples` i `isValidDoc`), kvoter og dokumentgrense som før. Egne navn: høyst 30 tegn, uten tall og kontrolltegn, logges aldri. Med i «Last ned mine data» (innstillinger og beholdningslogg, forklart i filen) og i personvernarket.
+
+**Bevis:** `src/engine/staples.test.ts` (23 tester, skrevet før koden og sett røde: terskel krysses, akkurat på grensen, ukjent ≠ null, «snart tom»/«tom» manuelt, opphevet av kjøp/telling/avkrysning og ikke av bruk, idempotens ved to mottak, omvendt rekkefølge, flere enheter, godkjenn/avvis/fjerning vinner, validering); `planner.test.ts` «regresjon: basisvarer …» (samme plan, kurv, sum og alternativer med og uten basisvarer, med ulike allergi- og kostkrav); `src/sync/engine.test.ts` (4 tester mot ekte server); `server/sync/api.test.ts` (2), `security.test.ts` (1), `export.test.ts` (1); `src/acceptance/basisvarer-ui.test.tsx` (5, server-rendret tekst, også personvernarket); `npm run check:a11y` utvidet med Basisvarer (navn, overflyt på 360/420 px, «Tom» med tastatur og `aria-pressed`, status-område for forslag, 44 px trykkflater, godkjent forslag legges inn én gang); `check:contrast` uendret grønn.
+
+**Konvensjon fulgt:** UI-testen ligger i `src/acceptance/basisvarer-ui.test.tsx` (som `lagna-ui.test.tsx`), og regel-skanningen i `regler.test.ts` dekker nå også `src/data/staples.ts`.
+
+**Ikke testet / åpent:** ikke prøvd med skjermleser eller på ekte telefon; ingen holdbarhet eller forbruksprognose (bare grense og manuelle markeringer); siste markering vinner ved samtidige ulike markeringer (som `telling`), avbøtet av at et forslag alltid må godkjennes; «Ikke nå» gjelder hele uka; manuelle linjer fra eldre uker blir stående til de fjernes (som før); en eldre, bufret app godtar ikke innstillinger med basisvarer før den er oppdatert; den generelle lista er et skjønn, ikke testet med brukere.
 
 ## Hvordan kjøre kontrollen på nytt
 `npx tsc --noEmit && npx vitest run && npx vite build`. Nettleserflyten er ikke en sjekket inn test (Playwright er ikke avhengighet i repoet); stegene over kan gjentas manuelt på 420 px mot `npx tsx server/index.ts` etter bygg.

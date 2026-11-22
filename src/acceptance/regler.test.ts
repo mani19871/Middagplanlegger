@@ -52,7 +52,7 @@ describe('regel 2: hver pris har kilde, omfang, dato og status', () => {
 });
 
 describe('regel 4 og 2: ingen garanti-språk om allergener eller pris i brukergrensesnittet', () => {
-  const ui = tracked.filter((f) => /^src\/(views\/.*\.tsx|App\.tsx|data\/(catalog|newspapers)\.ts)$/.test(f) || f === 'index.html');
+  const ui = tracked.filter((f) => /^src\/(views\/.*\.tsx|App\.tsx|data\/(catalog|newspapers|staples)\.ts)$/.test(f) || f === 'index.html');
   /** Linjer som nevner garanti må benekte den («garanterer aldri», «ikke en garanti»). */
   it.each(ui)('%s: «garanti», «allergenfri», «sluttpris» og «billigste» står bare i benektende setninger', (f) => {
     const sentences = stripComments(text(f)).split(/\n|(?<=[.!?])\s+/);

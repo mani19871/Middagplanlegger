@@ -3,9 +3,13 @@
 //  - feltet er bare endret på én side: den endringen tas med,
 //  - begge sider har samme verdi: ingen konflikt,
 //  - begge har endret feltet ulikt: KONFLIKT. Lokal verdi beholdes inntil brukeren velger. Ingen siste-skriving-vinner.
-// Felt: planen per dag («slot:<dag>»), «approved» og «option»; innstillingene per toppfelt.
+// Felt: planen per dag («slot:<dag>»), «approved» og «option»; innstillingene per toppfelt, unntatt basisvarene som
+// flettes per vare («basis:<id>»), så to enheter som legger til hver sin basisvare ikke får konflikt.
 // Ren og deterministisk. Validering deles med serveren (server/sync/api.ts).
-import type { Settings, Slot } from '../engine/types';
+import type { Settings, Slot, Staple } from '../engine/types';
+import { isValidStaples } from '../engine/staples';
+import { stapleChoices } from '../data/staples';
+import { catalog } from '../data/catalog';
 
 export type DocName = 'plan' | 'innstillinger';
 export const DOC_NAMES: DocName[] = ['plan', 'innstillinger'];
@@ -28,6 +32,12 @@ export function stable(v: unknown): string {
   return JSON.stringify(v) ?? 'null';
 }
 
+/** Felt per basisvare i innstillingsdokumentet. */
+const STAPLE_FIELD = 'basis:';
+/** Basisvarene i fast rekkefølge (etter id), uten tom liste, slik dokumentet lagrer dem. */
+export const normalizeStaples = (staples: Staple[] | undefined): Staple[] | undefined =>
+  staples && staples.length > 0 ? [...staples].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) : undefined;
+
 export function fieldsOf(name: DocName, body: DocBody): Record<string, unknown> {
   if (name === 'plan') {
     const p = body as PlanDoc;
@@ -37,6 +47,9 @@ export function fieldsOf(name: DocName, body: DocBody): Record<string, unknown> 
   }
   const rest: Record<string, unknown> = { ...(body as SettingsDoc) };
   for (const k of ['pantry', ...LOCAL_ONLY_SETTINGS]) delete rest[k];
+  const staples = rest.staples;
+  delete rest.staples;
+  if (Array.isArray(staples)) for (const s of staples as Staple[]) rest[`${STAPLE_FIELD}${s.id}`] = s;
   return rest;
 }
 
@@ -47,7 +60,13 @@ export function fromFields(name: DocName, f: Record<string, unknown>): DocBody {
     return { slots, approved: f.approved === true, option: f.option === 'combo' ? 'combo' : 'regular' };
   }
   const out: Record<string, unknown> = {};
-  for (const k of Object.keys(f).sort()) if (f[k] !== undefined) out[k] = f[k];
+  const staples: Staple[] = [];
+  for (const k of Object.keys(f).sort()) {
+    if (f[k] === undefined) continue;
+    if (k.startsWith(STAPLE_FIELD)) staples.push(f[k] as Staple);
+    else out[k] = f[k];
+  }
+  if (staples.length > 0) out.staples = staples.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return out as unknown as SettingsDoc;
 }
 
@@ -86,7 +105,14 @@ const FIELD_TEXT: Record<string, string> = {
   useOffers: 'tilbud', offerChains: 'tilbudskjeder',
 };
 /** Lesbar tekst for et felt, til konfliktvisningen. */
-export const fieldText = (k: string) => (k.startsWith('slot:') ? `middagen ${DAY_NAMES[Number(k.slice(5))] ?? k}` : FIELD_TEXT[k] ?? k);
+export const fieldText = (k: string) => {
+  if (k.startsWith('slot:')) return `middagen ${DAY_NAMES[Number(k.slice(5))] ?? k}`;
+  if (k.startsWith(STAPLE_FIELD)) {
+    const id = k.slice(STAPLE_FIELD.length);
+    return `basisvaren ${stapleChoices.find((c) => c.id === id)?.name ?? (id.startsWith('egen:') ? id.slice(5).replace(/-/g, ' ') : id)}`;
+  }
+  return FIELD_TEXT[k] ?? k;
+};
 
 // ---------- Validering (server og klient) ----------
 
@@ -97,7 +123,7 @@ export const fieldText = (k: string) => (k.startsWith('slot:') ? `middagen ${DAY
  */
 const SETTINGS_KEYS: Record<keyof SettingsDoc, true> = {
   eaters: true, days: true, budgetOre: true, storeIds: true, regularStoreId: true, maxStops: true,
-  extraStoreThresholdOre: true, useOffers: true, offerChains: true,
+  extraStoreThresholdOre: true, useOffers: true, offerChains: true, staples: true,
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -140,7 +166,9 @@ export function isValidDoc(name: string, body: unknown): body is DocBody {
       && (body.maxStops === 1 || body.maxStops === 2) && int(body.extraStoreThresholdOre, 0, 10_000_000)
       && (body.useOffers === undefined || bool(body.useOffers))
       // Kjeder for tilbud (valgfritt): kjedenavn, ingen persondata.
-      && (body.offerChains === undefined || (Array.isArray(body.offerChains) && body.offerChains.length <= 40 && body.offerChains.every((c) => str(c, 40))));
+      && (body.offerChains === undefined || (Array.isArray(body.offerChains) && body.offerChains.length <= 40 && body.offerChains.every((c) => str(c, 40))))
+      // Basisvarer (valgfritt): id fra den generelle lista eller egen vare med kort, renset navn; minstemengde (engine/staples.ts).
+      && isValidStaples(body.staples, { choices: stapleChoices, ingredients: catalog.ingredients });
   }
   return false;
 }

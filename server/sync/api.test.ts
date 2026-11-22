@@ -679,3 +679,37 @@ describe('tokenutløp (SYNC_TOKEN_IDLE_DAYS, glidende)', () => {
     expect(await code(h.A.household())).toBe('ok'); // 0 = aldri utløp
   });
 });
+
+describe('basisvarer (innstillinger og strøm beholdning)', () => {
+  const settings = { eaters: [], days: Array.from({ length: 7 }, () => ({ enabled: true, maxMinutes: 30 })), budgetOre: 90_000, storeIds: ['demoA'], regularStoreId: 'demoA', maxStops: 1, extraStoreThresholdOre: 0 };
+  const nivå = (id: string, by: string, extra: Record<string, unknown> = {}): Envelope =>
+    ({ stream: 'beholdning', event: { type: 'nivå', id, at: '2026-11-23T10:00:00.000Z', by, staple: 'kaffe', level: 'snart-tom', ...extra } as never });
+
+  it('gyldige basisvarer lagres i innstillingsdokumentet; ugyldige avvises (strengt skjema)', async () => {
+    const { A } = await household();
+    const good = { ...settings, staples: [{ id: 'kaffe' }, { id: 'ris', min: 500 }, { id: 'egen:kaffe-filter', name: 'Kaffe filter' }] };
+    expect(await code(A.putDoc('innstillinger', 0, good as never))).toBe('ok');
+    const v = 1;
+    for (const staples of [
+      [{ id: 'ukjent' }], [{ id: 'kaffe' }, { id: 'kaffe' }], [{ id: 'kaffe', min: 100 }], [{ id: 'ris', min: -1 }], [{ id: 'ris', merknad: 'x' }],
+      [{ id: 'egen:ok', name: 'Ok', min: 1 }], [{ id: 'egen:x', name: 'Y' }], [{ id: 'egen:aa', name: 'a'.repeat(31) }], 'kaffe',
+      Array.from({ length: 41 }, (_, i) => ({ id: `egen:v-${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`, name: `v ${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}` })),
+    ]) expect(await code(A.putDoc('innstillinger', v, { ...settings, staples } as never)), JSON.stringify(staples).slice(0, 60)).toBe('400 ugyldig_dokument');
+    expect((await A.pull(0)).docs.find((d) => d.name === 'innstillinger')!.body).toMatchObject({ staples: good.staples });
+  });
+
+  it('nivå-hendelser lagres én gang, ukjente felt fjernes, ugyldige nivåer og feil identitet avvises', async () => {
+    const { A, B } = await household();
+    const first = await A.push([nivå('n1', 'enhet-aaaa1111', { navn: 'Ola', merknad: 'allergi' })]);
+    expect(first).toEqual({ accepted: ['n1'], rejected: [] });
+    expect(await A.push([nivå('n1', 'enhet-aaaa1111')])).toEqual({ accepted: ['n1'], rejected: [] });
+    const r = await B.push([
+      nivå('n2', 'enhet-bbbb2222', { level: 'halvfull' }), nivå('n3', 'enhet-bbbb2222', { staple: 'Kaffe og mer' }),
+      nivå('n4', 'enhet-aaaa1111'), nivå('n5', 'enhet-bbbb2222', { staple: 'x'.repeat(50) }),
+    ]);
+    expect(r.rejected).toEqual([{ id: 'n2', code: 'ugyldig_hendelse' }, { id: 'n3', code: 'ugyldig_hendelse' }, { id: 'n4', code: 'feil_identitet' }, { id: 'n5', code: 'ugyldig_hendelse' }]);
+    const events = (await B.pull(0)).events;
+    expect(events).toHaveLength(1);
+    expect(events[0].event).toEqual({ type: 'nivå', id: 'n1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', staple: 'kaffe', level: 'snart-tom' });
+  });
+});

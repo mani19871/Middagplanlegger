@@ -40,3 +40,18 @@ describe('eksport av mine data', () => {
     expect(buildExport(connected, 'e', 'x', null).serverMerknad).toMatch(/kunne ikke hentes/);
   });
 });
+
+describe('eksport: basisvarer (utvidelse B)', () => {
+  it('basisvarer, minstegrenser og nivåmarkeringer er med i filen, og forklaringen nevner dem', () => {
+    const state: AppState = {
+      ...connected,
+      settings: { ...connected.settings, staples: [{ id: 'ris', min: 500 }, { id: 'egen:kaffe-filter', name: 'Kaffe filter' }] },
+      inventory: [{ type: 'nivå', id: 'n1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', staple: 'egen:kaffe-filter', level: 'tom' }],
+    };
+    const x = buildExport(state, 'enhet-aaaa1111', '2026-11-23T12:00:00.000Z', server);
+    expect(x.enhet.lagretPåEnheten.settings.staples).toEqual(state.settings.staples);
+    expect(x.enhet.lagretPåEnheten.inventory).toEqual(state.inventory);
+    expect(x.forklaring).toMatch(/basisvarer/i);
+    expect(exportText(x)).not.toContain('HEMMELIG-TOKEN');
+  });
+});
