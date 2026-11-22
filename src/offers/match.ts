@@ -71,12 +71,12 @@ function pickIngredient(heading: string, ingredients: Ingredient[], terms: Recor
     .filter((x): x is { r: OfferRule; ing: Ingredient } => !!x.ing)
     .sort((a, b) => b.r.pattern.length - a.r.pattern.length || a.ing.id.localeCompare(b.ing.id));
   if (approved.length > 0) {
-    const [top, next] = approved;
+    const top = approved[0];
     // Like lange godkjente mønstre for ulike ingredienser: regelfilen er selvmotsigende, så ingen godkjenning.
-    const ambiguous = !!next && next.r.pattern.length === top.r.pattern.length && next.ing.id !== top.ing.id;
+    const ambiguous = approved.some((x) => x.r.pattern.length === top.r.pattern.length && x.ing.id !== top.ing.id);
     return { ingredient: top.ing, ambiguous, approved: !ambiguous, rule: top.r.pattern };
   }
-  const text = norm(heading); // beskrivelsen er for støyende til å matche på
+  const text = normText(heading); // beskrivelsen er for støyende til å matche på
   // «tillatt»-mønstre teller ikke mot utelukkelseslisten («soyasaus» er ikke «saus»), men resten av overskriften gjør det.
   const allows = rules.filter((r) => r.decision === 'tillatt' && allowed.some((i) => i.id === r.ingredient) && patternMatches(heading, r.pattern));
   let rest = normText(text);

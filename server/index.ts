@@ -45,7 +45,8 @@ const RETRY_MS = 5 * 60 * 1000;
 const oslo = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' });
 
 const source = new TjekSource(
-  (url, init) => fetch(url, { headers: { ...init?.headers, 'User-Agent': 'Middagsplanlegger/0.1' } }),
+  // Tidsavbrudd per kall: et Tjek som henger skal gi feil (og nedkjøling), ikke «loading» i mange minutter.
+  (url, init) => fetch(url, { headers: { ...init?.headers, 'User-Agent': 'Middagsplanlegger/0.1' }, signal: AbortSignal.timeout(15_000) }),
   () => new Date().toISOString(),
 );
 

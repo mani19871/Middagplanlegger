@@ -54,3 +54,42 @@ describe('tilbud', () => {
     expect(matchOffer(o, ingredients, '2026-11-24')!.needsReview).toBe(true);
   });
 });
+
+describe('kodegjennomgang: tilbud', () => {
+  it('gyldighet regnes i norsk tid, ikke UTC (et tilbud fra mandag 00:00 gjelder ikke søndag)', () => {
+    const o = parseTjekOffer(raw({ run_from: '2026-11-22T23:00:00+0000', run_till: '2026-11-29T22:59:59+0000' }), 'x');
+    expect(matchOffer(o, ingredients, '2026-11-22')).toBeNull();
+    expect(matchOffer(o, ingredients, '2026-11-23')).not.toBeNull();
+    expect(matchOffer(o, ingredients, '2026-11-29')).not.toBeNull();
+    // Slutt ved midnatt (eksklusiv) gjelder ikke den nye dagen.
+    const mid = parseTjekOffer(raw({ run_till: '2026-11-30T00:00:00+0100' }), 'x');
+    expect(matchOffer(mid, ingredients, '2026-11-30')).toBeNull();
+  });
+  it('mengde som spenn («400–700 g») er ukjent mengde og går til kontroll', () => {
+    const o = parseTjekOffer(raw({ quantity: { unit: { symbol: 'g' }, size: { from: 400, to: 700 }, pieces: null } }), 'x');
+    expect(o.amount).toBeNull();
+    expect(matchOffer(o, ingredients, '2026-11-24')!.reasons).toContain('mengde ukjent');
+  });
+  it('pakningsstørrelser regnes om uten flyttallsrester', () => {
+    expect(parseTjekOffer(raw({ quantity: { unit: { symbol: 'hg' }, size: { from: 2.3, to: 2.3 }, pieces: null } }), 'x').amount).toBe(230);
+    expect(parseTjekOffer(raw({ quantity: { unit: { symbol: 'dl' }, size: { from: 4.35, to: 4.35 }, pieces: null } }), 'x').amount).toBe(435);
+  });
+  it('tilbud i annen valuta enn NOK får ukjent pris (går til kontroll)', () => {
+    expect(parseTjekOffer(raw({ pricing: { price: 25, pre_price: 30, currency: 'DKK' } }), 'x')).toMatchObject({ priceOre: null, prePriceOre: null });
+    expect(parseTjekOffer(raw({ pricing: { price: 25, pre_price: null } }), 'x').priceOre).toBe(2500); // uten valuta: NOK
+  });
+  it('flere mellomrom eller hardt mellomrom i overskriften hindrer ikke søkeordtreff', () => {
+    expect(matchOffer(parseTjekOffer(raw({ heading: 'Hakkede tomater 400 g' }), 'x'), ingredients, '2026-11-24')?.ingredient).toBe('tomat');
+    expect(matchOffer(parseTjekOffer(raw({ heading: 'Hakkede  tomater' }), 'x'), ingredients, '2026-11-24')?.ingredient).toBe('tomat');
+  });
+  it('like lange godkjente mønstre for ulike ingredienser er tvetydige selv om to av dem gjelder samme ingrediens', () => {
+    const rules = [
+      { pattern: 'kylling aaa', decision: 'godkjent' as const, ingredient: 'kylling' },
+      { pattern: 'kylling bbb', decision: 'godkjent' as const, ingredient: 'kylling' },
+      { pattern: 'kylling ccc', decision: 'godkjent' as const, ingredient: 'laks' },
+    ];
+    const m = matchOffer(parseTjekOffer(raw({ heading: 'kylling aaa kylling bbb kylling ccc' }), 'x'), ingredients, '2026-11-24', undefined, rules)!;
+    expect(m.approved).toBe(false);
+    expect(m.reasons).toContain('tvetydig');
+  });
+});
