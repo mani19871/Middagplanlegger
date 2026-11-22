@@ -272,7 +272,7 @@ SYNC_SECRET=… npm start   # node dist-server/index.mjs (kjør fra repoets rot:
 | `KASSALAPP_TOKEN` | ikke satt | **Reservert, ikke i bruk av serveren ennå.** Brukes i dag bare av `phase0/kassalapp-import/probe.mjs`. Hemmelighet: send den inn ved oppstart, aldri i Dockerfile eller git. |
 | `NODE_USE_ENV_PROXY` | ikke satt | Bare hvis serveren står bak en utgående proxy (f.eks. firmanettverk) og skal hente tilbud derfra. |
 | `NODE_ENV` | `production` (satt i imaget) | Ingen kjent virkning på serveren. |
-| `DOMENE`, `DATA_VOLUME` | – | Bare i Compose-eksempelet (`docs/drift/`): domenet Caddy henter sertifikat for, og navnet på datavolumet. |
+| `DOMENE`, `DATA_VOLUME`, `PUBLIC_BIND_IP` | – | Bare i Compose-eksempelet (`docs/drift/`): domenet Caddy henter sertifikat for, navnet på datavolumet, og adressen Caddy binder port 80/443 til (tom = alle adresser; på eierens delte server den offentlige IPv4-adressen, se `installasjon-ubuntu.md` avsnitt 0A og 5). |
 
 Hemmeligheter ved oppstart, uten å skrive dem i kommandolinjen (de havner ellers i skallets historikk): legg dem i en fil som bare ligger på serveren, utenfor repoet, med rettighet 600, og bruk `--env-file` (eller `env_file:` i Compose). `docs/drift/.gitignore` hindrer at `.env.drift` sjekkes inn. På PaaS og skyleverandører legges nøkkelen i plattformens hemmelighetslager («secrets»).
 

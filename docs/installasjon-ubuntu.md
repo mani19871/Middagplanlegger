@@ -1,6 +1,6 @@
 # Installere Husvett på en Ubuntu-server som deles med et annet prosjekt
 
-**Status: UTKAST, skrevet 2026-11-22. Ikke prøvd på eierens server.** Guiden er skrevet for eierens leide server hos one.com (Cloud server L, Ubuntu 26.04, 8 vCPU, 16 GB minne, 400 GB disk, bruker `administrator`, tilgang via one.coms nettkonsoll), som allerede brukes av et annet prosjekt («plattformprosjektet»). Hva som kjører der, om det bruker port 80/443, og om Docker er installert, er **ikke kjent**. Derfor starter guiden med å *lese* tilstanden, og først deretter velger du vei A eller B.
+**Status: UTKAST, skrevet 2026-11-22. Ikke prøvd på eierens server.** Guiden er skrevet for eierens leide server hos one.com (Ubuntu 26.04, 8 kjerner, 16 GB minne, 400 GB disk), som allerede brukes av et annet prosjekt («plattformprosjektet», under kalt Plattform). **Oppdatert samme dag:** Plattform-prosjektet har kartlagt serveren (port 80/443 ledige, Docker installert, SSH som `mani`); det står i **avsnitt 0A**, som går foran det guiden ellers sier om serveren. Konklusjonen der er **vei A med `PUBLIC_BIND_IP`**. Avsnitt 1–2 (lese tilstanden og velge vei) gjelder fortsatt for en annen server, og som bakgrunn for lesepakken i 0A.2.
 
 Les også: [`hosting.md`](hosting.md) (bakgrunn, miljøvariabler, avsnitt 8 om Docker, sikkerhetskopi og gjenoppretting), [`pilot-sjekkliste.md`](pilot-sjekkliste.md) (alt som må være på plass før ekte familier), [`sikkerhet.md`](sikkerhet.md) og filene i [`drift/`](drift/).
 
@@ -12,19 +12,118 @@ Les også: [`hosting.md`](hosting.md) (bakgrunn, miljøvariabler, avsnitt 8 om D
 
 ## 0. Før du begynner
 
-**Hvem gjør hva.** Rollen «Admin» (hosting.md, avsnitt 0) følger guiden. Avtal med den som har ansvar for plattformprosjektet **før** du endrer noe på serveren: du kommer til å installere programmer (kanskje Docker), og i vei B legger du til ett nytt vertsoppsett i deres webserver.
+**Hvem gjør hva.** Rollen «Admin» (hosting.md, avsnitt 0) følger guiden; på Plattform-serveren er det eieren, innlogget som `mani` (avsnitt 0A). Avtal med den som har ansvar for plattformprosjektet **før** du endrer noe på serveren: du kommer til å installere noen få programmer (`git`, `age`), og i vei B legger du til ett nytt vertsoppsett i deres webserver. Les «Ikke rør» (0A.1) før du begynner.
 
 **Slik leser du kommandoene.**
 
 - Alt i grå bokser skrives (eller limes inn) i konsollen, én linje om gangen, og avsluttes med Enter. Linjer som begynner med `#` er forklaringer og trenger ikke skrives.
-- `sudo` betyr «kjør som administrator (root)». Første gang spør den om passordet til brukeren `administrator`. Det vises ingen tegn mens du skriver passordet; det er normalt.
+- `sudo` betyr «kjør som administrator (root)». Første gang spør den om passordet til brukeren du er logget inn som (på Plattform-serveren: `mani`). Det vises ingen tegn mens du skriver passordet; det er normalt.
 - `<SLIK>` skal byttes ut med en verdi, uten `<` og `>`.
-- Fra og med avsnitt 3 bruker guiden et **root-skall** for Husvett-arbeid: skriv `sudo -i` én gang, og alle kommandoer etter det kjøres som root (ledeteksten slutter da med `#` i stedet for `$`). Skriv `exit` når du er ferdig. Vær ekstra nøye i et root-skall: ingen spør om du er sikker.
+- **Lesing (avsnitt 0A.2 og 1) gjøres som `mani` med `sudo` foran hver kommando som trenger det**, ikke i et root-skall.
+- Fra og med avsnitt 3 bruker guiden et **root-skall** for Husvett-arbeid, fordi nesten alt der krever root (Docker, `/srv/husvett`, systemd): skriv `sudo -i` som `mani` én gang, og alle kommandoer etter det kjøres som root (ledeteksten slutter da med `#` i stedet for `$`). Skriv `exit` når du er ferdig, så er du tilbake som `mani`. Vær ekstra nøye i et root-skall: ingen spør om du er sikker. Bruk ikke `koordinator` eller `administrator` til Husvett-arbeid.
 - Får du en feilmelding du ikke forstår: **stopp**, ta et skjermbilde (uten passord eller nøkler) og spør utvikleren. Ikke prøv deg fram med kommandoer fra nettet på en server som også kjører et annet prosjekt.
 
-**Nettkonsollen hos one.com.** Guiden forutsetter bare nettkonsollen (SSH er ikke bekreftet). **Sjekk dette:** om du kan lime inn tekst i konsollen (prøv med en kort, ufarlig linje som `echo hei`). Går det ikke, må lange filer skrives for hånd, og da er SSH verdt å sette opp først (spør utvikleren).
+**SSH som `mani`.** På Plattform-serveren logger eieren inn som `mani` over SSH med nøkkel (opplyst av Plattform-prosjektet, avsnitt 0A); nettkonsollen hos one.com trengs ikke, og innliming virker i en vanlig terminal. Ikke endre SSH-oppsettet, og ikke lag nye SSH-brukere (0A.1). På en annen server uten SSH: **sjekk dette:** om nettkonsollen kan lime inn tekst (prøv `echo hei`).
 
 **Driftslogg.** Før en enkel logg utenfor repoet (f.eks. et dokument hos AVVR AS): dato, hva du gjorde, hvilken versjon (commit) som kjører, og hva som gikk galt. Ingen passord, nøkler eller IP-adresser i den heller, hvis den deles.
+
+---
+
+## 0A. Plattform-serveren slik den faktisk er (opplyst 2026-11-22)
+
+**Kilde:** notat fra plattformprosjektets koordinatorøkt 2026-11-22, levert av eieren (fakta fra deres kartlegging, uten IP-adresser, nøkler eller passord). Eieren har bekreftet at alle tilganger er hans egne, og at Husvett skal installeres nå på denne serveren. **Alt i tabellen er opplyst av Plattform-prosjektet, ikke kontrollert av oss.** Avsnittet går foran det som står om serveren ellers i guiden (f.eks. «bruker `administrator`, nettkonsoll»).
+
+| Hva | Opplyst | Betyr for Husvett |
+| --- | --- | --- |
+| Operativsystem og maskin | Ubuntu 26.04.1, 8 kjerner, 16 GB minne, 400 GB disk, «nesten tom» | Nok plass. Ledig disk og minne er likevel ikke målt (L12, L13) |
+| Port 80 og 443 | Ingenting lytter i dag; `ufw` slipper dem inn | **Vei A** (vår egen Caddy) |
+| Port 443 på WireGuard-adressen | Plattforms testmiljø vil binde 443 på `10.8.0.1` (wg0), trolig denne uken | Vår Caddy må bindes til serverens **offentlige** adresse alene (`PUBLIC_BIND_IP`, avsnitt 5). Binder den til alle adresser, kolliderer de (prøvd i sandkassen, avsnitt 14) |
+| Docker | `docker-ce` 29.x med Compose, fra Dockers eget pakkelager; ingen containere kjører | **Ikke installer Docker på nytt.** Hopp over installasjonen i 3.2, men kontroller versjonen (L7, L8) |
+| Brannmur | `ufw` aktiv (SSH, 80, 443, 51820/udp for WireGuard); `fail2ban` aktiv | Ingenting skal endres. Docker-publiserte porter går forbi `ufw`; derfor publiseres appen aldri (vei A) eller bare på `127.0.0.1` (vei B) |
+| SSH | Bare nøkkel; passord og root slått av; bare navngitte brukere (`AllowUsers` i `/etc/ssh/sshd_config.d/00-herding.conf`) | Eieren arbeider som `mani` over SSH. Nettkonsollen trengs ikke |
+| Brukere | `mani` (eier, `sudo` med passord); `koordinator` (Plattforms Claude-økt, `sudo` **uten** passord, **midlertidig til 29.11.2026**); `administrator` (one.coms standardbruker, har passord og `sudo`, slipper ikke inn over SSH) | Alle tre kan lese Husvetts database (avsnitt 7). Føres i tilgangslisten (pilot-sjekkliste C16) |
+| Plattforms mapper | `/srv/stacks/plattform`, `/srv/stacks/akkreditering`, `/srv/edge`, `/home/mani/plattform` | Husvett bruker bare `/srv/husvett` |
+| WireGuard | `wg0` på `10.8.0.1/24` | Ikke rør. `10.8.0.1` skal aldri stå i `PUBLIC_BIND_IP` |
+| Oppdateringer | `unattended-upgrades` aktiv (kan kreve omstart); omstarter avtales med eieren | Se «Omstart og oppdateringer» under |
+| Ikke kartlagt | Ledig disk/minne (L12/L13), IPv6 (L15/L16), tidssone (L17), planlagte Docker-oppryddingsjobber (L18) | Kjør lesepakken under |
+
+**Kjente avvik (opplyst av Plattform-prosjektet, ikke kontrollert av oss):** serveren er behandlet som **testserver**: port 22 er åpen mot hele internett, `koordinator` har full `sudo` uten passord til 29.11.2026, og `administrator` har et aktivt passord. Plattform planla å stenge 80/443 etter testfasen; det går ikke så lenge Husvett ligger der. Dette er et **STOPP før ekte familiedata** (pilot-sjekkliste C17): herdingstiltak foreslås der, men utføres ikke av oss.
+
+**Konklusjon: vei A** (avsnitt 6A), med `PUBLIC_BIND_IP` satt til serverens offentlige IPv4-adresse i `.env.drift`. Appens egen port publiseres ikke i det hele tatt i vei A. Det meste av leseskjemaet i avsnitt 1 er besvart av Plattform; bare punktene i lesepakken under gjenstår.
+
+### 0A.1 Ikke rør (avtale med Plattform-prosjektet)
+
+Husvett-arbeid skal **aldri**:
+
+- endre, lese inn eller kopiere noe i `/srv/stacks` (`plattform`, `akkreditering`), `/srv/edge` eller `/home/mani/plattform`;
+- endre WireGuard (`wg0`, `10.8.0.1/24`, port 51820/udp), `ufw`, `fail2ban` eller SSH-oppsettet (`/etc/ssh/sshd_config*`, `AllowUsers`);
+- binde noe til port 443 (eller andre porter) på `10.8.0.1`;
+- røre Plattforms Docker-nettverk, -volumer, -containere eller -images (bare Husvetts eget Compose-prosjekt `middagsplanlegger`, fra `/srv/husvett/middagsplanlegger/docs/drift`);
+- kjøre `docker login` eller `docker logout` som root (root har en innlogging mot GHCR som Plattform bruker). Husvett henter bare offentlige images og trenger ingen innlogging;
+- kjøre `docker system prune` (i noen variant), `docker volume prune`, `docker network prune`, `docker image prune -a` eller `docker builder prune` uten avtale: de virker på hele serveren;
+- starte Docker-tjenesten på nytt (`systemctl restart docker`) eller oppgradere Docker uten avtale med eieren: det starter Plattforms containere på nytt;
+- lage nye SSH-brukere. Systembrukeren `husvett` (avsnitt 3.3) har ikke innloggingsskall og står ikke i `AllowUsers`; det er riktig. Nye SSH-brukere krever endring av `AllowUsers`, avtalt med eieren;
+- endre `unattended-upgrades` eller tidspunkt for omstart.
+
+Husvett-arbeidet gjøres av eieren som `mani` (anbefalt). `koordinator` er Plattforms midlertidige økt og skal ikke brukes til Husvett.
+
+### 0A.2 Lesepakke for eieren (bare lesing, kjøres som `mani`)
+
+Logg inn som `mani` over SSH og lim inn blokken under (hele på én gang går fint). Den **endrer ingenting**: den bare leser og skriver ut. `sudo` spør om passordet til `mani` første gang. IP-adresser blir maskert (bare de to første tallene vises, f.eks. `10.8.x.x`), så utskriften kan limes inn i chat. **Se likevel over at ingen hel IP-adresse, nøkkel eller passord er med før du deler.**
+
+```sh
+maske() { sed -E 's/0\.0\.0\.0/@A@/g; s/127\.0\.0\.1/@L@/g; s/([0-9]{1,3}\.[0-9]{1,3})\.[0-9]{1,3}\.[0-9]{1,3}/\1.x.x/g; s/([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):[0-9a-fA-F:]*[0-9a-fA-F]/\1:…/g; s/@A@/0.0.0.0/g; s/@L@/127.0.0.1/g'; }
+echo "== L3/L4 porter 80 og 443 (TCP og UDP)"; sudo ss -tlnp '( sport = :80 or sport = :443 )' | maske; sudo ss -ulnp '( sport = :443 )' | maske
+echo "== L7/L8 Docker"; docker --version; docker compose version; apt list --installed 2>/dev/null | grep -Ei '^(docker|containerd)'
+echo "== L9/L10 containere, volumer og nettverk"; sudo docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | maske; sudo docker volume ls | grep -c middagsplanlegger; sudo docker network ls
+echo "== L12 disk"; df -h / /var/lib/docker; sudo docker system df
+echo "== L13 minne"; free -h; nproc
+echo "== L15 brannmurtabeller"; sudo nft list tables; sudo ufw status | grep -c '(v6)'
+echo "== L16 adresser (maskert)"; ip -4 -o addr show scope global | awk '{print $2, $4}' | maske; ip -6 -o addr show scope global | awk '{print $2, $4}' | maske
+echo "== L17 tid"; timedatectl | grep -E 'Time zone|synchronized|NTP'
+echo "== L18 planlagte jobber"; sudo ls /var/spool/cron/crontabs 2>/dev/null; ls /etc/cron.d; systemctl list-timers --all --no-pager; sudo grep -rniE 'prune|docker (rm|volume|system)' /etc/cron* /var/spool/cron /etc/systemd/system 2>/dev/null
+echo "== T1 tilgang (C16)"; for u in mani koordinator administrator; do id "$u"; done; getent group sudo docker; sudo grep -rhv '^#' /etc/sudoers.d 2>/dev/null | grep -v '^$'; sudo passwd -S administrator; sudo grep -rh '^AllowUsers' /etc/ssh/sshd_config /etc/ssh/sshd_config.d 2>/dev/null
+echo "== T2 oppdateringer og omstart"; systemctl is-active unattended-upgrades; grep -vh '^\s*//' /etc/apt/apt.conf.d/50unattended-upgrades 2>/dev/null | grep -E 'Automatic-Reboot|origin=|Origins-Pattern|\$\{distro' ; ls /var/run/reboot-required 2>/dev/null || echo "ingen omstart ventet"
+```
+
+**Hva svarene betyr:**
+
+| # | Ventet / greit | Stopp og spør utvikleren hvis |
+| --- | --- | --- |
+| L3/L4 | Bare overskrift, **eller** bare Plattforms testmiljø på `10.8.x.x:443` | Noe lytter på `0.0.0.0:443`, `*:443`, `[::]:443`, `:80`, eller på serverens offentlige adresse. Da er portene ikke ledige for oss |
+| L7/L8 | `Docker version 29.…`, `Docker Compose version` v2 eller nyere (f.eks. `v5.…`), og pakkene `docker-ce`, `docker-compose-plugin`, `containerd.io` | `docker compose` mangler, eller `docker.io` finnes i tillegg til `docker-ce` (to kilder) |
+| L9/L10 | Plattforms containere (hvis noen) uten `:80->` eller `:443->` på andre adresser enn `10.8.x.x`; tallet for `middagsplanlegger` er `0` | En container publiserer 80/443 på alle adresser, eller det finnes `middagsplanlegger`-volumer fra før |
+| L12 | `Avail` minst ca. 10 GB på `/` (og `/var/lib/docker` hvis den står for seg) | Under 10 GB |
+| L13 | `available` minst 4 GB; `nproc` 8 | Under 4 GB |
+| L15 | Tabellnavn som `inet`/`ip`/`ip6` (`ufw` og Docker). Tallet etter er antall `ufw`-regler for IPv6 | Bare til orientering, ingen stopp |
+| L16 | Ett offentlig nettverkskort (ofte `eth0`, `ens3` eller lignende) med en adresse som **ikke** begynner med `10.`, `172.16.`–`172.31.` eller `192.168.`; `wg0` med `10.8.x.x`; `docker0` med `172.17.x.x` | Det offentlige kortet har bare en privat adresse (one.com bruker da adresseomsetting, NAT): se avsnitt 5 om `PUBLIC_BIND_IP` før du fortsetter. **IPv6:** står det en linje under IPv6-delen, har serveren offentlig IPv6. Med `PUBLIC_BIND_IP` svarer Husvett bare på IPv4: **ingen AAAA-oppføring** for `husvett.no`/`www` (avsnitt 4.3) |
+| L17 | `Time zone: Europe/Oslo` eller `Etc/UTC`, `System clock synchronized: yes` | Klokken er ikke synkronisert (sertifikater og token-utløp krever riktig tid) |
+| L18 | Ingen linjer fra `grep` med `prune` eller `docker volume/system` | Noe sletter Docker-data automatisk: avtal med eieren at det ikke rammer Husvetts volumer (avsnitt 2) |
+| T1 | Brukerne og gruppene stemmer med tabellen over; `koordinator` med `NOPASSWD` i `sudoers.d`; `administrator` med `P` (har passord) i `passwd -S`; `AllowUsers` uten `administrator`; ingen i gruppen `docker` | Ukjente brukere i `sudo` eller `docker`, eller `AllowUsers` har flere enn ventet: før dem i tilgangslisten og spør eieren |
+| T2 | `active`; `Automatic-Reboot` mangler eller er `"false"`; bare Ubuntus egne kilder (`${distro_id}…`) | `Automatic-Reboot "true"` (serveren kan starte på nytt av seg selv) eller Dockers kilde (`origin=Docker`) i listen (Docker kan bli oppgradert og starte alle containere på nytt). Ikke stopp, men avtal rutinen med eieren |
+
+Lim svaret (maskert) inn i chatten med utvikleren. Rett **før** første oppstart kjøres L3/L4 én gang til (avsnitt 6A, steg 4).
+
+### 0A.3 Omstart og oppdateringer
+
+- **Hvem varsles:** eieren, før enhver planlagt omstart av serveren, oppgradering av Docker eller endring i Husvett. Eieren avtaler med Plattform-prosjektet.
+- **`unattended-upgrades`** installerer sikkerhetsoppdateringer selv og kan kreve omstart (`/var/run/reboot-required`). Omstarten tas av eieren på et avtalt tidspunkt (ikke av Husvett-arbeid på egen hånd).
+- **Etter hver omstart av serveren eller av Docker** (fra `mani`, `sudo -i`): `cd /srv/husvett/middagsplanlegger/docs/drift && docker compose --env-file .env.drift ps`. Ventet: `app (healthy)` og `caddy` med `<IP>:80->80/tcp` og `<IP>:443->443/tcp`. Containerne har `restart: unless-stopped` og starter selv. **Sjekk dette etter første omstart:** står `caddy` som `Exited` med `cannot assign requested address`, var den offentlige adressen ikke klar da Docker startet; kjør `docker compose --env-file .env.drift up -d` og si fra til utvikleren. Kontroller også volumet (avsnitt 8: «Synk-databasen: … (N husstander)», ikke «opprettet tom»).
+- `restart: unless-stopped` betyr at en container som er stoppet for hånd (`docker compose stop`), **forblir** stoppet etter omstart. Glem ikke `up -d` etter vedlikehold.
+
+### 0A.4 Flytte Husvett senere (uten å binde Plattforms planer)
+
+Husvett er laget for å kunne flytte til egen server uten at Plattform må gjøre noe. Husvett bruker ikke Plattforms mapper, nettverk, volumer, Caddy/edge eller WireGuard, og ingenting i Plattform skal vise til Husvett. Etter flyttingen kan Plattform stenge 80/443 slik de planla. **Merk:** en `ufw`-regel som stenger 80/443 stenger **ikke** Husvett mens den ligger her (Docker-publiserte porter går forbi `ufw`); en stenging i one.coms brannmur ville derimot stenge Husvett også. Plattform bør altså ikke stenge 80/443 før Husvett er flyttet eller eieren har bestemt noe annet.
+
+Det som må flyttes: datavolumet (`middag.sqlite` og `tilbud.sqlite`), `.env.drift` (særlig `SYNC_SECRET`; uten den slutter bare ubrukte invitasjoner å virke) og avtalen om backupnøkkelen (den private nøkkelen ligger uansett ikke på serveren). Sertifikatene (`caddy-data`) hentes på nytt på den nye serveren.
+
+Rekkefølge (utkast, ikke prøvd mellom to servere):
+
+1. Ny server satt opp etter denne guiden (avsnitt 3–5), **uten** `PUBLIC_BIND_IP` hvis serveren er Husvetts alene. Senk TTL på A-oppføringene for `husvett.no` og `www` (avsnitt 4) et døgn før.
+2. På den gamle serveren: `docker compose --env-file .env.drift stop caddy` (da når ingen appen lenger, men den kjører), så `systemctl start husvett-backup.service` (`backup.sh` trenger at appen kjører; avsnitt 9), og deretter `docker compose --env-file .env.drift stop app`. Enhetene virker videre uten server og sender det de har lagret når synken er tilbake (offline først). Stopp Caddy **før** kopien, ellers kan data som skrives etterpå gå tapt.
+3. På den nye serveren: gjenopprett kopien som i 9.5, kopier `SYNC_SECRET` til `.env.drift` (fra passordhåndtereren), start.
+4. Endre A-oppføringene til den nye adressen. Caddy henter sertifikat når DNS peker riktig. Kontroller avsnitt 8 og at testenhetene viser «Synket».
+5. På den gamle serveren, når alt er kontrollert: `docker compose --env-file .env.drift down` (**uten** `-v`). Volumet og de lokale sikkerhetskopiene slettes først etter avtalt tid og i tråd med slettefristen (30 dager for kopier, A7), og bare Husvetts egne (`docker volume rm middagsplanlegger_middag-data …`, `/srv/husvett`). Fjern så systemd-timeren `husvett-backup` og systembrukeren `husvett`. Ingenting av Plattforms skal røres.
 
 ---
 
@@ -99,6 +198,8 @@ apt install -y git age curl ca-certificates
 
 ### 3.2 Docker og Docker Compose
 
+**På Plattform-serveren finnes Docker** (`docker-ce` 29.x med Compose fra Dockers pakkelager; opplyst av Plattform-prosjektet, ikke kontrollert av oss). **Ikke installer på nytt.** Kontroller bare versjonen (L7/L8 i lesepakken 0A.2: `docker --version` skal vise 29.x, `docker compose version` v2 eller nyere, og `docker-ce` skal være eneste Docker-pakke), og hopp så til 3.3.
+
 **Finnes Docker allerede (L7 viste versjoner for både `docker` og `docker compose`)?** Hopp over resten av 3.2. Ikke installer på nytt, og ikke oppgrader uten avtale med plattformprosjektet: en ny Docker-motor starter alle containere på serveren på nytt. Kravet er Compose versjon 2 eller nyere (kommandoen `docker compose` med mellomrom; den gamle `docker-compose` med bindestrek er ikke prøvd og virker trolig ikke med `docker-compose.yml` vår).
 
 **Finnes `docker`, men ikke `docker compose`?** Installer bare Compose-tillegget fra samme kilde som Docker kom fra (L8): `apt install -y docker-compose-plugin` hvis du så `docker-ce`, eller `apt install -y docker-compose-v2` hvis du så `docker.io`. Sjekk med `docker compose version`.
@@ -156,7 +257,7 @@ docker compose version
 docker run --rm hello-world         # henter et lite testbilde og skriver «Hello from Docker!»
 ```
 
-**Ikke legg `administrator` (eller andre) i gruppen `docker`.** Den gir full root-tilgang til hele serveren, også plattformprosjektet. Bruk `sudo` / root-skallet.
+**Ikke legg `mani`, `koordinator`, `administrator` (eller andre) i gruppen `docker`.** Den gir full root-tilgang til hele serveren, også plattformprosjektet. Bruk `sudo` / root-skallet.
 
 ### 3.3 Egen systembruker, egen mappe
 
@@ -215,7 +316,7 @@ nslookup www.husvett.no
 
 ### 4.2 Finn serverens adresser
 
-I one.coms kontrollpanel for serveren (oversikten viser IPv4 og eventuelt IPv6). **Skriv dem ikke i repoet.** Sammenlign med L16. **Sjekk dette:** at adressen i L16 er den samme som i kontrollpanelet. Begynner adressen i L16 med `10.`, `172.16.`–`172.31.` eller `192.168.`, er det en intern adresse: bruk den fra kontrollpanelet.
+I one.coms kontrollpanel for serveren (oversikten viser IPv4 og eventuelt IPv6). **Skriv dem ikke i repoet.** Sammenlign med L16 (umaskert på serveren: `ip -4 addr show scope global`). Adressen på serverens offentlige nettverkskort er også den som skal i `PUBLIC_BIND_IP` (avsnitt 5). **Sjekk dette:** at adressen i L16 er den samme som i kontrollpanelet. Begynner adressen i L16 med `10.`, `172.16.`–`172.31.` eller `192.168.`, er det en intern adresse: bruk den fra kontrollpanelet.
 
 ### 4.3 Endre oppføringene i one.coms DNS-panel
 
@@ -229,7 +330,7 @@ I one.coms kontrollpanel for serveren (oversikten viser IPv4 og eventuelt IPv6).
 | --- | --- | --- | --- |
 | `@` (selve `husvett.no`; noen paneler vil ha feltet tomt) | A | `<SERVERENS IPv4>` | Hovedadressen |
 | `www` | A | `<SERVERENS IPv4>` | Eller i stedet: `www` som **CNAME** til `husvett.no` (følger da `@` av seg selv). Ikke begge |
-| `@` | AAAA | `<SERVERENS IPv6>` | **Bare hvis serveren har en offentlig IPv6** (4.2) |
+| `@` | AAAA | `<SERVERENS IPv6>` | **Bare hvis serveren har en offentlig IPv6** (4.2) **og `PUBLIC_BIND_IP` er tom.** På Plattform-serveren (med `PUBLIC_BIND_IP`) svarer Husvett bare på IPv4: **ingen AAAA** |
 | `www` | AAAA | `<SERVERENS IPv6>` | Samme (ikke nødvendig hvis `www` er CNAME) |
 
 4. **Gamle A/AAAA for `@` og `www`** som peker mot webhotellet må endres eller fjernes, ellers peker domenet to steder. Særlig **gamle AAAA-oppføringer**: Let's Encrypt bruker IPv6-adressen når den finnes, og en AAAA som peker mot webhotellet kan gi sertifikatfeil selv om A er riktig. Har `www` en CNAME fra før, må den bort før du kan lage en A-oppføring på `www` (eller behold CNAME-en hvis den peker til `husvett.no`). **Sjekk dette:** om one.com viser webhotellets oppføringer som «standard»/låste, og om du da må slå dem av eller lage egne oppføringer som erstatter dem. Er du usikker: spør one.coms kundeservice før du endrer, og si at **e-posten skal beholdes**.
@@ -276,7 +377,25 @@ grep -c '^SYNC_SECRET=BYTT' .env.drift      # skal svare 0
 | `SYNC_RETENTION_DAYS=730` | 730 | Eierens valg: inaktive husstander slettes etter 730 dager |
 | `SYNC_TOKEN_IDLE_DAYS=730` | 730 | Eierens valg: innloggingen utløper etter 730 dager uten bruk |
 | `# TJEK_IMAGE_HOSTS=image-transformer-api.tjek.com` | Fjern `#` når bilder og avissider fra Tjek skal vises; ellers la stå (tom = ingen bilder) | Formprøven 2026-11-22 fant bare denne verten (`phase0/tjek-formprøve.md`). Brukernes nettleser henter da bildene fra Tjek (Tjek ser IP-adressen) |
+| `PUBLIC_BIND_IP=<OFFENTLIG IPv4>` | **På Plattform-serveren: må settes** (fjern `#` foran linjen og skriv adressen). Ellers tom | Se «`PUBLIC_BIND_IP`» rett under. Adressen står bare i `.env.drift` på serveren |
 | `TRUST_PROXY` | **Skal ikke stå i filen** | Er satt til `1` i `docker-compose.yml` for begge veier (riktig: nøyaktig én proxy foran appen). En verdi i `.env.drift` overstyrer den ikke |
+
+**`PUBLIC_BIND_IP` (vei A på Plattform-serveren).** Plattforms testmiljø vil bruke port 443 på WireGuard-adressen `10.8.0.1`. Binder vår Caddy til alle adresser (som når linjen er tom), kolliderer de: den som starter sist, får `address already in use` (prøvd i sandkassen, avsnitt 14). Derfor bindes Caddy bare til serverens offentlige IPv4-adresse:
+
+```sh
+# I root-skallet, fra docs/drift. Vis adressene (ikke del utskriften):
+ip -4 addr show scope global
+```
+
+Velg adressen på det **offentlige nettverkskortet** (ofte `eth0` eller `ens…`), samme som i one.coms kontrollpanel (4.2). **Aldri** `10.8.0.1` (`wg0`), `172.17.…` (`docker0`) eller `127.0.0.1`. Viser det offentlige kortet bare en privat adresse (`10.`, `172.16.`–`172.31.`, `192.168.`), bruker one.com adresseomsetting (NAT): stopp og spør utvikleren (da skal den private adressen på det kortet trolig brukes, men det er ikke prøvd). Skriv adressen inn med `nano .env.drift` på linjen `PUBLIC_BIND_IP=` (uten `#`, uten klammer, uten port). Kontroller:
+
+```sh
+grep -c '^PUBLIC_BIND_IP=[0-9]' .env.drift                                        # skal svare 1
+ip -4 -o addr show | grep -F " $(sed -n 's/^PUBLIC_BIND_IP=//p' .env.drift)/" | awk '{print $2}'   # navnet på det offentlige kortet, ikke wg0 eller docker0
+docker compose --env-file .env.drift config | grep -c host_ip                     # skal svare 3 (80/tcp, 443/tcp, 443/udp)
+```
+
+Med adressen satt svarer Husvett bare på IPv4: ingen AAAA-oppføring (4.3). En ugyldig verdi (f.eks. et domenenavn) stopper Compose med `invalid IP address` før noe startes.
 
 **Bare i vei B** legger du til to linjer nederst (fjern `#` foran dem; de står som kommentar nederst i `env.eksempel`):
 
@@ -300,12 +419,13 @@ docker compose --env-file .env.drift config --quiet && echo "Compose-oppsettet e
 
 ## 6A. Vei A: port 80/443 er ledige, bruk vår egen Caddy
 
-Forutsetter avsnitt 3, 4 og 5 (uten `COMPOSE_FILE`-linjene).
+Forutsetter avsnitt 3, 4 og 5 (uten `COMPOSE_FILE`-linjene; på Plattform-serveren **med** `PUBLIC_BIND_IP`).
 
 1. **Brannmur hos one.com:** **sjekk dette:** om one.com har en brannmur for serveren i kontrollpanelet. Den må slippe inn TCP 80 og 443 (og gjerne UDP 443). Ikke åpne noe annet for Husvett.
-2. **Brannmur på serveren (ufw, L14):** Docker åpner publiserte porter selv, forbi `ufw` (kjent Docker-oppførsel). Du trenger altså ikke endre `ufw` for 80/443, og du skal **ikke** slå `ufw` av eller på uten avtale med plattformprosjektet. Kontrollen utenfra i avsnitt 8 er det som teller.
+2. **Brannmur på serveren (ufw, L14):** Docker åpner publiserte porter selv, forbi `ufw` (kjent Docker-oppførsel). Du trenger altså ikke endre `ufw` for 80/443 (på Plattform-serveren slipper `ufw` dem allerede inn, opplyst av Plattform-prosjektet), og du skal **ikke** endre `ufw` i det hele tatt (0A.1). Kontrollen utenfra i avsnitt 8 er det som teller.
 3. **DNS peker riktig** (avsnitt 4) før du starter, ellers får Caddy ikke sertifikat (den prøver igjen av seg selv, men det tar lengre tid og kan treffe grensene hos Let's Encrypt).
-4. **Start** (bygget tar noen minutter første gang):
+4. **Kontroller portene rett før start** (L3/L4, bare lesing): `ss -tlnp '( sport = :80 or sport = :443 )'` og `ss -ulnp '( sport = :443 )'`. Greit: tomt, eller bare Plattforms testmiljø på `10.8.0.1:443`. Lytter noe på `0.0.0.0`, `*`, `[::]` eller serverens offentlige adresse på 80/443: stopp og spør.
+5. **Start** (bygget tar noen minutter første gang):
 
 ```sh
 cd /srv/husvett/middagsplanlegger/docs/drift
@@ -313,9 +433,9 @@ docker compose --env-file .env.drift up -d --build
 docker compose --env-file .env.drift ps
 ```
 
-Ventet etter ca. 30 sekunder: `app` med `(healthy)` og `caddy` med `Up`, og `caddy` med portene `0.0.0.0:80->80/tcp` og `0.0.0.0:443->443/tcp`. Stopper Caddy med `address already in use` eller `port is already allocated`, bruker noe annet port 80/443: stopp Caddy med `docker compose --env-file .env.drift stop caddy` og gå tilbake til avsnitt 1.
+Ventet etter ca. 30 sekunder: `app` med `(healthy)` og `caddy` med `Up`. Med `PUBLIC_BIND_IP` har `caddy` portene `<OFFENTLIG IP>:80->80/tcp`, `<OFFENTLIG IP>:443->443/tcp` og `<OFFENTLIG IP>:443->443/udp` (uten `PUBLIC_BIND_IP`: `0.0.0.0:80->80/tcp` osv.). `app` skal ikke ha noen port mot verten (bare `8787/tcp` uten pil). Står det `0.0.0.0` mens `PUBLIC_BIND_IP` er satt, eller `10.8.0.1`: stopp med `docker compose --env-file .env.drift down` og spør. Stopper Caddy med `address already in use` eller `port is already allocated`, bruker noe annet port 80/443 (eller `PUBLIC_BIND_IP` mangler): stopp Caddy med `docker compose --env-file .env.drift stop caddy` og gå tilbake til steg 4. Står det `cannot assign requested address`, finnes ikke adressen i `PUBLIC_BIND_IP` på serveren: rett den (avsnitt 5).
 
-5. **Følg sertifikatet:** `docker compose --env-file .env.drift logs caddy --tail 50`. Se etter `certificate obtained successfully` for `husvett.no` og `www.husvett.no`. Feil: se «Vanlige feil med HTTPS» i avsnitt 11.
+6. **Følg sertifikatet:** `docker compose --env-file .env.drift logs caddy --tail 50`. Se etter `certificate obtained successfully` for `husvett.no` og `www.husvett.no`. Feil: se «Vanlige feil med HTTPS» i avsnitt 11.
 
 ---
 
@@ -487,13 +607,13 @@ Dette er bygget inn i oppsettet; avsnittet forklarer hva som skiller Husvett fra
 | Eget databasevolum | `middagsplanlegger_middag-data` (og `…caddy-data`/`…caddy-config` i vei A). Deles ikke med noe annet. Ligger under `/var/lib/docker/volumes/`, som bare root kan lese | `docker volume ls` |
 | Ressursgrenser | Appen: høyst 2 GB minne, 2 prosessorer, 256 prosesser. Caddy (vei A): 512 MB, 1 prosessor. Satt i `docker-compose.yml` | `docker stats --no-stream` |
 | Egen sikkerhetskopimappe | `/srv/husvett/backup` (700, root), egen nøkkel og egen slettefrist | `ls -la /srv/husvett/backup` |
-| Porter | Vei A: bare Caddy publiserer 80/443; appen har ingen port ut. Vei B: appen bare på `127.0.0.1:8790` | `docker compose --env-file .env.drift ps` (kolonnen PORTS) |
+| Porter | Vei A: bare Caddy publiserer 80/443, på Plattform-serveren bare på den offentlige adressen (`PUBLIC_BIND_IP`), aldri på `10.8.0.1`; appen har ingen port ut. Vei B: appen bare på `127.0.0.1:8790` | `docker compose --env-file .env.drift ps` (kolonnen PORTS) |
 
 **Hva isolasjonen ikke dekker (viktig for personvernet):**
 
-- **Alle som har `sudo`/root på serveren, eller er med i gruppen `docker`, kan lese Husvetts database**, også plattformprosjektets folk. Lag en liste over hvem det er (`getent group sudo docker`) og før den inn i tilgangslisten (pilot-sjekkliste B8 og C16).
+- **Alle som har `sudo`/root på serveren, eller er med i gruppen `docker`, kan lese Husvetts database**, også plattformprosjektets folk. På Plattform-serveren er det etter Plattforms opplysning `mani` (eier), `koordinator` (Plattforms Claude-økt, `sudo` uten passord, midlertidig til 29.11.2026), `administrator` (one.coms standardbruker, med passord) og one.com som leverandør. Kontroller med T1 i lesepakken (0A.2) og før listen inn i tilgangslisten (pilot-sjekkliste B8 og C16).
 - Docker-motoren deles. En oppgradering eller omstart av Docker (fra plattformprosjektet eller fra deg) starter begge prosjektenes containere på nytt. Husvett starter av seg selv igjen (`restart: unless-stopped`).
-- Containeren kjører som uid 1000. På mange Ubuntu-servere er uid 1000 den første vanlige brukeren (kanskje `administrator`; sjekk med `id -u administrator`). Det har betydning bare hvis noen bryter ut av containeren; endre det ikke på egen hånd (en endring av Docker-motoren påvirker plattformprosjektet).
+- Containeren kjører som uid 1000. På mange Ubuntu-servere er uid 1000 den første vanlige brukeren (kanskje `administrator`; T1 i lesepakken viser uid for `mani`, `koordinator` og `administrator`). Det har betydning bare hvis noen bryter ut av containeren; endre det ikke på egen hånd (en endring av Docker-motoren påvirker plattformprosjektet).
 - Grensen på 2 GB gjelder også den midlertidige kopien `backup.sh` lager i `/tmp` (minne). Blir databasene til sammen større enn ca. 1 GB, må grensen økes (`mem_limit` i `docker-compose.yml`), ellers kan appen stoppes under sikkerhetskopien. Følg med på størrelsen (avsnitt 11).
 
 ---
@@ -699,7 +819,7 @@ docker compose --env-file .env.drift ps
 
 **Caddy (bare vei A):** `docker compose --env-file .env.drift pull caddy && docker compose --env-file .env.drift up -d` henter siste Caddy 2. Gjør det omtrent månedlig.
 
-**Ubuntu-oppdateringer:** avtal rutine med plattformprosjektet. **Sjekk dette:** `systemctl status unattended-upgrades --no-pager` (om sikkerhetsoppdateringer installeres automatisk). En oppdatering av Docker-pakkene starter alle containere på nytt; Husvett starter selv igjen, men kontroller avsnitt 8 etterpå.
+**Ubuntu-oppdateringer og omstart:** se 0A.3. Kort: `unattended-upgrades` er aktiv (opplyst av Plattform-prosjektet); omstarter avtales med eieren, og eieren varsles før enhver planlagt omstart eller Docker-oppgradering. En oppdatering av Docker-pakkene starter alle containere på nytt; Husvett starter selv igjen, men kontroller avsnitt 8 etterpå.
 
 ---
 
@@ -757,7 +877,8 @@ docker compose --env-file .env.drift ps
 - **Ikke endre e-postoppføringer i DNS** (`MX`, SPF/DKIM i `TXT`, `mail`, `autodiscover` o.l.), ikke bytt navnetjenere og ikke bruk «tilbakestill»-valg i one.com-panelet: det kan stoppe e-posten til `kontakt@husvett.no`. Kartlegg først (avsnitt 4.1).
 - **Ikke la domenet peke mot webhotellet** for Husvett: webhotellet kan ikke kjøre serverdelen.
 - **Ikke slett volumet `caddy-data`** (vei A): sertifikatene ligger der.
-- **Ikke endre plattformprosjektets filer, nettverk, containere eller brannmur.** Bare ett nytt vertsoppsett i vei B, med sikkerhetskopi først.
+- **Ikke endre plattformprosjektets filer, nettverk, containere eller brannmur.** Bare ett nytt vertsoppsett i vei B, med sikkerhetskopi først. På Plattform-serveren gjelder hele «Ikke rør»-listen i 0A.1 (bl.a. `/srv/stacks`, `/srv/edge`, `/home/mani/plattform`, WireGuard, `ufw`, `fail2ban`, SSH, GHCR-innloggingen hos root, port 443 på `10.8.0.1`, aldri `docker system prune`).
+- **Ikke la `PUBLIC_BIND_IP` stå tom på Plattform-serveren,** og skriv aldri `10.8.0.1` i den.
 - **Ikke legg brukere i gruppen `docker`** (det er root-tilgang).
 - **Ikke installer Docker på nytt eller fra to kilder,** og ikke kjør Dockers «avinstaller gamle pakker»-steg på denne serveren.
 - **Ikke sett `TRUST_PROXY=1` hvis appen kan nås uten om proxyen,** og ikke legg en CDN/«proxy» foran uten at utvikleren har sett på det.
@@ -768,14 +889,14 @@ docker compose --env-file .env.drift ps
 
 ## 13. Kort huskeliste
 
-1. Avsnitt 1: les tilstanden, velg vei (avsnitt 2).
+1. Plattform-serveren: avsnitt 0A (les «Ikke rør», kjør lesepakken 0A.2, vei A). Annen server: avsnitt 1, velg vei (avsnitt 2).
 2. Avsnitt 3: programmer, Docker (bare om det mangler), bruker, mappe, kode.
 3. Avsnitt 4: kartlegg nettside og e-post på domenet, så DNS i one.coms panel (tidlig). Bare `@` og `www`; e-postoppføringene står urørt.
-4. Avsnitt 5: `.env.drift` (vei B: to ekstra linjer).
+4. Avsnitt 5: `.env.drift` (Plattform-serveren: `PUBLIC_BIND_IP`; vei B: to ekstra linjer).
 5. Avsnitt 6A eller 6B/6C: start.
 6. Avsnitt 7: kontroller isolasjonen; avsnitt 8: kontroller på serveren og utenfra.
 7. Avsnitt 9: nøkkel, daglig kopi, kopi utenfor serveren, gjenopprettingsøvelse.
-8. Skriv i driftsloggen og i pilot-sjekklisten (C1–C7, C16).
+8. Skriv i driftsloggen og i pilot-sjekklisten (C1–C7, C16, C17).
 
 ---
 
@@ -790,6 +911,8 @@ docker compose --env-file .env.drift ps
 - **Sikkerhetskopi og gjenoppretting i Compose med dagens `backup.sh`** (begge databasene, ekte `age`, `BACKUP_DIR` utenfor repoet med 700): kopi tatt mens appen kjørte, dekryptert, lagt i et nytt volum (kopiering som root og `chown 1000:1000` fra en mappe bare root kan lese), `DATA_VOLUME` satt; appen startet med `(1 husstander)`, og tokenet fra før kopien ga `200`. Varianten med `--user 1000:1000` feilet med `Permission denied` når mappen bare kunne leses av root.
 - **Tilbakerulling:** `docker tag … forrige`, nytt image som `pilot`, `up -d --no-build` laget containeren på nytt med det nye imaget, og tilbake igjen med det gamle.
 - `systemd-analyze verify` av `husvett-backup.service` og `.timer` uten feil (filene og stiene laget midlertidig).
+- **`PUBLIC_BIND_IP` (senere 2026-11-22, Docker 29.10.0 og Compose 5.7.1 i sandkassen):** `docker compose config` med `env.eksempel` uten variabelen, med tom variabel og med en adresse satt. Uten og med tom verdi er utskriften **identisk** med Compose-filen fra før endringen (ingen `host_ip`); med adresse får alle tre Caddy-portene (80/tcp, 443/tcp, 443/udp) `host_ip`; appen har ingen `ports`; begge tjenestene har `restart: unless-stopped`; i vei B (`COMPOSE_FILE` med `docker-compose.bak-proxy.yml`) startes bare `app`, på `127.0.0.1:8790`, også med `PUBLIC_BIND_IP` satt. Et domenenavn i variabelen gir `invalid IP address`. **Kollisjonen er prøvd:** med en annen lytter på `127.0.0.2:443` (stedfortreder for Plattforms `10.8.0.1:443`) feilet Caddy uten variabelen med `failed to bind host port 0.0.0.0:443/tcp: address already in use`; med variabelen satt til sandkassens egen adresse startet Caddy (`docker compose up --no-deps caddy`, `DOMENE=localhost`), lyttet bare på den adressen (80/tcp, 443/tcp, 443/udp), svarte der (http `308`, https nådde Caddy; `502` fordi appen ikke var startet i denne prøven), svarte ikke på `127.0.0.1` eller `172.17.0.1`, og den andre lytteren sto urørt. Appen og hele vei A er ikke kjørt på nytt etter endringen (Compose-utskriften for appen er uendret).
+- **Lesepakken (0A.2):** `bash -n` uten feil; maskeringen prøvd på eksempeladresser (IPv4 blir `a.b.x.x`, IPv6 forkortes, `0.0.0.0` og `127.0.0.1` står); kjørt i sandkassen uten å stoppe (der mangler `ip`, `ss`, `ufw` og systemd, så de linjene ga bare feilmeldinger).
 - Lest (ikke installert) 2026-11-22: Dockers apt-kilde har `resolute` (Ubuntu 26.04) med `docker-ce` 29.10.0 og `docker-compose-plugin` 5.8.0 for `amd64`; Ubuntus pakkeoversikt for `resolute` har `docker.io` 29.1.3, `docker-compose-v2` 2.40.3, `docker-buildx` 0.30.1 og `age` 1.2.1.
 
 **Ikke prøvd:**
@@ -798,6 +921,9 @@ docker compose --env-file .env.drift ps
 - one.coms DNS-panel (menynavn, om webhotellets standardoppføringer er låste) og at e-posten overlever endringen.
 - Ekte domene, DNS og Let's Encrypt (verken Caddy eller certbot); certbot-stegene i 6B (6–7) og `www`-omdirigeringen i Nginx; HTTP/3.
 - At Docker-publiserte porter går forbi `ufw` på akkurat denne serveren (kjent Docker-oppførsel, ikke målt her).
+- `PUBLIC_BIND_IP` på Ubuntu 26.04 og sammen med Plattforms ekte `10.8.0.1:443` (WireGuard), IPv6 med `PUBLIC_BIND_IP`, at Caddy starter igjen av seg selv etter omstart av serveren med adressen satt (0A.3), og NAT hos one.com.
+- Flytting til en annen server (0A.4).
+- Lesepakken på Ubuntu 26.04 (bl.a. om `id`, `passwd -S` og `nft` gir samme format der).
 - Kjøring under systemd (timer og tjeneste), cron-linjen, `rclone` og lagring utenfor serveren, `shred` på serverens disk.
 - Vei B når webserveren selv kjører i Docker, med Apache, eller med en CDN foran.
 - Bygging av imaget på en vanlig maskin uten sandkassens omveier, og på `aarch64`.
@@ -808,13 +934,13 @@ docker compose --env-file .env.drift ps
 
 ## 15. Spørsmål eieren må svare på
 
-1. **Hva viser leseskjemaet i avsnitt 1?** Særlig L3 (hvem bruker 80/443), L7–L9 (Docker), L12–L13 (disk og minne), L16 (har serveren IPv6?), L18 (opprydding som kan slette volumer) og L19 (utgående nett). Det avgjør vei A eller B.
-2. **Godtar plattformprosjektet** at Husvett kjører på samme server, at Docker installeres (hvis den mangler), og (vei B) at det legges til ett vertsoppsett i deres Nginx/Caddy? Hvem hos dem skal varsles før endringer og oppdateringer?
-3. **Hvem har `sudo`/root og `docker`-tilgang** på serveren i dag? De kan lese Husvetts data og må inn i tilgangslisten (pilot-sjekkliste B8, C14, C16). Er det akseptabelt for piloten?
+1. **Hva viser lesepakken i 0A.2?** (L3/L4, L7–L10, L12, L13, L15–L18, T1, T2; maskert.) Veien er avgjort (vei A), men L12/L13 (disk, minne), L16 (IPv6, NAT), L17 (tidssone) og L18 (opprydding som kan slette volumer) er ikke kartlagt.
+2. **Plattform-prosjektet:** eieren har bekreftet at Husvett skal på serveren og at tilgangene er hans egne. Hvem varsles før endringer og omstarter? (Svar i notatet: eieren.) Er Plattform innforstått med at de ikke kan stenge 80/443 mens Husvett ligger der, og at en `ufw`-stenging uansett ikke stenger Husvett (0A.4)?
+3. **Tilgang** (opplyst av Plattform-prosjektet, ikke kontrollert av oss): `mani`, `koordinator` (til 29.11.2026), `administrator` og one.com. Stemmer T1 med det? **Hvilke herdingstiltak gjøres før ekte familiedata** (pilot-sjekkliste C17: port 22, `koordinator`, passordet til `administrator`), og hvem gjør dem?
 4. **one.com som databehandler:** finnes det en databehandleravtale med one.com for denne serveren, og i hvilket land står serveren (eieren oppgir «Europa», land ikke bekreftet), og ligger eventuelle øyeblikksbilder også der? (pilot-sjekkliste B6). Har one.com en brannmur i kontrollpanelet for serveren?
 5. **Står `husvett.no` (registrert hos one.com) i AVVR AS sitt navn** (A4)? **Ligger det en nettside på webhotellet** på `husvett.no` eller `www` som skal beholdes (den vises ikke lenger der når domenet peker mot serveren)? Og hvem hos dere kan rette e-postoppføringene hvis noe går galt?
 6. **Hvem er de to nøkkelholderne** for sikkerhetskopiene (A9)?
 7. **Hvor skal kopiene ligge utenfor serveren** (leverandør i EØS, med databehandleravtale), og er 30 dager riktig slettefrist (A7)?
 8. **Gjenopprettingsøvelsen:** godtar du at den private nøkkelen er på serveren et kort øyeblikk under en gjenoppretting (9.5), eller skal øvelsen og en ekte gjenoppretting gjøres på en annen maskin?
-9. **Kan nettkonsollen lime inn tekst, og skal SSH settes opp** (med nøkkel, ikke passord)? Det gjør oppdateringer og feilsøking mye enklere.
-10. **Hvem tar oppdateringer av Ubuntu og Docker** på den delte serveren, og når (avtal med plattformprosjektet)?
+9. ~~Nettkonsoll eller SSH?~~ Besvart: SSH med nøkkel som `mani` (opplyst av Plattform-prosjektet).
+10. **Når tas omstarter etter `unattended-upgrades`,** og når oppgraderes Docker? (Eieren avtaler med Plattform; 0A.3.) Står `Automatic-Reboot` på (T2)?

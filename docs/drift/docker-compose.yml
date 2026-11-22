@@ -12,6 +12,11 @@
 #
 # Bare Caddy publiserer porter. Appen (8787) er ikke nåbar utenfra: det er et krav for TRUST_PROXY=1, ellers kan
 # hvem som helst forfalske IP-adressen sin i ratebegrensningen.
+#
+# PUBLIC_BIND_IP (valgfri, i .env.drift): adressen Caddy binder port 80/443 til. Tom eller ikke satt = alle adresser,
+# som før. På eierens delte server skal den settes til serverens OFFENTLIGE adresse (L16 i docs/installasjon-ubuntu.md),
+# fordi plattformprosjektets testmiljø vil bruke port 443 på WireGuard-adressen; en binding til alle adresser kolliderer
+# da med den. Bare IPv4 (uten klammer). Med adressen satt svarer Caddy IKKE på IPv6. Adressen skrives aldri i repoet.
 name: middagsplanlegger
 
 services:
@@ -28,6 +33,9 @@ services:
       TRUST_PROXY: "1"          # serveren står bak Caddy, og bare Caddy når den
     volumes:
       - middag-data:/data       # SQLite-databasen (middag.sqlite + -wal/-shm). Uten dette forsvinner husstandene
+    # Ingen «ports:» her med vilje: appen publiseres ikke på verten i det hele tatt, bare Caddy (samme Compose-nettverk)
+    # når den. «expose» er bare dokumentasjon. Vei B (docker-compose.bak-proxy.yml) publiserer den bare på 127.0.0.1,
+    # fordi Docker åpner publiserte porter forbi ufw.
     expose:
       - "8787"
     read_only: true             # serveren skriver bare til /data
@@ -54,10 +62,11 @@ services:
         condition: service_healthy
     environment:
       DOMENE: ${DOMENE:?Sett DOMENE i .env.drift}
+    # «${PUBLIC_BIND_IP:+${PUBLIC_BIND_IP}:}» blir «<adresse>:» når PUBLIC_BIND_IP er satt, ellers ingenting (= «80:80»).
     ports:
-      - "80:80"                 # trengs for sertifikatutstedelse og omdirigering til https
-      - "443:443"
-      - "443:443/udp"           # HTTP/3
+      - "${PUBLIC_BIND_IP:+${PUBLIC_BIND_IP}:}80:80"       # trengs for sertifikatutstedelse og omdirigering til https
+      - "${PUBLIC_BIND_IP:+${PUBLIC_BIND_IP}:}443:443"
+      - "${PUBLIC_BIND_IP:+${PUBLIC_BIND_IP}:}443:443/udp" # HTTP/3
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data        # sertifikater og nøkler. Mist ikke dette volumet (ny utstedelse har grenser hos Let's Encrypt)
