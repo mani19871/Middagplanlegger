@@ -2,6 +2,8 @@
 
 > **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse.** Artikkelhenvisninger fra generell kunnskap: må verifiseres. Ingen leverandør er valgt eller kontaktet. Ingen avtaler er inngått.
 
+**Avstemt 2026-11-22 mot synk-løsningen og driftsoppsettet** (`docs/synk.md`, `docs/hosting.md`, `docs/drift/`): avsnitt 1a under er nytt og beskriver hva en databehandler faktisk vil få. Ingen leverandør er likevel valgt eller kontaktet.
+
 Sjekklisten brukes **før** en leverandør velges og **før** ekte persondata lagres der. Leverandørene i `docs/hosting.md` er eksempler, ikke utvalgt.
 
 ## 1. Alle leverandører som får behandle persondata
@@ -27,6 +29,14 @@ En leverandør er **databehandler** hvis den lagrer eller behandler personopplys
 | 15 | Hvordan avslutter vi avtalen og får ut data (portabilitet, unngå innlåsing)? | |
 
 Bevar kopi av avtaleversjonen og dato vi godtok den.
+
+### 1a. Hva en hostingleverandør faktisk får (til databehandleravtalen, bilag om opplysningene)
+
+- **Registrerte:** voksne medlemmer av en husstand (via enhets-id og etikett), og indirekte barn og andre som er med som etikett og porsjon.
+- **Kategorier:** enhets-id og etikett (fritekst ≤ 24 tegn), tidspunkter (opprettet, sist sett per minutt, hendelsestidspunkt), spiseprofiler (etikett ≤ 40 tegn, porsjon, dager hjemme), butikkvalg og budsjett, plan, handleliste og egne handlelinjer (fritekst), kjøps- og beholdningshendelser. **Ikke:** navn, e-post, adresse, postnummer, posisjon, allergier og kostkrav.
+- **Form:** én SQLite-fil (`middag.sqlite` med `-wal`/`-shm`) på et volum, og sikkerhetskopier av den. Ikke kryptert i filen. Bare tokenets sha256 og invitasjonskodens HMAC er uleselige; resten er klartekst i filen.
+- **Sletting:** husstand slettes med kaskade; spor kan ligge i `-wal` en kort tid og i volumkopier og sikkerhetskopier. Be leverandøren beskrive hvor lenge øyeblikksbilder og sikkerhetskopier lever, og om de kan slettes på forespørsel.
+- **IP-adresser:** appserveren og Caddy-eksempelet logger dem ikke, men leverandørens nettverk, brannmur og eventuelle DDoS-beskyttelse kan. Spør.
 
 ## 2. Per hostingvalg: tilleggssjekk
 
@@ -64,10 +74,12 @@ Valgene tilsvarer alternativene i `docs/hosting.md`.
 | Tjeneste | Når aktuelt | Persondata? | Tiltak |
 | --- | --- | --- | --- |
 | Hosting/lagring | Piloten | Ja | Avsnitt 1–2 |
-| Lagring av sikkerhetskopier | Piloten | Ja (kryptert) | Kryptér før opplasting; EØS-region; avtale |
+| Lagring av sikkerhetskopier | Piloten | Ja (kryptert) | `docs/drift/backup.sh` krypterer med age/gpg før filen forlater maskinen; den private nøkkelen skal **ikke** ligge på serveren. EØS-region; avtale; egen slettefrist (skriptet sletter bare lokale kopier) |
 | Domene og DNS | Piloten | Lite (IP i oppslag) | Sjekk leverandørens avtale. Unngå tjenester som ruter all trafikk gjennom en tredjepart uten at det er vurdert (CDN/proxy ser trafikken) |
 | E-post (support, utsendelser) | Hvis brukt | Ja | DPA, region, ingen markedsføringsbruk |
-| Overvåking/oppetidssjekk | Piloten | Bør ikke få persondata | Overvåk bare den offentlige adressen, ikke send logger med IP |
+| Overvåking/oppetidssjekk | Piloten | Bør ikke få persondata | Overvåk bare den offentlige adressen, ikke send logger med IP. Serveren har ingen egen helse-rute: en ekstern sjekk mot `/` ser bare at appen er bygget (se `docs/hosting.md`) |
+| Sertifikatutsteder (Let's Encrypt via Caddy) | Piloten | Domenenavnet (ikke brukerdata) | Ikke en databehandler for husstandsdata, men domenet og serverens IP blir kjent for utstederen og offentlige sertifikatlogger. Må vurderes: bruk ikke et domenenavn som sier noe om brukerne |
+| Containerregistre (Docker Hub for `node` og `caddy`), GitHub (kode og CI) | Bygging og utvikling | Nei, så lenge **ingen produksjonsdata** brukes i CI eller i bildet | CI bruker bare syntetiske testdata. Legg aldri en kopi av databasen i repoet eller bildet |
 | Feilsporing/logging som tjeneste | Hvis brukt | Kan inneholde IP, feildata | Unngå eller vurder som databehandler; ikke send kostkrav |
 | Betaling/abonnement | Fase 2–3 | Ja | Egen vurdering før den bygges. Leverandør kan være egen behandlingsansvarlig |
 | KI-leverandør | Fase 3 | Ja | Egen vurdering (minst mulig kontekst, ingen trening på våre data) |

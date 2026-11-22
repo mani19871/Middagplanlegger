@@ -1,0 +1,10 @@
+# Hemmeligheter og data skal aldri sjekkes inn. Kopier env.eksempel til .env.drift (ligger bare på serveren).
+.env
+.env.*
+!env.eksempel
+backup/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.age
+*.gpg

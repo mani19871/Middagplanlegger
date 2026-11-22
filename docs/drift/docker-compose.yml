@@ -1,0 +1,65 @@
+# EKSEMPEL for pilot: appen bak Caddy (HTTPS), med varig volum for databasen. Ikke testet hos noen leverandør.
+# Se docs/hosting.md («Pilotoppsett med Docker Compose og Caddy») før bruk.
+#
+# Bruk (fra denne katalogen, på serveren):
+#   cp env.eksempel .env.drift && chmod 600 .env.drift     # fyll ut DOMENE og SYNC_SECRET; sjekkes ikke inn
+#   docker compose --env-file .env.drift up -d --build
+#   docker compose --env-file .env.drift ps                  # «healthy» etter ca. 30 sekunder
+#
+# Bare Caddy publiserer porter. Appen (8787) er ikke nåbar utenfra: det er et krav for TRUST_PROXY=1, ellers kan
+# hvem som helst forfalske IP-adressen sin i ratebegrensningen.
+name: middagsplanlegger
+
+services:
+  app:
+    build:
+      context: ../..            # repoets rot (Dockerfile)
+    image: middagsplanlegger:pilot
+    restart: unless-stopped
+    init: true                  # liten init-prosess (rydder zombieprosesser). I test stoppet containeren på 0,3 s også uten
+    env_file: .env.drift        # SYNC_SECRET (og DOMENE brukes av Caddy). Filen ligger bare på serveren
+    environment:
+      PORT: "8787"
+      DATA_DIR: /data
+      TRUST_PROXY: "1"          # serveren står bak Caddy, og bare Caddy når den
+    volumes:
+      - middag-data:/data       # SQLite-databasen (middag.sqlite + -wal/-shm). Uten dette forsvinner husstandene
+    expose:
+      - "8787"
+    read_only: true             # serveren skriver bare til /data
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging:                    # begrenser loggstørrelsen; serveren logger bare oppstart og feil, ikke innhold
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMENE: ${DOMENE:?Sett DOMENE i .env.drift}
+    ports:
+      - "80:80"                 # trengs for sertifikatutstedelse og omdirigering til https
+      - "443:443"
+      - "443:443/udp"           # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data        # sertifikater og nøkler. Mist ikke dette volumet (ny utstedelse har grenser hos Let's Encrypt)
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  middag-data:
+    # Standardnavnet er det samme som Compose ville gitt selv. Ved gjenoppretting peker DATA_VOLUME i .env.drift på et
+    # nytt volum (docs/hosting.md, «Gjenoppretting»), så det gamle blir stående urørt til alt er kontrollert.
+    name: ${DATA_VOLUME:-middagsplanlegger_middag-data}
+  caddy-data:
+  caddy-config:

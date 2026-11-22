@@ -1,6 +1,18 @@
 # 06 Samtykke for helserelaterte kostvalg, og hvem som kan samtykke
 
-> **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse.** Dette er planens åpne punkt: «Det må avklares hvem som kan samtykke for hvert familiemedlem; rollen som kontoeier løser ikke det for alle» (`docs/plan.md`). Jeg foreslår en løsning; jeg løser ikke de juridiske spørsmålene.
+> **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse.**
+>
+> **Status 2026-11-22: valg A er bygget for piloten.** Kostkrav og allergier (`avoid`, `avoidFoods`, `vegetarian`) synkes ikke og lagres ikke på serveren; serveren avviser dem (`src/sync/docs.ts`, `LOCAL_ONLY_SETTINGS`), og det er en test for det (`src/sync/engine.test.ts`). **Samtykkeløsningen under (avsnitt 4–5) er derfor ikke bygget og ikke nødvendig for piloten.** Dokumentet beholdes som utkast til det som må på plass **hvis** deling av kostkrav mellom enheter bygges senere (valg B). Se `01-oversikt-behandling.md`, avsnitt 3, for konsekvensene.
+>
+> Dette er planens åpne punkt: «Det må avklares hvem som kan samtykke for hvert familiemedlem; rollen som kontoeier løser ikke det for alle» (`docs/plan.md`). Jeg foreslår en løsning; jeg løser ikke de juridiske spørsmålene.
+
+## 0. Hva valg A betyr i praksis (bygget)
+
+- Kostkrav ligger bare i `localStorage` på hver enhet. En voksen som blir med i en husstand beholder sine egne krav, og krav fra andre enheter kommer aldri inn.
+- **Ingen deling:** en annen voksen sin enhet uten allergifilter kan lage en plan med allergener for hele husstanden. Appen varsler i plan-skjemaet, men det er en reell produktsikkerhetsrisiko (se `docs/synk.md`, «Allergier deles ikke»). Eier må vite at den er akseptert i piloten.
+- Spørsmål 6 i avsnitt 6 er dermed besvart for piloten: den kjøres med kostkrav bare lokalt.
+- **Det som fortsatt trenger en fagpersons svar selv med valg A:** (1) er lagring på brukerens egen enhet i appen vår noe vi må vurdere som behandling av helseopplysninger; (2) kan plan, handleliste og fritekst indirekte avsløre helse eller livssyn slik at hele datasettet må behandles varsomt (`01-oversikt-behandling.md`, avsnitt 2b og 3).
+- **Hvis valg B senere bygges**, må dette på plass først: samtykkeskjerm slik som under, samtykkelogg, bryter som sletter kostkrav fra serveren (inkludert hendelser og utboks som inneholder dem), og en egen modell for at to voksne kan ha ulike krav (i dag er kostkrav husstandsnivå i `Settings`, ikke per person).
 
 ## 1. Problemet
 

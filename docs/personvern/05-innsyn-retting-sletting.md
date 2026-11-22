@@ -1,6 +1,6 @@
 # 05 Rutine for innsyn, retting og sletting
 
-> **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse.** Frister og artikler fra generell kunnskap: må verifiseres. Rutinen forutsetter at synk-løsningen støtter sletting av husstand og eksport; det er ikke kontrollert mot den ferdige koden (bygges i egen økt).
+> **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse.** Frister og artikler fra generell kunnskap: må verifiseres. **Avstemt 2026-11-22 mot synk-løsningen og koden** (avsnitt 5 er krysset av etter hva som er bygget og prøvd). Sletting av husstand finnes; **eksport finnes ikke**, og identitetsbekreftelse uten konto er svak.
 
 ## 1. Prinsipper
 
@@ -14,19 +14,19 @@
 
 | Rettighet (GDPR) | Hva brukeren får | Hvordan |
 | --- | --- | --- |
-| Innsyn (art. 15) | Kopi av husstandens data og informasjon om formål, mottakere, oppbevaring | Eksport fra appen (helst selvbetjent) eller manuelt uttrekk |
-| Retting (art. 16) | Rettet opplysning | Brukeren retter selv i appen. Ellers retter vi på forespørsel |
+| Innsyn (art. 15) | Kopi av husstandens data og informasjon om formål, mottakere, oppbevaring | **Manuelt uttrekk** (appen har ingen eksport). Kostkrav og postnummer er ikke hos oss: be brukeren se dem på enheten |
+| Retting (art. 16) | Rettet opplysning | Brukeren retter selv i appen (alle voksne kan endre plan, innstillinger og egen etikett). Vi retter ikke direkte i databasen uten å være sikre på hvem som spør |
 | Sletting (art. 17) | Alt slettet | **Slett husstand** i appen. Ellers sletter vi manuelt |
-| Dataportabilitet (art. 20) | Egne data i maskinlesbart format (JSON) | Samme eksport som innsyn |
+| Dataportabilitet (art. 20) | Egne data i maskinlesbart format (JSON) | Samme manuelle uttrekk som innsyn. API-et `GET /api/sync?after=0` gir hele loggen og dokumentene til et medlem, så en eksportknapp er enkel å bygge, men er ikke bygget |
 | Begrensning og innsigelse (art. 18, 21) | Behandling stanses eller begrenses | Vurderes enkeltvis |
-| Trekke samtykke (art. 7 nr. 3) | Kostkrav slettet fra serveren | Bryter i innstillinger. Må være like enkelt som å gi samtykke |
+| Trekke samtykke (art. 7 nr. 3) | Ikke aktuelt i piloten: vi lagrer ikke kostkrav (valg A) og har ingen samtykkebasert behandling | Gjelder hvis deling av kostkrav bygges (`06-samtykke-helsekost.md`) |
 
 ## 3. Bekrefte hvem som spør
 
 Vi har ikke navn eller adresse på brukerne, og skal ikke samle dem bare for dette. Slik går vi frem (forslag):
 
-1. **Selvbetjent er best.** Innsyn, retting og sletting gjøres i appen av en enhet som allerede er medlem av husstanden. Da trengs ingen annen identifisering.
-2. **Henvendelse per e-post:** be personen sende husstandskode/invitasjonskode eller en bekreftelseskode som vises i appen på en medlemsenhet. Har vi e-postadresse på kontoen, svar til den.
+1. **Selvbetjent er best.** Sletting gjøres i appen av husstandens **eier** (bekreftes ved å skrive SLETT). Andre medlemmer kan forlate husstanden. Da trengs ingen annen identifisering.
+2. **Henvendelse per e-post:** vi har ingen kontoer og ingen e-postadresse per husstand, så vi kan ikke slå opp «hvem» ut fra en e-post. Enhets-id-en vises **ikke** i appen i dag, så brukeren kan ikke oppgi den (en «vis enhets-id» på Husstand-skjermen er ikke bygget, og kan foreslås til UI-økten). Det som kan brukes i dag er en **nylig laget invitasjonskode** (driftsansvarlig kan slå opp kodens HMAC, som krever `SYNC_SECRET`) eller at brukeren beskriver etikettene i husstanden og omtrent når den ble laget. Svar på henvendelsens avsender. **Dette er svak identitetsbekreftelse og må vurderes av fagperson.** Uten noe av dette kan vi ikke finne husstanden, og vi skal ikke samle mer data for å kunne det.
 3. **Medlemmer av samme husstand:** husstandens data tilhører husstanden. Alle voksne medlemmer kan se husstandens data. Fjerning av andre medlemmers opplysninger (f.eks. én voksens kostkrav) skal være mulig for den det gjelder. **Hvordan vi forholder oss til uenighet mellom medlemmer, må avklares av fagperson.**
 4. **Er identiteten tvilsom:** be om bekreftelse på en annen måte, men ikke gi ut data.
 
@@ -34,7 +34,7 @@ Vi har ikke navn eller adresse på brukerne, og skal ikke samle dem bare for det
 
 ### Innsyn
 1. Registrer mottak. Bekreft identitet (avsnitt 3).
-2. Hent ut husstandens data: husstand, spiseprofiler, plan, handleliste, beholdningslogg, kostkrav, samtykkelogg, enhetsliste. Se `01-oversikt-behandling.md`, tabell 2.
+2. Hent ut husstandens data: tabellene `households`, `devices` (med fjernede), `invites` (uten kodene), `events` og `docs` for husstanden (spiseprofiler, plan, innstillinger, handleliste, beholdningslogg). Kostkrav og postnummer finnes ikke hos oss. Se `01-oversikt-behandling.md`, avsnitt 2b. Uttrekket krever tilgang til databasen: bare driftsansvarlig, og ikke mer enn nødvendig (se `docs/hosting.md` for hvordan man leser fra en kjørende container).
 3. Legg ved: formål, grunnlag, mottakere (databehandlere), oppbevaringstid, rettigheter og klageadgang. Dette finnes i personvernerklæringen.
 4. Send i et vanlig format. Sikre overføringen (ikke send sensitive data i åpen e-post; bruk kode i appen eller en nedlastingslenke som utløper).
 5. Skriv at logger med IP-adresse bare finnes i [14] dager og vanligvis ikke kan kobles til husstanden. Be om dato og tidsrom hvis personen likevel vil ha dem.
@@ -44,28 +44,33 @@ Rett opplysningen eller be brukeren gjøre det i appen. Informer eventuelle mott
 
 ### Sletting
 1. Bekreft hvem som ber om det og at det gjelder hele husstanden eller bare enkeltopplysninger.
-2. **Slett husstand i appen** (forutsetter at synk-løsningen sletter: husstand, medlemskap/enhetstokens, spiseprofiler, kostkrav, plan, handleliste, beholdningslogg, **utboks/hendelser** og samtykkelogg-detaljer; se punkt 5 under).
+2. **Slett husstand i appen** (eier). Serveren sletter husstand, medlemmer og tokens, invitasjoner, plan, innstillinger, **hele hendelseslogg** (beholdning, handleliste, utsolgt/fant ikke) med kaskade; verifisert 2026-11-22 (punkt 5). Kostkrav, postnummer og samtykkelogg finnes ikke hos oss. Utboksen på brukerens enheter ligger lokalt og slettes bare på enhetene. Mistet eierenhet: se avsnitt 4, «Eier borte».
 3. Bekreft sletting skriftlig. Opplys at:
    - data i **sikkerhetskopier** overskrives innen [30] dager og ikke brukes til noe annet enn gjenoppretting etter feil,
+   - spor i databasens `-wal`-fil og i eldre volumkopier overskrives ved neste checkpoint eller når kopien slettes (driftsansvarlig kan tvinge en checkpoint, se `docs/hosting.md`),
    - lokale kopier på brukerens egne enheter (nettleserlagring) slettes av brukeren, f.eks. via «tøm data» i appen eller nettleseren,
    - logger med IP slettes etter [14] dager.
 4. Hvis en gjenoppretting fra sikkerhetskopi gjøres, **slett igjen** de husstandene som ble slettet etter kopitidspunktet. Før en kort liste over slettede husstands-id-er (bare id og dato, ingen innhold) til dette formålet. **[Må avgjøres: en slik liste er selv en lagring; bør kunne forsvares og slettes etter kopiens levetid.]**
 
+### Eier borte
+Er eierens enhet borte, kan ingen fjerne medlemmer eller slette husstanden i appen (overføring av eierskap er ikke bygget; de andre kan bare forlate, og den siste som går sletter alt). Driftsansvarlig kan da slette husstanden direkte i databasen etter at identiteten er bekreftet etter avsnitt 3. **Rutinen og hvem som kan godkjenne slik sletting må avgjøres.**
+
 ### Avslag
 Vi kan avslå eller begrense hvis det er lovlig grunn (f.eks. dokumentasjonsplikt eller andres rettigheter, må verifiseres). Begrunn skriftlig og opplys om klageadgang til Datatilsynet.
 
-## 5. Krav til appen (til synk-økten og koden)
+## 5. Krav til appen: status mot koden (2026-11-22)
 
-Dette er ikke bygd av meg. Det er krav som bør kontrolleres mot koden:
+Kontrollert mot koden (`server/sync/api.ts`, `server/storage/sqlite.ts`, `src/views/HouseholdView.tsx`) og, for sletting, en Docker-kjøring.
 
-- [ ] **Slett husstand** i appen, bekreftet i to trinn, sletter alle poster knyttet til husstanden på serveren, inkludert hendelseslogg og utboks, uten rester i avledede tabeller.
-- [ ] Sletting er **idempotent** (kan sendes to ganger uten feil), på linje med øvrige importer og bekreftelser (CLAUDE.md regel 8).
-- [ ] Etter sletting avvises hendelser fra enheter som fortsatt har utboks til husstanden (de skal ikke gjenopprette husstanden ved en senere synk).
-- [ ] **Eksport** av husstandens data i JSON, tilgjengelig for medlemmer.
-- [ ] **Samtykkebryter** for kostkrav som sletter dem fra serveren.
-- [ ] Mulighet til å **fjerne en enhet** fra husstanden.
-- [ ] Ingen kostkrav, tokens eller husstands-id-er i serverlogger.
-- [ ] «Tøm lokal data» i appen for å fjerne lokal lagring på enheten.
+- [x] **Slett husstand** i appen, bekreftet i to trinn (skriv SLETT), sletter alle poster knyttet til husstanden, inkludert hendelseslogg: `ON DELETE CASCADE` fra `households` til `devices`, `invites`, `events`, `docs`; verifisert at `events` og `devices` ble borte. Bare eier kan slette.
+- [~] Sletting er **idempotent**: en gjentatt `DELETE` kommer fra et token som ikke lenger finnes og gir `401` (ikke feil i betydningen datatap, men ikke `204` to ganger). Må avgjøres om det er godt nok (CLAUDE.md regel 8 gjelder importer og kjøpsbekreftelser).
+- [x] Etter sletting **avvises** kall fra enheter som fortsatt har utboks til husstanden (`401`; prøvd for både lesing og skriving). De gjenoppretter ikke husstanden.
+- [ ] **Eksport** av husstandens data i JSON for medlemmer: **ikke bygget**.
+- [n/a] **Samtykkebryter** for kostkrav som sletter dem fra serveren: ikke aktuelt (kostkrav lagres ikke på serveren).
+- [x] Mulighet til å **fjerne en enhet** fra husstanden (eier) og å forlate den selv. **Svakhet:** fjernet enhet beholdes som rad med id og etikett til husstanden slettes.
+- [x] Ingen kostkrav, tokens eller husstands-id-er i serverlogger: appen logger bare oppstart og `synk-feil: <feilmelding>`; ingen tilgangslogg. (Feilmeldingen er ikke kontrollert for alle databasefeil.)
+- [~] «Tøm lokal data»: finnes («Slett lokale data» i plan-skjemaet, bare synlig når en plan finnes; og valget «Slett også alt som er lagret på denne enheten» ved sletting av husstand). Ikke synlig før første plan.
+- [ ] **Automatisk sletting etter inaktivitet**: ikke bygget.
 
 ## 6. Personvernbrudd (kort)
 

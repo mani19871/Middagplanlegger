@@ -1,6 +1,6 @@
 # Hvor skal appen kjøre? Beslutningsguide for eier
 
-**Status: UTKAST, skrevet 2026-11-22.** Skrevet for en eier uten teknisk bakgrunn. Ingenting her er bestilt, og ingen kontoer er opprettet.
+**Status: UTKAST, skrevet 2026-11-22; avsnitt 2, 3 og 8 avstemt samme dag mot den bygde synk-serveren.** Skrevet for en eier uten teknisk bakgrunn. Ingenting her er bestilt, og ingen kontoer er opprettet. Avsnitt 8 er prøvd i en Docker-kjøring i en sandkasse (ikke hos en leverandør); se «Hva som er testet». Alt som skal gjøres før ekte familier står samlet i [`pilot-sjekkliste.md`](pilot-sjekkliste.md).
 
 **Les dette først om tallene.** Alle priser, regioner og vilkår under er fra min generelle kunnskap, ikke slått opp i dag. De er satt opp som grove intervaller i norske kroner (regnet med ca. 11 kr per euro og 10 kr per dollar) og kan være feil eller utdaterte. Alt som står under «Må verifiseres» (siste del av dokumentet) må sjekkes mot leverandørens egne prissider og vilkår før noe bestilles. Dokumentet er ikke juridisk rådgivning.
 
@@ -19,11 +19,11 @@ Fra repoet (`server/index.ts`, `Dockerfile`):
 
 | Fakta | Betydning for valg av hosting |
 | --- | --- |
-| Én Node.js-prosess (Node 22) som serverer appen (statiske filer) og `/api/offers` | Trenger lite CPU og minne. Én instans holder trolig for en pilot (ikke lasttestet). |
+| Én Node.js-prosess (Node 22) som serverer appen (statiske filer), `/api/offers` og synk-API-et (`/api/household*`, `/api/sync*`) | Trenger lite CPU og minne. Én instans holder trolig for en pilot (ikke lasttestet). **Må være én prosess:** ratebegrensningen ligger i minnet og SQLite har én skriver. |
 | Henter tilbud fra Tjek og holder dem i minnet i seks timer, uten lagring | Serveren må kunne gjøre utgående HTTPS-kall. Hosting uten utgående nett (eller med streng utgående brannmur) virker ikke. |
-| Ingen brukerdata på serveren i dag. Plan, handleliste og valg lagres på brukerens egen enhet | Dagens server er ikke en personvernrisiko av betydning (men se loggene, avsnitt 3). |
-| **Under arbeid:** synk-server med husstander, enhetstokens og lagring i en embedded database (egen økt, `docs/synk.md`) | Da kommer det persondata på serveren, og vi trenger **disk som overlever omstart** og **sikkerhetskopi**. Det utelukker plattformer der filsystemet nullstilles ved hver omstart. |
-| Senere: PostgreSQL | Administrert database blir interessant ved bred lansering. |
+| **Synk-serveren er bygget** (`docs/synk.md`): husstander, enhetstokens, hendelser og dokumenter lagres i **én SQLite-fil** (`middag.sqlite`, WAL-modus) i `DATA_DIR` | Det er persondata på serveren (se `docs/personvern/01-oversikt-behandling.md`, avsnitt 2b). Vi trenger **disk som overlever omstart**, **sikkerhetskopi** og **øvd gjenoppretting**. Plattformer der filsystemet nullstilles ved hver omstart, kan ikke brukes. Postnummer og kostkrav/allergier lagres ikke. |
+| Databasen bruker `node:sqlite`, som er **eksperimentell i Node 22** | Se avsnitt 8, «node:sqlite». Versjonen er festet i `Dockerfile`. |
+| Senere: PostgreSQL | `SyncStorage`-grensesnittet er laget for det (`docs/synk.md`, «Koble på PostgreSQL»). Administrert database blir interessant ved bred lansering. |
 
 Ordforklaring:
 
@@ -39,11 +39,11 @@ Disse punktene må løses uansett valg, og de koster mer tid enn penger:
 
 1. **Domene og HTTPS.** Et domenenavn (typisk noen hundre kroner i året for .no, må verifiseres) og krypterte forbindelser. PaaS og skyleverandører ordner sertifikatet selv; på VPS bruker vi et verktøy som Caddy som henter gratis sertifikat automatisk.
 2. **Kontoen skal eies av eieren**, ikke av utvikleren. Utvikleren får tilgang, ikke eierskap. Betaling og databehandleravtale gjelder den som er behandlingsansvarlig (se `docs/personvern/`).
-3. **Logger.** Webtjenere logger vanligvis IP-adresser, og IP-adresser er personopplysninger. Slå av eller kort ned adresse-logging, og sett en fast sletting (forslag: 14 dager, må avgjøres). Dagens server skriver bare en oppstartslinje, men en proxy foran den (Caddy, PaaS, skytjeneste) logger ofte mer.
-4. **Overvåking.** En enkel ekstern sjekk som varsler på e-post/SMS hvis siden er nede. Docker-imaget har en innebygd helsesjekk.
-5. **Sikkerhetskopi og øvelse på gjenoppretting.** En sikkerhetskopi som aldri er prøvd gjenopprettet, regnes ikke som en sikkerhetskopi. Kopien skal krypteres og ligge i EØS, ikke på samme maskin.
+3. **Logger.** Webtjenere logger vanligvis IP-adresser, og IP-adresser er personopplysninger. Appserveren skriver bare oppstart, advarsler og feilmeldinger (`synk-feil: …`), ikke tilgang eller innhold, og Caddy-eksempelet i `docs/drift/` har ikke tilgangslogg slått på (kontrollert i testkjøringen: ingen forespørselslinjer). Ratebegrensningen holder IP-adresser **i minnet** og glemmer dem ved omstart. Dockers loggfiler er størrelsesbegrenset (3 × 10 MB) i eksempelet, ikke tidsbegrenset. **Leverandørens egne logger og brannmur er ikke kjent:** spør. Slå av eller kort ned adresse-logging der det finnes, og sett en fast sletting (forslag: 14 dager, må avgjøres).
+4. **Overvåking.** En enkel ekstern sjekk som varsler på e-post/SMS hvis siden er nede, og et varsel når disken nærmer seg full (databasen vokser uten tak, `docs/synk.md`). Docker-imaget har en innebygd helsesjekk (avsnitt 8). Serveren har **ingen egen helse-rute**: en ekstern sjekk mot `/` viser bare at Node-prosessen og den bygde appen svarer, ikke at databasen virker. Overvåk uten å sende innhold eller IP-adresser (`docs/synk.md`, «Må på plass før ekte familier», punkt 5).
+5. **Sikkerhetskopi og øvelse på gjenoppretting.** En sikkerhetskopi som aldri er prøvd gjenopprettet, regnes ikke som en sikkerhetskopi. Kopien skal krypteres og ligge i EØS, ikke på samme maskin. Skript og prosedyre: avsnitt 8, «Sikkerhetskopi og gjenoppretting». **Gjenoppretting fra en eldre kopi har en bivirkning for enhetene** (de kan slutte å motta nye endringer): les den.
 6. **Oppdateringer.** Operativsystem og Node-versjon må oppdateres jevnlig (sikkerhetsfeil). På PaaS gjør leverandøren operativsystemet; vi bygger fortsatt imaget på nytt.
-7. **Hemmeligheter** (f.eks. Kassalapp-nøkkelen når den tas i bruk) legges i leverandørens hemmelighetslager eller en miljøfil utenfor repoet. Aldri i imaget eller i git.
+7. **Hemmeligheter** (`SYNC_SECRET` nå; Kassalapp-nøkkelen når den tas i bruk) legges i leverandørens hemmelighetslager eller en miljøfil utenfor repoet (`.env.drift`, rettighet 600). Aldri i imaget eller i git.
 8. **Ingen deploy fra CI i denne omgang.** CI (`.github/workflows/ci.yml`) tester og bygger bare. Utrulling gjøres manuelt til vi har valgt leverandør.
 
 ## 4. De fire alternativene
@@ -153,7 +153,9 @@ Beslutningen bør tas på nytt etter piloten, med målt belastning, antall husst
 7. **Piloten:** åpen for hvem som helst eller lukket gruppe (invitasjonskode)? Omtrentlig antall husstander, hvilke områder, og startdato? Skal det være betaling i piloten (påvirker vilkår og betalingsleverandør)?
 8. **Hvor lenge skal data oppbevares** etter at en husstand slutter å bruke appen (forslag i `docs/personvern/01-oversikt-behandling.md`)?
 9. **Har du noen som kan gjennomgå personverndokumentene** (jurist eller personvernrådgiver), og når? Piloten bør ikke åpnes for ekte brukere før det er gjort.
-10. **Skriftlige vilkår:** foreligger det skriftlig avtale fra Tjek? (Planen krever dokumentasjon før noe annet enn live-visning bygges.) Hosting påvirkes ved at lagring av tilbud ikke er tillatt ennå.
+10. **Hvem eier sikkerhetskopinøkkelen?** Kopiene krypteres med en offentlig nøkkel (age); den private nøkkelen må ligge hos minst to navngitte personer, ikke på serveren. Hvem, og hvor?
+11. **Hva gjør vi hvis en gjenoppretting taper de siste timenes data?** Avsnitt 8 beskriver at enhetene da må kobles på nytt. Er det akseptabelt for en pilot (ja/nei), og hvor ofte skal kopien tas (forslag: daglig)?
+12. **Skriftlige vilkår:** foreligger det skriftlig avtale fra Tjek? (Planen krever dokumentasjon før noe annet enn live-visning bygges.) Hosting påvirkes ved at lagring av tilbud ikke er tillatt ennå.
 
 ## 8. Kjøre med Docker
 

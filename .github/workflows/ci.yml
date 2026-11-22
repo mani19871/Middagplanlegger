@@ -1,10 +1,17 @@
-# Kontinuerlig integrasjon: typesjekk, tester og bygg. Ingen deploy-steg (bevisst).
+# Kontinuerlig integrasjon: typesjekk, tester, kontrast og bygg. Ingen deploy-steg (bevisst).
 # Skriptene tilsvarer package.json: «npm run build» = tsc --noEmit && vite build, «npm test» = vitest run.
+#
+# Jobb «test» (må være grønn): typesjekk, alle vitest-tester (inkl. synk-serveren mot ekte SQLite i minnet:
+# server/sync/api.test.ts, src/sync/engine.test.ts, src/sync/list.test.ts), kontrastsjekk og bygg. Ingen nettverk, ingen nettleser.
+# Jobb «nettleser» (valgfri, blokkerer ikke): Playwright med Chromium for e2e:sync (to enheter mot ekte server),
+# check:pwa og check:a11y. Playwright er ikke avhengighet i package.json, så den installeres her uten å endre låsfilen.
+# Kan også startes for hånd (Actions → CI → Run workflow). Kjøres ellers lokalt: se docs/pilot-sjekkliste.md.
 name: CI
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -21,12 +28,45 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
+          # Samme hovedversjon som Dockerfile (ARG NODE_VERSION). node:sqlite er eksperimentell i Node 22: se docs/hosting.md.
           node-version: 22
           cache: npm
       - run: npm ci
       - name: Typesjekk
         run: npx tsc --noEmit
-      - name: Tester
+      - name: Tester (inkl. synk)
         run: npx vitest run
+      - name: Kontrast (WCAG)
+        run: npm run check:contrast
       - name: Bygg
         run: npx vite build
+
+  nettleser:
+    # Valgfri: en feil her skal ikke stoppe en endring, men bør leses. Nettleserskriptene er prøvd lokalt, ikke på GitHub-maskinene.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Installer Playwright og Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: E2E synk (to enheter, frakoblet endring)
+        run: npm run e2e:sync
+      - name: PWA (service worker, frakoblet)
+        run: npm run check:pwa
+      - name: Tilgjengelighet (tastatur, navn, ingen sidescrolling)
+        run: |
+          npx vite --port 5173 --strictPort > vite.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:5173/ > /dev/null && break; sleep 0.5; done
+          node scripts/checks/a11y.cjs
+      - name: Vis serverlogg ved feil
+        if: failure()
+        run: cat vite.log || true

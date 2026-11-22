@@ -1,0 +1,20 @@
+# Caddy foran appen: HTTPS med automatisk sertifikat (Let's Encrypt) og videresending til app-containeren.
+# {$DOMENE} leses fra .env.drift. Se docs/hosting.md.
+{$DOMENE} {
+	encode zstd gzip
+
+	# Caddy overskriver X-Forwarded-For med klientens IP, og serveren (TRUST_PROXY=1) bruker den til ratebegrensning.
+	# Ikke sett «trusted_proxies» her med mindre en annen proxy (f.eks. en CDN) står foran Caddy.
+	reverse_proxy app:8787
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		# Kort levetid til domene og sertifikat er prøvd. Øk den (f.eks. 31536000) først når alt har virket en stund.
+		Strict-Transport-Security "max-age=86400"
+		-Server
+	}
+
+	# Ingen tilgangslogg er slått på med vilje (IP-adresser er personopplysninger). Ta en «log»-blokk inn først etter
+	# at loggtid og innhold er avgjort (docs/personvern/01-oversikt-behandling.md, avsnitt 4).
+}
