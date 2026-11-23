@@ -12,6 +12,8 @@ interface Props {
   chains?: { chain: string; label: string }[];
   /** Låste retter som bryter kravene slik de står nå, og som slippes ut ved «Lag ukeplan». */
   lockWarnings?: string[];
+  /** Melding om KI-utkast som er skjult av allergi-, kost- eller råvarefilteret (tom når ingen er skjult). */
+  draftNote?: string;
 }
 const FOODS: [FoodTag, string][] = [['storfe', 'storfe'], ['svin', 'svin'], ['lam', 'lam'], ['kylling', 'kylling'], ['fisk', 'fisk'], ['skalldyr', 'skalldyr'], ['belgvekster', 'belgvekster']];
 const ALL = [true, true, true, true, true, true, true];
@@ -24,7 +26,7 @@ const Step = ({ label, n, on }: { label: string; n: number; on: (n: number) => v
     <button aria-label={`Flere ${label}`} onClick={() => on(n + 1)}>+</button></div>
 );
 
-export default function PlanForm({ state, update, onDone, hasPlan, chains = [], lockWarnings = [] }: Props) {
+export default function PlanForm({ state, update, onDone, hasPlan, chains = [], lockWarnings = [], draftNote = '' }: Props) {
   const s = state.settings;
   const [timeDay, setTimeDay] = useState(() => Math.max(0, s.days.findIndex((d) => d.enabled)));
   // I en delt husstand uten filter på enheten åpnes kost og allergier med en gang (se banneret i App).
@@ -91,7 +93,9 @@ export default function PlanForm({ state, update, onDone, hasPlan, chains = [], 
             <label key={t} className="mini"><input type="checkbox" checked={(s.avoidFoods ?? []).includes(t)}
               onChange={() => set({ avoidFoods: (s.avoidFoods ?? []).includes(t) ? (s.avoidFoods ?? []).filter((x) => x !== t) : [...(s.avoidFoods ?? []), t] })} /> {label}</label>
           ))}
-          <p className="fine">Appen garanterer aldri at en rett eller vare er fri for allergener. Sjekk alltid varedeklarasjonen på pakken. Allergendata i demoen er forenklet. Varer med uavklart allergenstatus godkjennes aldri som erstatning når et allergenfilter er aktivt, og vises da uten pris.</p>
+          <p className="fine">Appen garanterer aldri at en rett eller vare er fri for allergener. Sjekk alltid varedeklarasjonen på pakken. Allergendata i demoen er forenklet. Varer med uavklart allergenstatus godkjennes aldri som erstatning når et allergenfilter er aktivt, og vises da uten pris.
+            Med allergi-, kost- eller råvarefilter brukes ikke KI-utkast som ikke er allergen-kontrollert av en person.</p>
+          {draftNote && <p className="fine" role="note">{draftNote}</p>}
           <p>Butikker som sammenlignes:</p>
           {catalog.stores.map((st) => (
             <label key={st.id}><input type="checkbox" checked={s.storeIds.includes(st.id)} disabled={st.id === s.regularStoreId}

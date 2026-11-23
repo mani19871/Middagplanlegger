@@ -3,7 +3,7 @@ import { useState } from 'react';
 import type { AppState } from '../store';
 import type { Alternatives, Basket } from '../engine/types';
 import {
-  budgetAnswer, budgetSuggestions, dealsFor, lockedViolations, portionsOnDay, recipeTags, requirementViolation, slotViolations, swapOptions,
+  budgetAnswer, budgetSuggestions, dealsFor, hiddenUnreviewed, lockedViolations, portionsOnDay, recipeTags, requirementViolation, slotViolations, swapOptions,
   type Ctx, type LockedViolation,
 } from '../engine/planner';
 import { ALLERGEN_LABEL } from '../engine/allergens';
@@ -13,7 +13,7 @@ import { DAYS, kr, num } from '../engine/format';
 import { dayDate, weekStart } from './dates';
 import { Thumb } from './art';
 import { recipeAllergenText } from './allergenText';
-import { RecipeOriginNote } from './RecipeOrigin';
+import { RecipeOriginNote, unreviewedHiddenText } from './RecipeOrigin';
 import PlanForm from './PlanForm';
 import OfferTotalNote from './OfferTotalNote';
 import { ChangesNote, type ChangeKit } from './ListChanges';
@@ -34,10 +34,14 @@ interface Props {
 }
 export type Mode = 'home' | 'plan' | 'edit' | 'trip';
 const storeName = (ctx: Ctx, id: string) => ctx.catalog.stores.find((s) => s.id === id)?.name ?? id;
-/** «allergikravet ditt (gluten)», «kostkravet ditt (bare vegetar)», «råvarekravet ditt (fisk)». */
+/**
+ * «allergikravet ditt (gluten)», «kostkravet ditt (bare vegetar)», «råvarekravet ditt (fisk)», eller for et KI-utkast ved
+ * aktive krav: «kravet om kontrollerte oppskrifter (KI-utkast, ikke allergen-kontrollert av en person ennå)».
+ */
 function requirementText(v: LockedViolation, ctx: Ctx): string {
   const r = ctx.catalog.recipes.find((x) => x.id === v.recipeId);
   const s = ctx.settings;
+  if (v.reason === 'utkast') return 'kravet om kontrollerte oppskrifter når allergi- eller kostfilter er på (KI-utkast, ikke allergen-kontrollert av en person ennå)';
   if (v.reason === 'allergen') return `allergikravet ditt (${(r?.allergens ?? []).filter((a) => s.avoid.includes(a)).map((a) => ALLERGEN_LABEL[a].toLowerCase()).join(', ')})`;
   if (v.reason === 'kost') return 'kostkravet ditt (bare vegetar)';
   const tags = r ? recipeTags(r, ctx.catalog.ingredients) : new Set();
@@ -78,6 +82,8 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
   /** En rett låses aldri automatisk hvis den bryter et absolutt krav (allergi, kost, råvare). */
   const lockable = (id: string) => requirementViolation(recipe(id), ctx) === null;
   const broken = slotViolations(slots, ctx);
+  /** KI-utkast som er skjult fordi et absolutt krav er aktivt (tom uten krav). */
+  const draftNote = unreviewedHiddenText(hiddenUnreviewed(ctx).length);
   const noChains = settings.useOffers !== false && (ctx.offers ?? []).some((h) => h.approved) && chainSet(settings.offerChains).size === 0;
   const start = weekStart();
   const recipe = (id: string) => ctx.catalog.recipes.find((r) => r.id === id)!;
@@ -96,7 +102,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
 
   if (slots.length === 0 || mode === 'edit') {
     return <PlanForm state={state} update={update} hasPlan={slots.length > 0} chains={chainOptions(ctx)}
-      lockWarnings={lockNotes(true)}
+      lockWarnings={lockNotes(true)} draftNote={draftNote}
       onDone={() => { regen(); setMode('plan'); }} />;
   }
   const answer = budgetAnswer(basket, settings.budgetOre);
@@ -121,6 +127,7 @@ export default function WeekView({ state, update, ctx, alts, basket, activeStore
           <button className="ghost sm" onClick={regen}>Lag ny uke uten disse</button>
         </div>
       )}
+      {draftNote && <p className="notice" role="note">ℹ {draftNote}</p>}
       {noChains && (
         <div className="banner">🏷 Tilbud regnes ikke inn før du velger kjedene du handler hos.{' '}
           <button className="ghost sm" onClick={() => setMode('edit')}>Velg kjeder</button></div>

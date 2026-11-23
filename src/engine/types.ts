@@ -10,7 +10,8 @@ export type FoodTag = 'storfe' | 'svin' | 'lam' | 'kylling' | 'fisk' | 'skalldyr
 export interface Ingredient { id: string; name: string; unit: Unit; department: string; staple?: boolean; tags?: FoodTag[] }
 export interface RecipeLine { ingredient: string; amount: number }
 /**
- * Hvor en oppskrift kommer fra (regel 6). Motoren bruker det ikke; det vises i appen og kontrolleres i catalog.test.ts.
+ * Hvor en oppskrift kommer fra (regel 6). Vises i appen og kontrolleres i catalog.test.ts. Motoren bruker det bare til
+ * én regel: med aktive krav er `egen` + `utkast` utelukket (planner.ts `isUnreviewedDraft`, årsak `utkast`).
  * - `demo`: laget for demoen. `egen`: skrevet for Husvett med egne ord og mengder, ikke kopiert fra noen kilde.
  * - `lisensiert`: fra en kilde med skriftlig tillatelse; krever `credit`, `url` og `license`, og en oppføring i THIRD_PARTY.md.
  */

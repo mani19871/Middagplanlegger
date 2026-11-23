@@ -7,7 +7,8 @@
 //
 // Forslag (`cookNow`):
 //  - Absolutte krav (allergi, kost, råvarer) filtrerer med samme regel som planmotoren (`requirementViolation`).
-//    «Må brukes snart» eller full dekning slår aldri et krav (regel 4).
+//    «Må brukes snart» eller full dekning slår aldri et krav (regel 4). Med aktive krav er KI-utkast uten
+//    allergen-kontroll utelukket (årsak `utkast`) og telles for seg (`excludedUnreviewed`).
 //  - Dekning per vare er mengdebevisst: har / behov, høyst 1. Ukjent mengde regnes som funnet og merkes.
 //    Basisvarer (salt, olje) teller ikke.
 //  - Det som mangler prises med samme regler som ukeplanen (`basketForNeeds` → `resolvePrice`): estimat er anslått,
@@ -100,7 +101,10 @@ export interface CookNowResult {
   recipeCount: number;
   /** Retter som oppfyller absolutte krav og tidsvalget. */
   eligibleCount: number;
+  /** Utelukket av allergi-, kost- eller råvarekrav. */
   excludedByRequirement: number;
+  /** Utelukket bare fordi retten er et KI-utkast som ikke er allergen-kontrollert av en person (årsak `utkast`). */
+  excludedUnreviewed: number;
   excludedByTime: number;
   /** Hvorfor det ikke er noen forslag (null når det finnes forslag). */
   empty: CookNowEmpty | null;
@@ -127,20 +131,22 @@ export function cookNow(haveIn: HaveItem[], ctx: Ctx, opts: CookNowOptions): Coo
   }
   const recipes = [...catalog.recipes].sort((a, b) => a.id.localeCompare(b.id));
   const result = (over: Partial<CookNowResult>): CookNowResult => ({
-    suggestions: [], recipeCount: recipes.length, eligibleCount: 0, excludedByRequirement: 0, excludedByTime: 0, empty: null, ...over,
+    suggestions: [], recipeCount: recipes.length, eligibleCount: 0, excludedByRequirement: 0, excludedUnreviewed: 0, excludedByTime: 0, empty: null, ...over,
   });
   if (have.size === 0) return result({ empty: 'ingen-varer' });
   const portions = opts.portions;
   if (!(Number.isFinite(portions) && portions > EPS)) return result({ empty: 'ingen-porsjoner' });
 
-  let excludedByRequirement = 0, excludedByTime = 0;
+  let excludedByRequirement = 0, excludedUnreviewed = 0, excludedByTime = 0;
   const eligible: Recipe[] = [];
   for (const r of recipes) {
-    if (requirementViolation(r, ctx)) { excludedByRequirement++; continue; }
+    const why = requirementViolation(r, ctx);
+    if (why === 'utkast') { excludedUnreviewed++; continue; }
+    if (why) { excludedByRequirement++; continue; }
     if (opts.maxMinutes !== undefined && r.minutes > opts.maxMinutes) { excludedByTime++; continue; }
     eligible.push(r);
   }
-  const counts = { eligibleCount: eligible.length, excludedByRequirement, excludedByTime };
+  const counts = { eligibleCount: eligible.length, excludedByRequirement, excludedUnreviewed, excludedByTime };
   if (eligible.length === 0) return result({ ...counts, empty: 'ingen-retter' });
 
   const ingredient = new Map(catalog.ingredients.map((i) => [i.id, i]));

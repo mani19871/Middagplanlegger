@@ -133,6 +133,10 @@ Legg svaret der du lagrer avtaler. **Ikke legg det i repoet** hvis det er fortro
 
 **Nye varer (10):** hodekål, purre, frosne erter, søtpotet, kyllinglår, svinefilet, fårikålkjøtt, kjøttpølse, matfløte og tomatpuré. Alle har demoprodukt og demopriser (regel 5) og næring fra Matvaretabellen (`scripts/build-nutrition.mjs`; eksisterende tall er uendret). Kjøttpølse er uavklart (`allergenKnown: false`, typisk gluten og melk). Fårikålkjøtt finnes bare i én demobutikk.
 
+**Skjult ved aktive krav (eierens beslutning 2026-11-22, spørsmål 45):** Når allergi-, kost- eller råvarefilteret er på, brukes ingen av disse utkastene. Det gjelder ukeplanen, bytte-, budsjett- og «fant ikke»-forslag, «Lag nå» og retter til tilbud. En låst utkast-rett slippes ut med varsel. Motoren gir årsaken `utkast` (`requirementViolation` i `src/engine/planner.ts`). Ukeplanen, «Rediger uke» og «Lag nå» sier «N oppskrifter er skjult fordi de ikke er allergen-kontrollert av en person ennå». Uten filter vises de som før, med utkast-merket. Demooppskriftene (`kind: 'demo'`) er ikke omfattet, fordi de allerede er merket som demodata.
+
+**Status `testkokt` slipper en oppskrift inn under aktivt filter.** Den skal derfor settes først når retten er laget minst én gang og en person har kontrollert allergenene mot varene. Testkoking alene er ikke nok.
+
 **Må gjøres før de kan regnes som ferdige:**
 
 - testkoking, med mengder og tider rettet

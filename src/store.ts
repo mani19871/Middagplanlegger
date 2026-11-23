@@ -8,6 +8,7 @@ import type { DocBody, DocName } from './sync/docs';
 import type { MemberInfo } from './sync/protocol';
 import { addVersion, type ListChange, type PlanVersion } from './engine/substitution';
 import type { CookNowLocal } from './engine/cookNow';
+import { hasActiveRequirements } from './engine/planner';
 
 /** Sist synkede versjon av et delt dokument (basen for tre-veis fletting). */
 export interface DocMeta {
@@ -139,7 +140,8 @@ export function recordEvent(s: AppState, e: InventoryEvent): AppState {
 }
 
 /** Har enheten et absolutt kost- eller allergikrav? (Synkes ikke; se docs/synk.md.) */
-export const hasDietFilter = (s: Settings) => s.vegetarian || s.avoid.length > 0 || (s.avoidFoods ?? []).length > 0;
+/** Aktive absolutte krav (allergi, vegetar, råvarer). Samme regel som motoren bruker for KI-utkast. */
+export const hasDietFilter = (s: Settings) => hasActiveRequirements(s);
 
 /** Legger hendelser i handlelista og utboksen. En id som finnes fra før gir ingen endring. */
 export function recordList(s: AppState, ...events: ListEvent[]): AppState {

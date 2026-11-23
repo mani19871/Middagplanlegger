@@ -509,3 +509,112 @@ describe('regresjon: kodegjennomgang runde 2, M5 prisalder: observasjonstid i UT
     expect(isStale('2026-11-08T23:30:00.000Z', '2026-11-23')).toBe(false);
   });
 });
+
+describe('regresjon: KI-utkast skjules ved aktive krav (eierens beslutning 2026-11-22, spørsmål 45)', () => {
+  // Egne oppskrifter skrevet av KI og ikke testkokt (`egen` + `utkast`) er ikke allergen-kontrollert av en person.
+  // Med aktivt allergi-, kost- eller råvarefilter er de et absolutt brudd (`'utkast'`), uten filter vises de som før.
+  const long = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 300 }));
+  const drafts = catalog.recipes.filter((r) => r.origin?.kind === 'egen' && r.origin.status === 'utkast');
+  const draftIds = new Set(drafts.map((r) => r.id));
+  const noDraft = (ids: string[]) => ids.filter((id) => draftIds.has(id));
+  // Sesam står ikke i noen rett: filteret er aktivt, men bare utkastregelen kan slå inn.
+  const sesam = ctx({ days: long, avoid: ['sesam'] });
+  const withStatus = (id: string, status: 'testkokt' | 'godkjent'): Catalog => ({
+    ...catalog, recipes: catalog.recipes.map((r) => (r.id === id ? { ...r, origin: { ...r.origin!, status } } : r)),
+  });
+
+  it('forutsetning: katalogen har 25 KI-utkast (egen, utkast)', () => {
+    expect(drafts).toHaveLength(25);
+    expect(drafts.every((r) => r.origin!.by === 'KI-utkast (Claude)')).toBe(true);
+  });
+  it('aktivt allergifilter: ingen utkast i plan, valgbare retter, bytteforslag, budsjettforslag eller tilbudsretter', async () => {
+    const { eligibleRecipes, budgetSuggestions, requirementViolation, isUnreviewedDraft } = await import('./planner');
+    const { offerRecipes } = await import('../views/papers/offerList');
+    for (const d of [0, 3, 6]) expect(noDraft(eligibleRecipes(sesam, d).map((r) => r.id))).toEqual([]);
+    const plan = generatePlan(sesam);
+    expect(plan).toHaveLength(7);
+    expect(noDraft(plan.map((s) => s.recipeId))).toEqual([]);
+    for (const s of plan) expect(noDraft(swapOptions(plan, s.day, ['demoA', 'demoB'], sesam).map((o) => o.recipe.id))).toEqual([]);
+    const tight = { ...sesam, settings: { ...sesam.settings, budgetOre: 1 } };
+    expect(noDraft(budgetSuggestions(plan, ['demoA'], tight, 7).map((x) => x.option.recipe.id))).toEqual([]);
+    for (const ing of ['purre', 'kjottdeig', 'sotpotet', 'kikerter']) expect(noDraft(offerRecipes(ing, sesam).map((r) => r.id))).toEqual([]);
+    for (const r of drafts) {
+      expect(isUnreviewedDraft(r)).toBe(true);
+      expect(requirementViolation(r, sesam)).toBe('utkast');
+    }
+  });
+  it('vegetar og råvarekrav utelukker også utkast, også vegetariske utkast', async () => {
+    const { eligibleRecipes, requirementViolation } = await import('./planner');
+    const veg = ctx({ days: long, vegetarian: true });
+    const vegDrafts = drafts.filter((r) => r.vegetarian);
+    expect(vegDrafts.length).toBeGreaterThan(0);
+    for (const r of vegDrafts) expect(requirementViolation(r, veg)).toBe('utkast');
+    expect(noDraft(eligibleRecipes(veg, 0).map((r) => r.id))).toEqual([]);
+    expect(noDraft(generatePlan(veg).map((s) => s.recipeId))).toEqual([]);
+    const pork = ctx({ days: long, avoidFoods: ['svin'] });
+    expect(requirementViolation(catalog.recipes.find((r) => r.id === 'chili')!, pork)).toBe('utkast'); // storfe, ikke svin
+    expect(noDraft(eligibleRecipes(pork, 0).map((r) => r.id))).toEqual([]);
+    expect(noDraft(generatePlan(pork).map((s) => s.recipeId))).toEqual([]);
+  });
+  it('uten aktive krav vises utkastene som før', async () => {
+    const { eligibleRecipes, requirementViolation, hiddenUnreviewed } = await import('./planner');
+    const free = ctx({ days: long });
+    expect(eligibleRecipes(free, 0).filter((r) => draftIds.has(r.id))).toHaveLength(25);
+    for (const r of drafts) expect(requirementViolation(r, free)).toBeNull();
+    expect(hiddenUnreviewed(free)).toEqual([]);
+    expect(generatePlan(free, [slot(0, 'chili', true)])[0]).toEqual(slot(0, 'chili', true)); // lås beholdes
+  });
+  it('testkokt og godkjent slippes inn under aktivt filter', async () => {
+    const { eligibleRecipes, requirementViolation } = await import('./planner');
+    for (const status of ['testkokt', 'godkjent'] as const) {
+      const c = { catalog: withStatus('chili', status), settings: sesam.settings };
+      expect(requirementViolation(c.catalog.recipes.find((r) => r.id === 'chili')!, c)).toBeNull();
+      expect(eligibleRecipes(c, 0).map((r) => r.id)).toContain('chili');
+      expect(generatePlan(c, [slot(0, 'chili', true)])[0]).toEqual(slot(0, 'chili', true));
+    }
+  });
+  it('demooppskrifter påvirkes ikke av utkastregelen (de er merket som demodata)', async () => {
+    const { eligibleRecipes, requirementViolation } = await import('./planner');
+    const demo = catalog.recipes.filter((r) => r.origin?.kind === 'demo');
+    for (const r of demo) expect(requirementViolation(r, sesam)).toBeNull();
+    expect(eligibleRecipes(sesam, 0).length).toBeGreaterThan(0);
+  });
+  it('er deterministisk', async () => {
+    const { hiddenUnreviewed } = await import('./planner');
+    expect(JSON.stringify(generatePlan(sesam))).toBe(JSON.stringify(generatePlan(sesam)));
+    expect(hiddenUnreviewed(sesam).map((r) => r.id)).toEqual(hiddenUnreviewed(sesam).map((r) => r.id));
+    expect(hiddenUnreviewed(sesam).map((r) => r.id)).toEqual([...draftIds].sort());
+  });
+  it('låst utkast under aktivt filter flagges med årsak «utkast» og slippes ut av planen', async () => {
+    const { lockedViolations, slotViolations } = await import('./planner');
+    const prev = [slot(0, 'chili', true), slot(1, 'bolognese', true), slot(2, 'frittata', false)];
+    expect(lockedViolations(prev, sesam)).toEqual([{ day: 0, recipeId: 'chili', reason: 'utkast' }]);
+    expect(slotViolations(prev, sesam)).toEqual([
+      { day: 0, recipeId: 'chili', reason: 'utkast' }, { day: 2, recipeId: 'frittata', reason: 'utkast' },
+    ]);
+    const plan = generatePlan(sesam, prev);
+    expect(plan.find((s) => s.day === 0)!.recipeId).not.toBe('chili');
+    expect(plan.find((s) => s.day === 1)).toEqual(slot(1, 'bolognese', true));
+    // Et mer konkret brudd vinner som årsak: fiskegrateng har gluten.
+    expect(lockedViolations([slot(0, 'fiskegrateng', true)], ctx({ days: long, avoid: ['gluten'] }))[0].reason).toBe('allergen');
+    expect(lockedViolations(prev, ctx({ days: long }))).toEqual([]);
+  });
+  it('hiddenUnreviewed teller bare utkast som ellers ville passert kravene', async () => {
+    const { hiddenUnreviewed } = await import('./planner');
+    const veg = hiddenUnreviewed(ctx({ days: long, vegetarian: true }));
+    expect(veg.length).toBe(drafts.filter((r) => r.vegetarian).length);
+    expect(hiddenUnreviewed(ctx({ days: long, avoid: ['gluten'] })).every((r) => !r.allergens.includes('gluten'))).toBe(true);
+  });
+  it('ukjent og uavklart allergenstatus fortsetter som før for retter som ikke er utkast', async () => {
+    const { eligibleRecipes, blockedByAllergenStatus } = await import('./planner');
+    // Karri (demo) har kokosmelk med uavklart innhold: med filter er linja fortsatt ukjent pris.
+    const karri = catalog.recipes.find((r) => r.id === 'karri')!;
+    expect(eligibleRecipes(sesam, 0).map((r) => r.id)).toContain('karri');
+    expect(blockedByAllergenStatus(karri, sesam)).toBe(false);
+    const b = buildBasket([slot(0, 'karri')], ['demoA'], sesam);
+    expect(b.lines.find((l) => l.ingredient === 'kokosmelk')!.status).toBe('ukjent');
+    expect(budgetAnswer(b, 10_000_000)).toBe('ufullstendig');
+    // Uten filter har kokosmelken pris.
+    expect(buildBasket([slot(0, 'karri')], ['demoA'], ctx({ days: long })).complete).toBe(true);
+  });
+});

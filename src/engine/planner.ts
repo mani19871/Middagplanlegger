@@ -60,22 +60,47 @@ export function blockedByAllergenStatus(r: Recipe, ctx: Ctx): boolean {
   });
 }
 
-/** Hvilket absolutt krav en rett bryter: allergen (`avoid`), kost (`vegetarian`) eller råvare (`avoidFoods`). */
-export type RequirementReason = 'allergen' | 'kost' | 'råvare';
+/**
+ * En egen oppskrift skrevet av KI som ikke er testkokt, og dermed ikke allergen-kontrollert av en person
+ * (`origin.kind === 'egen'` og `origin.status === 'utkast'`). Demooppskrifter (`demo`) er merket som demodata og
+ * omfattes ikke (eierens beslutning 2026-11-22).
+ */
+export const isUnreviewedDraft = (r: Recipe): boolean => r.origin?.kind === 'egen' && r.origin.status === 'utkast';
+
+/** Brukeren har minst ett absolutt krav: allergi (`avoid`), bare vegetar (`vegetarian`) eller råvarer (`avoidFoods`). */
+export const hasActiveRequirements = (s: Settings): boolean =>
+  s.avoid.length > 0 || s.vegetarian || (s.avoidFoods ?? []).length > 0;
+
+/**
+ * Hvilket absolutt krav en rett bryter: allergen (`avoid`), kost (`vegetarian`), råvare (`avoidFoods`) eller
+ * `utkast`: med minst ett aktivt krav er et KI-utkast som ikke er allergen-kontrollert av en person utelukket
+ * (`isUnreviewedDraft`, eierens beslutning 2026-11-22). Det konkrete bruddet vinner som årsak; `utkast` kommer sist.
+ * Uten aktive krav gir et utkast ingen brudd og vises som før, med utkast-merket.
+ */
+export type RequirementReason = 'allergen' | 'kost' | 'råvare' | 'utkast';
 export function requirementViolation(r: Recipe, ctx: Ctx): RequirementReason | null {
   const { catalog, settings } = ctx;
   if (r.allergens.some((a) => settings.avoid.includes(a))) return 'allergen';
   if (settings.vegetarian && !r.vegetarian) return 'kost';
   if ((settings.avoidFoods ?? []).some((t) => recipeTags(r, catalog.ingredients).has(t))) return 'råvare';
+  if (isUnreviewedDraft(r) && hasActiveRequirements(settings)) return 'utkast';
   return null;
 }
 
-/** Absolutte krav (vegetar, allergen, råvarer som skal unngås). Tidsgrensen hører ikke hit: en låst rett er et eksplisitt valg om tid. */
+/**
+ * Oppskrifter som er skjult bare fordi de er KI-utkast uten allergen-kontroll (årsak `utkast`), sortert på id. Tom
+ * uten aktive krav. Brukes til å si i appen hvor mange som er skjult, uten å skjule at de finnes.
+ */
+export const hiddenUnreviewed = (ctx: Ctx): Recipe[] =>
+  ctx.catalog.recipes.filter((r) => requirementViolation(r, ctx) === 'utkast').sort((a, b) => a.id.localeCompare(b.id));
+
+/** Absolutte krav (vegetar, allergen, råvarer som skal unngås, og KI-utkast ved aktive krav). Tidsgrensen hører ikke hit: en låst rett er et eksplisitt valg om tid. */
 export const meetsAbsoluteRequirements = (r: Recipe, ctx: Ctx): boolean => requirementViolation(r, ctx) === null;
 
 export interface LockedViolation { day: number; recipeId: string; reason: RequirementReason }
 /**
- * Låste retter som bryter et absolutt krav (allergi, kost, råvare). Absolutte krav vinner over lås, så
+ * Låste retter som bryter et absolutt krav (allergi, kost, råvare, eller KI-utkast uten allergen-kontroll ved aktive
+ * krav). Absolutte krav vinner over lås, så
  * `generatePlan` slipper disse ut og planlegger dagen på nytt. Tidsgrensen er unntatt: en låst rett er et
  * eksplisitt valg om tid. Sortert på dag.
  */

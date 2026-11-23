@@ -234,3 +234,55 @@ describe('Lag nå: hva som finnes hjemme', () => {
     expect(cookNowLinePrefix('bolognese', 'lok')).toBe('lagnå:bolognese|lok:');
   });
 });
+
+describe('Lag nå: KI-utkast skjules ved aktive krav (eierens beslutning 2026-11-22)', () => {
+  const DRAFT = { kind: 'egen', by: 'KI-utkast (Claude)', date: '2026-11-22', status: 'utkast' } as const;
+  const withDraft = (status: 'utkast' | 'testkokt' | 'godkjent' = 'utkast', kind: 'egen' | 'demo' = 'egen'): Catalog => {
+    const c = mini();
+    return { ...c, recipes: [...c.recipes, rec('autkast', [['a', 400]], { origin: { ...DRAFT, kind, status } })] };
+  };
+  const h = [have('a', 400)];
+
+  it('uten filter foreslås utkastet som før (full dekning, øverst)', () => {
+    const r = cookNow(h, ctx({}, withDraft()), opts);
+    expect(ids(r)[0]).toBe('autkast');
+    expect(r.excludedUnreviewed).toBe(0);
+  });
+  it('aktivt allergifilter: utkastet foreslås aldri, og antallet står for seg', () => {
+    const r = cookNow(h, ctx({ avoid: ['sesam'] }, withDraft()), opts);
+    expect(ids(r)).not.toContain('autkast');
+    expect(r.excludedUnreviewed).toBe(1);
+    expect(r.excludedByRequirement).toBe(0); // allergi, kost og råvarer telles for seg
+  });
+  it('vegetar og råvarekrav utelukker også utkast', () => {
+    for (const over of [{ vegetarian: true }, { avoidFoods: ['svin' as const] }]) {
+      const r = cookNow(h, ctx(over, withDraft()), opts);
+      expect(ids(r)).not.toContain('autkast');
+      expect(r.excludedUnreviewed).toBe(1);
+    }
+  });
+  it('testkokt og godkjent slippes inn; demooppskrifter påvirkes ikke', () => {
+    for (const cat of [withDraft('testkokt'), withDraft('godkjent'), withDraft('utkast', 'demo')]) {
+      const r = cookNow(h, ctx({ avoid: ['sesam'] }, cat), opts);
+      expect(ids(r)[0]).toBe('autkast');
+      expect(r.excludedUnreviewed).toBe(0);
+    }
+  });
+  it('er deterministisk', () => {
+    const c = ctx({ avoid: ['sesam'] }, withDraft());
+    expect(JSON.stringify(cookNow(h, c, opts))).toBe(JSON.stringify(cookNow(h, c, opts)));
+  });
+  it('uavklart allergenstatus gir fortsatt ukjent pris for retter som ikke er utkast', () => {
+    const r = cookNow([have('a', 400)], ctx({ avoid: ['sesam'] }, withDraft()), opts);
+    const ae = r.suggestions.find((s) => s.recipe.id === 'ae')!;
+    expect(ae.priceComplete).toBe(false);
+    expect(ae.missing.find((l) => l.ingredient === 'e')!.status).toBe('ukjent');
+  });
+  it('demokatalogen med filter: ingen av de 25 KI-utkastene foreslås', () => {
+    const c: Ctx = { catalog: demoCatalog, settings: { ...defaultSettings, avoid: ['sesam'] }, shopDate: SHOP };
+    const r = cookNow([have('kjottdeig', 400), have('bonner', 400), have('purre', 300), have('sotpotet', 800)], c, { portions: 4, storeIds: ['demoA'] });
+    expect(r.suggestions.length).toBeGreaterThan(0);
+    expect(r.suggestions.every((s) => !(s.recipe.origin?.kind === 'egen' && s.recipe.origin.status === 'utkast'))).toBe(true);
+    expect(r.excludedUnreviewed).toBe(25);
+  });
+});

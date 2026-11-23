@@ -165,5 +165,34 @@ Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. A, B og C er bygd
 
 **Ikke testet / åpent:** bare en liten formprøve mot ekte Tjek-svar (se over); ikke prøvd med skjermleser eller på ekte telefon; én pakke per linje (antall kan ikke velges); priser vises i hele kroner (`kr()`), summen regnes i øre; «Andre varer» krysses av per uke som andre manuelle linjer og blir stående til de fjernes; et tilbud som er borte fra Tjek gir linje uten pris («tilbudet vises ikke nå»); varegruppene og søkeordene er et skjønn, ikke testet med brukere; fremhevingen «lagt på lista før» bygger på varenavn, ikke på kjøp; en eldre, bufret app godtar ikke innstillinger med varegrupper før den er oppdatert; kallbruken mot Tjek øker med ca. 110 kall i døgnet (27 per runde) (innenfor standardbudsjettet 1000, men avtalens grense er ikke kjent for oss).
 
+## KI-utkast skjules ved aktive krav (2026-11-23)
+
+**Eierens beslutning (2026-11-22, spørsmål 45):** Egne oppskrifter skrevet av KI og ikke testkokt (`origin.kind === 'egen'`, `origin.status === 'utkast'`, 25 stk) skjules når allergi-, kost- eller råvarefilteret er aktivt. Det gjelder til de er testkokt og allergen-kontrollert av en person (`testkokt`/`godkjent`).
+
+**Regel (motor):** `requirementViolation` gir årsaken `utkast` når retten er et slikt utkast (`isUnreviewedDraft`) og minst ett absolutt krav er aktivt (`hasActiveRequirements`: `avoid`, `vegetarian`, `avoidFoods`). Et konkret allergen-, kost- eller råvarebrudd vinner som årsak. Fordi alle valg av retter går gjennom `requirementViolation`/`eligibleRecipes`, skjules utkastene over alt, uten egne grener:
+- `generatePlan`, `swapOptions`, `budgetSuggestions`
+- «fant ikke»-forslag (`substitution.ts`)
+- «Lag nå» (`cookNow`, med eget tall `excludedUnreviewed`)
+- retter til tilbud (`offerRecipes`)
+- lås fra kundeaviser
+
+`lockedViolations` og `slotViolations` flagger låste og ulåste utkast med `utkast`, og `generatePlan` slipper låste utkast ut. `hiddenUnreviewed(ctx)` gir utkastene som er skjult bare av denne regelen. Demooppskrifter (`demo`) er ikke omfattet. Uten aktive krav er alt som før.
+
+**UI:**
+- Ukeplanen, «Rediger uke» og «Lag nå» viser «N oppskrifter er skjult fordi de ikke er allergen-kontrollert av en person ennå …», med at appen aldri garanterer allergenfrihet.
+- En utkast-rett i planen under filter får varsel med forklaring og «Lag ny uke uten disse».
+- `hasDietFilter` i `store.ts` bruker nå samme regel som motoren.
+
+**Bevis (skrevet før koden og sett røde):**
+- `planner.test.ts` «regresjon: KI-utkast skjules ved aktive krav» (10 tester): allergi-, vegetar- og råvarefilter; ingen utkast i plan, valgbare retter, bytte-, budsjett- og tilbudsretter; uten filter som før; `testkokt`/`godkjent` slippes inn; demo uendret; determinisme; låst utkast flagges og slippes ut; konkret brudd vinner som årsak; uavklart allergenstatus gir fortsatt ukjent pris.
+- `cookNow.test.ts` «Lag nå: KI-utkast …» (7 tester).
+- `src/acceptance/utkast-filter-ui.test.tsx` (6 tester, server-rendret: tallet 25 med allergifilter, tallet på vegetariske utkast med vegetarfilter, ingen melding uten filter, varsel for utkast i planen, løfteord bare i benektende setninger).
+
+**Ikke testet / åpent:**
+- Ikke prøvd med skjermleser eller på ekte telefon.
+- Demooppskriftene (31, `demo` + `utkast`) er heller ikke allergen-kontrollert av en person, men er utenfor beslutningen. Se rapporten til eieren.
+- Med filter på blir basen 31 demoretter, så variasjonen i planen og «Lag nå» blir mindre.
+- Nye utkast i `catalog.ts` dekkes automatisk av regelen.
+
 ## Hvordan kjøre kontrollen på nytt
 `npx tsc --noEmit && npx vitest run && npx vite build`. Nettleserflyten er ikke en sjekket inn test (Playwright er ikke avhengighet i repoet); stegene over kan gjentas manuelt på 420 px mot `npx tsx server/index.ts` etter bygg.

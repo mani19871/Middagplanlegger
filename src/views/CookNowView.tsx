@@ -5,11 +5,11 @@ import { useMemo, useState } from 'react';
 import { recordList, stamp, type AppState } from '../store';
 import { deriveStock } from '../engine/inventory';
 import { cookNow, cookNowLineId, cookNowLinePrefix, emptyCookNowLocal, mergeHave, type CookNowLocal, type CookNowSuggestion } from '../engine/cookNow';
-import { portionsOnDay, type Ctx } from '../engine/planner';
+import { hiddenUnreviewed, portionsOnDay, type Ctx } from '../engine/planner';
 import { amount, kr, num } from '../engine/format';
 import { manualLines } from '../sync/list';
 import { recipeAllergenText } from './allergenText';
-import { RecipeOriginNote, recipeBaseText } from './RecipeOrigin';
+import { RecipeOriginNote, recipeBaseText, unreviewedHiddenText } from './RecipeOrigin';
 import { isoDate } from './dates';
 import { priceStatusText } from './priceText';
 import { ING_EMOJI } from './art';
@@ -53,6 +53,8 @@ export default function CookNowView({ state, update, ctx }: Props) {
   // Det som mangler prises for handel i dag hos vanlig butikk.
   const result = useMemo(() => cookNow(have, { ...ctx, shopDate: today }, { portions, storeIds: [storeId], maxMinutes }),
     [have, ctx, today, portions, storeId, maxMinutes]);
+  // KI-utkast skjult av allergi-, kost- eller råvarefilteret: antallet vises, så det er tydelig at de finnes.
+  const draftNote = unreviewedHiddenText(hiddenUnreviewed(ctx).length);
   const lines = useMemo(() => manualLines(state.list), [state.list]);
   // Basisvarer vises bare som «finnes» / «snart tom» / «tom». De endrer ikke hva som regnes som hjemme her eller rangeringen.
   const staples = useMemo(() => stapleStatus(settings.staples ?? [], state.inventory, stapleListFacts(state.list), STAPLE_INFO),
@@ -187,6 +189,7 @@ export default function CookNowView({ state, update, ctx }: Props) {
       <p className="fine">{recipeBaseText(catalog.recipes)}
         {' '}Forslagene blir derfor få.{result.excludedByRequirement > 0 && ` ${result.excludedByRequirement} rett${result.excludedByRequirement === 1 ? '' : 'er'} er skjult av allergi- eller kostfilteret.`}
         {result.excludedByTime > 0 && ` ${result.excludedByTime} tar for lang tid.`}</p>
+      {draftNote && <p className="notice" role="note">ℹ {draftNote}</p>}
       <div role="status" aria-live="polite">
         {result.empty === 'ingen-varer' && <div className="notice">Ingen varer er krysset av. Kryss av eller legg til det dere har hjemme, så kommer forslagene.</div>}
         {result.empty === 'ingen-porsjoner' && <div className="notice">Velg hvor mange porsjoner dere skal lage.</div>}
