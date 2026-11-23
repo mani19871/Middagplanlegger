@@ -63,6 +63,19 @@ try {
   step('Enhet A lager ukeplan og oppretter husstand');
   await A.goto(BASE);
   await A.getByRole('button', { name: 'Lag ukeplan ›' }).click();
+
+  // Scenariet «utsolgt → erstatning» trenger en vare med flere pakker i samme butikk. Standardplanen er ikke garantert å ha noen
+  // (demodataene har bare kjøttdeig i to størrelser, og nye oppskrifter kan flytte standardplanen), så planen får en kjent rett.
+  const NEEDS_PACK_CHOICE = 'Spagetti bolognese'; // kjøttdeig 400 g: Kjøttdeig 400 g eller 800 g
+  step(`Planen får «${NEEDS_PACK_CHOICE}» (kjøttdeig finnes i to pakker), så erstatningsscenariet er deterministisk`);
+  await A.getByRole('tab', { name: 'Uka' }).click();
+  if (!(await A.locator('button.row.card', { hasText: NEEDS_PACK_CHOICE }).count())) {
+    await A.locator('button.row.card').first().click();
+    await A.getByRole('dialog').locator('label.opt', { hasText: NEEDS_PACK_CHOICE }).locator('input[type=radio]').check();
+    await A.getByRole('dialog').getByRole('button', { name: /^Velg spagetti bolognese/ }).click();
+    await A.getByRole('dialog').waitFor({ state: 'detached', ...T });
+  }
+  await A.locator('button.row.card', { hasText: NEEDS_PACK_CHOICE }).first().waitFor(T);
   await A.getByRole('button', { name: /Husstand og deling/ }).click();
   await A.getByRole('button', { name: /Opprett husstand/ }).click();
   await A.getByRole('button', { name: /Lag invitasjon/ }).click();
@@ -136,7 +149,7 @@ try {
     if (await option.count()) { await option.click(); replaced = label; break; }
     await dialog.getByRole('button', { name: 'Lukk' }).click();
   }
-  if (!replaced) throw new Error('Fant ingen vare med en godkjent erstatning i demodataene');
+  if (!replaced) throw new Error(`Fant ingen vare med en godkjent erstatning, selv med «${NEEDS_PACK_CHOICE}» i planen. Er kjøttdeig-pakkene (kd400/kd800) eller prisene fjernet fra demodataene?`);
   await A.getByText(/↺ Erstatter/).first().waitFor(T);
   await B.getByText(/↺ Erstatter/).first().waitFor(T);
   await historyButton(B, 2).waitFor(T);
