@@ -140,7 +140,7 @@ Legg svaret der du lagrer avtaler. **Ikke legg det i repoet** hvis det er fortro
 **Må gjøres før de kan regnes som ferdige:**
 
 - testkoking, med mengder og tider rettet
-- allergenkontroll av en person nummer to
+- allergenkontroll av en person nummer to (bruk arket `docs/allergen-gjennomgang.md`, laget med `npm run allergen-ark`)
 - godkjenning av en redaktør, og status endret til `testkokt` eller `godkjent`
 
 Neste omganger: se `docs/oppskrifter-research.md`, kapittel 6.
