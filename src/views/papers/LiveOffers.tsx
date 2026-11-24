@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LiveResponse } from '../../offers/client';
 import type { LiveOffer } from '../../offers/service';
-import { amount, kr } from '../../engine/format';
+import { amount, kr, num } from '../../engine/format';
+import { osloDate } from '../../engine/oslo';
 import { ING_EMOJI } from '../art';
 import { filterOffers, groupOffers, pageGroups, PAGE_SIZE, type GroupBy } from './offerList';
 
@@ -14,7 +15,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('nb-NO', { dateStyle:
 export function sourceLine(live: LiveResponse): string {
   const read = live.observed ? when(live.observed) : 'ukjent tid';
   if (!live.stored) return `Kilde: Tjek (ekte tilbud, ikke demodata). Lest ${read}.`;
-  const oldest = live.oldestObserved && live.observed && live.oldestObserved.slice(0, 10) < live.observed.slice(0, 10)
+  const oldest = live.oldestObserved && live.observed && (osloDate(live.oldestObserved) ?? '') < (osloDate(live.observed) ?? '')
     ? ` Noen priser ble sist sett ${when(live.oldestObserved)}.` : '';
   return `Kilde: Tjek (ekte tilbud, ikke demodata). Sist hentet ${read}.${oldest}`;
 }
@@ -54,7 +55,7 @@ export default function LiveOffers({ live, err, ingName, onPick }: Props) {
                 <span className="bigemoji" aria-hidden>{ING_EMOJI[l.ingredient] ?? '🛒'}</span>
                 <b>{l.offer.heading}</b><small>{by === 'kjede' ? ingName(l.ingredient) : l.offer.dealerName}</small>
                 <span className="price">{l.offer.priceOre !== null ? kr(l.offer.priceOre) : 'Pris ukjent'}</span>
-                <small>{l.offer.amount ? amount(l.offer.amount, l.offer.unit ?? 'g') : 'mengde ukjent'}{l.unitPriceOre !== null && l.offer.unit ? ` · ${kr(l.unitPriceOre)}/${l.offer.unit === 'g' ? 'kg' : 'l'}` : ''}</small>
+                <small>{l.offer.amount ? amount(l.offer.amount, l.offer.unit ?? 'g') : l.offer.pieces && l.unitPriceOre !== null ? amount(l.offer.pieces, 'stk') : 'mengde ukjent'}{l.unitPriceOre === null ? '' : l.offer.unit ? ` · ${kr(l.unitPriceOre)}/${l.offer.unit === 'g' ? 'kg' : 'l'}` : ` · ${num(l.unitPriceOre / 100, 2)} kr/stk`}</small>
                 <small>{l.phase === 'nå' ? `til ${dm(l.offer.validUntil)}` : `fra ${dm(l.offer.validFrom)}`}{l.needsReview ? ' · må kontrolleres' : ''}</small>
                 <span className="plus" aria-hidden>＋</span></button>
             ))}

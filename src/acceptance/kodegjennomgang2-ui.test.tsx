@@ -11,7 +11,9 @@ import { initialState, type AppState } from '../store';
 import type { ListEvent } from '../sync/list';
 import ListView from '../views/ListView';
 import PapersView from '../views/PapersView';
+import HouseholdView from '../views/HouseholdView';
 import { parseStapleMin, STAPLE_INFO } from '../views/StaplesView';
+import { COOK_QTY_ADD_INVALID, cookQtyChangeInvalid, parseCookQty } from '../views/CookNowView';
 import { isValidStaples } from '../engine/staples';
 
 const html = (C: unknown, props: Record<string, unknown>) => renderToStaticMarkup(createElement(C as ComponentType<Record<string, unknown>>, props));
@@ -82,5 +84,32 @@ describe('kodegjennomgang runde 2: visninger', () => {
     expect(parseStapleMin('0,6')).toBe(1);
     expect(parseStapleMin('')).toBeUndefined();
     expect(parseStapleMin('100001')).toBeNull();
+  });
+  it('V17 «Lag nå»: ugyldig mengde forkastes ikke stille, men gir melding (0,4 blir ikke 0)', () => {
+    // Før rettingen: setAmount/addItem returnerte uten melding, og 0,4 ble lagt til som 0 (mergeHave overså det, så feltet
+    // viste 0 mens forslagene brukte matskapets mengde). Meldingen vises i et status-område (sjekket i npm run check:a11y).
+    expect(parseCookQty('')).toBeNull();
+    expect(parseCookQty('  ')).toBeNull();
+    expect(parseCookQty('8')).toBe(8);
+    expect(parseCookQty('2,6')).toBe(3);
+    for (const bad of ['-3', '0', '0,4', 'abc', 'Infinity']) expect(parseCookQty(bad), bad).toBe('ugyldig');
+    expect(parseCookQty('', true)).toBe('ugyldig'); // tekst nettleseren ikke kunne lese som tall (validity.badInput)
+    expect(COOK_QTY_ADD_INVALID).toMatch(/^Mengden er ikke lagt til: .*over 0/);
+    expect(cookQtyChangeInvalid('Egg')).toMatch(/^Mengden for Egg er ikke endret/);
+  });
+
+  it('V10 Husstand forklarer også konflikter i handlelista (som chipen «⚠ Konflikt» teller), med vei til handlelista', () => {
+    // Før rettingen: chipen talte valg på linjer og godkjente lister, men Husstand-siden viste bare dokument- og kjøpskonflikter.
+    const me = { id: 'enhet-a', label: 'A', role: 'eier' as const, createdAt: '', lastSeen: null, me: true };
+    const s: AppState = { ...initialState, sync: { token: 't', me, cursor: 0, docs: {}, conflicts: {}, members: [me], rejected: 0, lastSync: null } };
+    const view = (listConflicts?: { lines: number; approved: boolean }) => text(html(HouseholdView, {
+      state: s, update: noop, runtime: { offline: false, busy: false, lastError: null, syncNow: noop }, status: 'konflikt', statusText: 'Konflikt',
+      purchaseConflicts: 0, initialCode: '', openList: noop, listConflicts,
+    }));
+    expect(view({ lines: 2, approved: false })).toMatch(/To enheter har valgt ulikt for 2 varer i handlelista\..*Åpne handlelista/);
+    expect(view({ lines: 1, approved: false })).toMatch(/for 1 vare i handlelista/);
+    expect(view({ lines: 0, approved: true })).toMatch(/To voksne har godkjent ulike handlelister\..*Åpne handlelista/);
+    expect(view({ lines: 0, approved: false })).not.toMatch(/handlelista\./);
+    expect(view()).not.toMatch(/valgt ulikt|ulike handlelister/);
   });
 });

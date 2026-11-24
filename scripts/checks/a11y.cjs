@@ -7,10 +7,17 @@
 //  - Matskap → Lag nå og Basisvarer (forslag i handlelista én gang), handleliste (også handlemodus), Husstand og Kontroll: navn, 44 px trykkflater i handlemodus, dialog for «Slett», ingen overflyt
 //  - Kundeaviser → Husholdning (utvidelse C): uten kjede, med kjede, navn, 44 px, varegrupper med tastatur, «Legg på lista» én gang, «Andre varer» i handlelista
 //    Tilbudene her er oppdiktede testdata som bare finnes i denne sjekken (ruting i Playwright), aldri i appen.
+//  - fokus (V16): etter handlinger som fjerner eller deaktiverer knappen havner fokus aldri på <body> (Åpne «Lag nå», Legg manglende,
+//    Åpne handlelista, godkjenn basisvare, Legg på lista, siste avisside, ← Tilbake fra en avis)
+//  - «Lag nå» (V17): ugyldig mengde gir en melding i et status-område
 // Bruk: node scripts/checks/a11y.cjs
 const { chromium } = require('playwright');
 const url = process.env.APP_URL || 'http://localhost:5173/';
 let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`); if (!c) fails++; };
+// V16: fokus etter neste bilde (appen flytter det i requestAnimationFrame). Gir beskrivelse av aktivt element.
+const focused = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => {
+  const a = document.activeElement; r(!a || a === document.body ? 'body' : `${a.tagName.toLowerCase()}:${(a.getAttribute('aria-label') || a.textContent || '').trim().slice(0, 40)}`);
+}))));
 
 const unnamed = (p) => p.evaluate(() => {
   const name = (e) => {
@@ -34,6 +41,11 @@ const unnamed = (p) => p.evaluate(() => {
     await p.route('**/api/offers/lagret', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', error: null, source: 'tjek', stored: true,
       observed: new Date().toISOString(), oldestObserved: null, offers: [], truncated: false,
       other: [fake('t1', 'Testtilbud Toalettpapir 8 rull med et ganske langt navn', 'Kiwi', 8990), fake('t2', 'Testtilbud Oppvaskmiddel', 'REMA 1000', 2990), fake('t3', 'Testtilbud bleier', 'Kiwi', 9990)] }) }));
+    // Oppdiktede kundeaviser (testdata, bare i denne sjekken) for fokus i avisleseren. Sidene har ingen bildeadresse.
+    const cat = { id: 'testavis', source: 'tjek', dealerId: 'd', dealerName: 'Testkjede', label: 'Testavis', validFrom: day(-1), validUntil: day(6), pageCount: 2, observed: new Date().toISOString() };
+    await p.route('**/api/aviser', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', error: null, source: 'tjek', observed: new Date().toISOString(), imagesAllowed: true, catalogs: [cat] }) }));
+    await p.route('**/api/aviser/testavis/sider', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ status: 'ok', error: null, source: 'tjek', observed: new Date().toISOString(), imagesAllowed: true, catalog: cat,
+      pages: [1, 2].map((number) => ({ number, thumb: null, view: null, zoom: null })) }) }));
     const scrollOk = async (n) => { const o = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(o <= 0, `${w}px ${n}: ingen horisontal scrolling`); };
     await p.goto(url); await p.waitForSelector('text=Lag ukeplan');
     let bad = await unnamed(p); ok(bad.length === 0, `${w}px skjema: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('skjema');
@@ -70,12 +82,18 @@ const unnamed = (p) => p.evaluate(() => {
     }
     // Matskap → Lag nå: navn, overflyt, tom tilstand som status, avkrysning og «bruk snart» med tastatur, 44 px trykkflater
     await p.getByRole('tab', { name: 'Matskap' }).click();
-    await p.getByRole('button', { name: /Lag nå/ }).first().click();
+    await p.getByRole('button', { name: 'Matskapet', exact: false }).first().click();
+    await p.getByRole('button', { name: /Åpne «Lag nå»/ }).focus(); await p.keyboard.press('Enter');
+    let f = await focused(p); ok(f === 'h1:Lag nå', `V16 «Åpne «Lag nå»»: fokus på overskriften (${f})`);
     ok(await p.getByRole('heading', { level: 1, name: 'Lag nå' }).count() === 1, `${w}px Lag nå: overskrift`);
     ok(await p.getByRole('button', { name: /Lag nå/, pressed: true }).count() === 1, 'Lag nå-valget har aria-pressed');
     bad = await unnamed(p); ok(bad.length === 0, `${w}px Lag nå (tom): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Lag nå (tom)');
     ok(await p.getByRole('status').filter({ hasText: 'Ingen varer er krysset av' }).count() === 1, 'Lag nå: tom tilstand er et status-område');
     await p.getByRole('combobox', { name: 'Legg til vare' }).selectOption({ label: 'Egg' });
+    await p.getByRole('spinbutton', { name: /^Mengde i stykk/ }).fill('-3');
+    await p.getByRole('button', { name: '＋ Legg til' }).click();
+    ok(await p.getByRole('status').filter({ hasText: 'Mengden er ikke lagt til' }).count() === 1, 'V17 Lag nå: ugyldig mengde gir melding i et status-område');
+    ok(await p.getByRole('checkbox', { name: 'Egg' }).count() === 0, 'V17 Lag nå: ugyldig mengde legges ikke til');
     await p.getByRole('spinbutton', { name: /^Mengde i stykk/ }).fill('8');
     await p.getByRole('button', { name: '＋ Legg til' }).click();
     await p.getByRole('combobox', { name: 'Legg til vare' }).selectOption({ label: 'Ost' });
@@ -88,7 +106,10 @@ const unnamed = (p) => p.evaluate(() => {
     const smallLn = await p.evaluate(() => [...document.querySelectorAll('.haverow input[type=checkbox], .haveopts .pill.pick, .cooksugg .ghost')].filter((e) => e.getClientRects().length).map((e) => { const el = e.closest('label') ?? e; const r = el.getBoundingClientRect(); return { c: e.className || e.tagName, h: r.height }; }).filter((r) => r.h < 43.5));
     ok(smallLn.length === 0, `${w}px Lag nå: trykkflater minst 44 px høye ${JSON.stringify(smallLn.slice(0, 3))}`);
     const addBtn = p.getByRole('button', { name: /^Legg manglende for / }).first();
-    if (await addBtn.count()) { await addBtn.click(); ok(await addBtn.isDisabled(), 'Lag nå: «Legg manglende på handlelista» kan ikke legge samme varer inn to ganger'); }
+    if (await addBtn.count()) {
+      await addBtn.focus(); await p.keyboard.press('Enter'); ok(await addBtn.isDisabled(), 'Lag nå: «Legg manglende på handlelista» kan ikke legge samme varer inn to ganger');
+      f = await focused(p); ok(f.startsWith('p:Lagt i handlelista'), `V16 «Legg manglende»: fokus på bekreftelsen (${f})`);
+    } else ok(false, 'Lag nå: fant ingen «Legg manglende»-knapp å sjekke fokus på');
     await p.getByRole('button', { name: 'Nullstill valgene her' }).click();
     // Matskap → Basisvarer: navn, overflyt, tom tilstand, legg til, «Tom» med tastatur (aria-pressed), 44 px, forslag i handlelista én gang
     await p.getByRole('button', { name: /Basisvarer/ }).first().click();
@@ -109,11 +130,13 @@ const unnamed = (p) => p.evaluate(() => {
     bad = await unnamed(p); ok(bad.length === 0, `${w}px Basisvarer (med varer): alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Basisvarer (med varer)');
     const smallSt = await p.evaluate(() => [...document.querySelectorAll('.haveopts .pill.pick, .stapletop .x')].filter((e) => e.getClientRects().length).map((e) => { const r = e.getBoundingClientRect(); return { c: e.className || e.tagName, h: r.height }; }).filter((r) => r.h < 43.5));
     ok(smallSt.length === 0, `${w}px Basisvarer: trykkflater minst 44 px høye ${JSON.stringify(smallSt.slice(0, 3))}`);
-    await p.getByRole('tab', { name: 'Handleliste' }).click();
+    await p.getByRole('button', { name: 'Åpne handlelista' }).focus(); await p.keyboard.press('Enter');
+    f = await focused(p); ok(f === 'h1:Handleliste', `V16 «Åpne handlelista»: fokus på overskriften i handlelista (${f})`);
     ok(await p.getByText('Forslag: basisvarer').count() === 1, `${w}px handleliste: forslag om basisvarer vises`);
     const approveBtn = p.getByRole('button', { name: 'Legg Kaffe på handlelista' });
     await approveBtn.focus(); await p.keyboard.press('Enter');
     ok(await approveBtn.count() === 0, 'handleliste: godkjent forslag forsvinner (kan ikke legges inn to ganger)');
+    f = await focused(p); ok(f !== 'body', `V16 godkjent basisvareforslag: fokus havner ikke på body (${f})`);
     ok(await p.getByRole('checkbox', { name: 'Kryss av Kaffe' }).count() === 1, 'handleliste: basisvaren ligger én gang på lista med navn');
     bad = await unnamed(p); ok(bad.length === 0, `${w}px handleliste med basisvarer: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('handleliste med basisvarer');
     await p.getByRole('button', { name: 'Fjern Kaffe' }).click();
@@ -136,6 +159,7 @@ const unnamed = (p) => p.evaluate(() => {
     ok(!(await grp.isChecked()), 'Husholdning: varegruppe kan slås av med tastatur'); await p.keyboard.press('Space'); ok(await grp.isChecked(), 'Husholdning: og på igjen');
     const addH = p.getByRole('button', { name: 'Legg Toalettpapir fra Kiwi på handlelista' }); await addH.focus(); await p.keyboard.press('Enter');
     ok(await p.getByRole('button', { name: 'Toalettpapir fra Kiwi ligger på handlelista' }).isDisabled(), 'Husholdning: samme tilbud kan ikke legges på lista to ganger');
+    f = await focused(p); ok(f.startsWith('p:Toalettpapir'), `V16 «Legg på lista»: fokus på bekreftelsen (${f})`);
     ok(await p.getByRole('status').filter({ hasText: 'er lagt på handlelista' }).count() === 1, 'Husholdning: bekreftelse i et status-område');
     await p.getByRole('tab', { name: 'Handleliste' }).click();
     ok(await p.getByText(/Andre varer, anslått/).count() === 1, `${w}px handleliste: egen sum «Andre varer»`);
@@ -143,6 +167,14 @@ const unnamed = (p) => p.evaluate(() => {
     bad = await unnamed(p); ok(bad.length === 0, `${w}px handleliste med andre varer: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('handleliste med andre varer');
     await p.getByRole('button', { name: 'Fjern Toalettpapir' }).click();
     ok(await p.getByText(/Andre varer, anslått/).count() === 0, 'handleliste: «Andre varer» forsvinner når siste vare er fjernet');
+    // Kundeaviser → Aviser fra Tjek (oppdiktet testavis): fokus inn i avisen, på siste side og tilbake til avisen man åpnet
+    await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Aviser fra Tjek' }).click();
+    const cover = p.getByRole('button', { name: /^Testkjede, Testavis/ }); await cover.focus(); await p.keyboard.press('Enter');
+    f = await focused(p); ok(f.startsWith('h2:Testkjede'), `V16 åpnet avis: fokus på avisens overskrift (${f})`);
+    await p.getByRole('button', { name: 'Neste →' }).focus(); await p.keyboard.press('Enter');
+    f = await focused(p); ok(f !== 'body', `V16 «Neste →» til siste side: fokus havner ikke på body (${f})`);
+    await p.getByRole('button', { name: 'Tilbake' }).focus(); await p.keyboard.press('Enter');
+    f = await focused(p); ok(f.startsWith('button:Testkjede, Testavis'), `V16 «← Tilbake» fra avis: fokus tilbake på avisen (${f})`);
     await p.getByRole('tab', { name: 'Kundeaviser' }).click(); await p.getByRole('button', { name: 'Kontroll' }).click();
     await p.getByRole('button', { name: 'Husholdningstreff', exact: true }).click();
     ok(await p.getByRole('heading', { name: 'Kontroll av husholdningstreff' }).count() === 1, `${w}px Kontroll → Husholdning: overskrift`);

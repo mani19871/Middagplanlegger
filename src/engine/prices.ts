@@ -1,6 +1,7 @@
 // Prisvalg: hvilken prisobservasjon som gjelder for et produkt i en butikk. Ren og deterministisk (regel 1–3).
 // Planmotoren (planner.ts `bestOffer`) og utsolgt / fant ikke (substitution.ts `priceIn`) bruker begge denne.
 import type { PriceObs } from './types';
+import { civilDay, osloDate } from './oslo';
 
 /**
  * Aldersgrense for kjent pris. En observasjon som er mer enn så mange dager eldre enn referansedatoen (handledagen)
@@ -9,22 +10,12 @@ import type { PriceObs } from './types';
 export const MAX_PRICE_AGE_DAYS = 14;
 
 /**
- * Dagnummer (dager siden 1970-01-01) fra ÅÅÅÅ-MM-DD; resten av en ISO-tid ignoreres. Ren kalenderregning
- * (gregoriansk, H. Hinnants `days_from_civil`), ingen klokke. Ugyldig dato gir null.
+ * Dagnummer (dager siden 1970-01-01) for den norske datoen til en dato eller ISO-tid. En tid med sone (Tjek-observasjoner
+ * lagres i UTC) regnes om til norsk dato (`osloDate`, ren kalenderregning, ingen klokke). Ugyldig dato gir null.
  */
 function dayNumber(iso: string): number | null {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!m) return null;
-  const y0 = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
-  const leap = (y0 % 4 === 0 && y0 % 100 !== 0) || y0 % 400 === 0;
-  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  if (mo < 1 || mo > 12 || d < 1 || d > dim[mo - 1]) return null;
-  const y = mo <= 2 ? y0 - 1 : y0;
-  const era = Math.floor(y / 400);
-  const yoe = y - era * 400;
-  const doy = Math.floor((153 * (mo + (mo > 2 ? -3 : 9)) + 2) / 5) + d - 1;
-  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
-  return era * 146097 + doe - 719468;
+  const d = osloDate(iso);
+  return d === null ? null : civilDay(Number(d.slice(0, 4)), Number(d.slice(5, 7)), Number(d.slice(8, 10)));
 }
 
 /**
@@ -35,8 +26,8 @@ export function priceReferenceDate(prices: PriceObs[], shopDate?: string): strin
   if (shopDate) return shopDate;
   let max: string | null = null;
   for (const o of prices) {
-    const d = o.observed.slice(0, 10);
-    if (dayNumber(d) !== null && (max === null || d > max)) max = d;
+    const d = osloDate(o.observed);
+    if (d !== null && (max === null || d > max)) max = d;
   }
   return max;
 }

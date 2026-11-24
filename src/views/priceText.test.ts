@@ -25,6 +25,8 @@ describe('alder i dager (ren kalenderregning)', () => {
       expect(priceAgeDays(a, b), `${a} → ${b}`).toBe(ref(a, b));
     }
     expect(priceAgeDays('2026-02-30', '2026-03-01')).toBeNull();
-    expect(priceAgeDays('2026-11-17T23:59:00Z', '2026-12-01')).toBe(14);
+    // ISO-tid med sone regnes i norsk dato (kodegjennomgang M5): 23:59Z 17.11. er 00:59 18.11. norsk tid (før: 14, UTC-dato).
+    expect(priceAgeDays('2026-11-17T23:59:00Z', '2026-12-01')).toBe(13);
+    expect(priceAgeDays('2026-11-17T22:59:00Z', '2026-12-01')).toBe(14); // 23:59 17.11. norsk tid
   });
 });

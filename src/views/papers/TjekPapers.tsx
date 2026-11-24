@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchPages, fetchPapers, type PagesResponse, type PapersResponse } from '../../offers/client';
 import type { Catalog } from '../../offers/types';
 import { credit, IMAGE_NOTE, pageAlt, periodText } from './paperText';
+import { focusAfterRender } from '../focus';
 
 /**
  * «Aviser fra Tjek»: ekte kundeaviser (ikke demodata) fra Tjek, slik brukeren opplyser at avtalen tillater (2026-11-22).
@@ -27,7 +28,10 @@ export default function TjekPapers({ resetKey = 0 }: { resetKey?: number }) {
     return () => { stop = true; clearTimeout(timer); };
   }, []);
 
-  if (open) return <Reader catalog={open} imagesAllowed={!!list?.imagesAllowed} onBack={() => setOpen(null)} />;
+  // Fokus inn i avisen ved åpning og tilbake til avisen man åpnet ved «← Tilbake» (V16).
+  const openPaper = (c: Catalog) => { setOpen(c); focusAfterRender('avis-tittel'); };
+  const back = () => { const id = open?.id; setOpen(null); if (id) focusAfterRender(`avis-${id}`); };
+  if (open) return <Reader catalog={open} imagesAllowed={!!list?.imagesAllowed} onBack={back} />;
   return (
     <>
       {err && <div className="banner warn">Fikk ikke kontakt med tilbudsserveren. Se «Aviser (demo)» eller prøv igjen senere.</div>}
@@ -40,7 +44,7 @@ export default function TjekPapers({ resetKey = 0 }: { resetKey?: number }) {
       {list?.status === 'ok' && list.catalogs.length === 0 && <p className="card">Ingen kundeaviser akkurat nå.</p>}
       <div className="covers">
         {list?.catalogs.map((c) => (
-          <button key={c.id} className="ecard" onClick={() => setOpen(c)} aria-label={`${c.dealerName}${c.label ? `, ${c.label}` : ''}, ${periodText(c)}`}>
+          <button key={c.id} id={`avis-${c.id}`} className="ecard" onClick={() => openPaper(c)} aria-label={`${c.dealerName}${c.label ? `, ${c.label}` : ''}, ${periodText(c)}`}>
             <span className="cvr tjek"><b>{c.dealerName}</b><small>{c.label ?? 'Kundeavis'}</small></span>
             <span className="cap"><span>{periodText(c)}<br /><small>{c.pageCount ? `${c.pageCount} sider · ` : ''}Tjek</small></span><span aria-hidden>›</span></span>
           </button>
@@ -66,7 +70,7 @@ function Reader({ catalog, imagesAllowed, onBack }: { catalog: Catalog; imagesAl
   return (
     <>
       <div className="pagehead"><button className="x" aria-label="Tilbake" onClick={onBack}>←</button>
-        <div className="center"><h2>{catalog.dealerName}</h2><small className="fine">{catalog.label ?? 'Kundeavis'} · {periodText(catalog)}</small></div><span /></div>
+        <div className="center"><h2 id="avis-tittel" tabIndex={-1}>{catalog.dealerName}</h2><small className="fine">{catalog.label ?? 'Kundeavis'} · {periodText(catalog)}</small></div><span /></div>
       {err && <div className="banner warn">Fikk ikke hentet avissidene. Prøv igjen senere.</div>}
       {!err && !data && <p className="card">Henter avissidene fra Tjek …</p>}
       {data?.status === 'error' && <div className="banner warn">{data.error}</div>}
@@ -82,9 +86,10 @@ function Reader({ catalog, imagesAllowed, onBack }: { catalog: Catalog; imagesAl
       )}
       {pages.length > 1 && (
         <div className="row-field" role="group" aria-label="Bla i avisen">
-          <button className="ghost" disabled={n <= 1} onClick={() => setN((x) => Math.max(1, x - 1))}>← Forrige</button>
+          {/* Første og siste side deaktiverer knappen man sto på: fokus til den andre knappen (V16). */}
+          <button className="ghost" id="avis-forrige" disabled={n <= 1} onClick={() => { setN((x) => Math.max(1, x - 1)); if (n - 1 <= 1) focusAfterRender('avis-neste'); }}>← Forrige</button>
           <span className="fine" aria-live="polite">Side {n} av {pages.length}</span>
-          <button className="ghost" disabled={n >= pages.length} onClick={() => setN((x) => Math.min(pages.length, x + 1))}>Neste →</button>
+          <button className="ghost" id="avis-neste" disabled={n >= pages.length} onClick={() => { setN((x) => Math.min(pages.length, x + 1)); if (n + 1 >= pages.length) focusAfterRender('avis-forrige'); }}>Neste →</button>
         </div>
       )}
       <p className="fine">Ekte kundeavis fra Tjek, ikke demodata. Tilbud i avisen regnes ikke inn i summen; bruk «Tilbud nå» for tilbud koblet til varer. {IMAGE_NOTE}</p>

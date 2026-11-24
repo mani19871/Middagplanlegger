@@ -1,11 +1,12 @@
 // Prisstatus i visningene: status og dato der prisen vises (regel 2: anslått, aldri løfte om sluttpris).
+import { osloDate } from '../engine/oslo';
 import { isStale, MAX_PRICE_AGE_DAYS } from '../engine/prices';
 import type { PriceStatus } from '../engine/types';
 
 /** ÅÅÅÅ-MM-DD (eller ISO-tid) som «17.11.2026». Ukjent format vises som det er. */
 export const norDate = (iso: string) => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso;
+  const d = osloDate(iso); // ISO-tid med sone gir norsk dato (M5)
+  return d ? `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}` : iso;
 };
 
 /** Kort status for en prislinje, med dato når prisen bare er et estimat: «estimert pris, sist sett 17.11.2026». */

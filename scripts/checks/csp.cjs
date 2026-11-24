@@ -41,7 +41,10 @@ let fails = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FEIL'} ${m}`)
         `«Last ned mine data» gir fil med server- og enhetsdel uten nøkkel (${dl.suggestedFilename()})`);
       await p.getByRole('button', { name: 'Personvern', exact: true }).click();
       await p.getByRole('dialog', { name: 'Personvern' }).getByText('UTKAST.').waitFor({ timeout: 5000 });
-      ok(await p.getByRole('dialog', { name: 'Personvern' }).getByText(/sletter en husstand automatisk .* (12 måneder|\d+ år|\d+ dager)/).count() === 1, 'personvern-arket viser serverens oppbevaringstid');
+      // Vent på svaret fra serveren (arket henter oppbevaringstiden når det åpnes); før talte sjekken med en gang og var avhengig av tidsløp.
+      const kept = p.getByRole('dialog', { name: 'Personvern' }).getByText(/sletter en husstand automatisk .* (12 måneder|\d+ år|\d+ dager)/);
+      await kept.waitFor({ timeout: 5000 }).catch(() => {});
+      ok(await kept.count() === 1, 'personvern-arket viser serverens oppbevaringstid');
       await p.keyboard.press('Escape');
     } else ok(false, 'fant ikke knappen «Husstand og deling»');
     const sw = await p.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((r) => setTimeout(() => r(false), 8000))]));

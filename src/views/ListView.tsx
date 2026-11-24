@@ -22,6 +22,7 @@ import { HOUSEHOLD_PREFIX, householdTotal, parseHouseholdLine, type HouseholdMat
 import { householdListFacts } from '../sync/list';
 import type { NormalizedOffer } from '../offers/types';
 import { LINE_STATE, seenText, validityText } from './household/householdText';
+import { focusAfterRender } from './focus';
 
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; record: (...e: InventoryEvent[]) => void; week: string;
@@ -117,8 +118,17 @@ export default function ListView({ state, update, record, week, basket, offerTot
   );
   // Godkjenn og avvis bruker samme linje-id (uke, vare): samme valg to ganger eller fra to voksne gir én linje, og et
   // avvist forslag kommer ikke igjen samme uke. Fjerning vinner (src/sync/list.ts).
-  const approveStaple = (sg: (typeof stapleSugg)[number]) => recordL({ type: 'manuell', ...stamp(), line: { id: sg.lineId, text: sg.text.slice(0, 200), note: sg.note.slice(0, 200) } });
-  const rejectStaple = (sg: (typeof stapleSugg)[number]) => recordL({ type: 'manuell-fjern', ...stamp(), lineId: sg.lineId });
+  // Forslaget forsvinner etter valget: fokus til neste (eller forrige) forslag, ellers overskriften (V16).
+  const focusNextStaple = (sg: (typeof stapleSugg)[number]) => {
+    const i = stapleSugg.findIndex((x) => x.lineId === sg.lineId);
+    const near = [stapleSugg[i + 1], stapleSugg[i - 1]].filter(Boolean).map((x) => `basis-ok:${x.lineId}`);
+    focusAfterRender(...near, 'liste-tittel');
+  };
+  const approveStaple = (sg: (typeof stapleSugg)[number]) => {
+    recordL({ type: 'manuell', ...stamp(), line: { id: sg.lineId, text: sg.text.slice(0, 200), note: sg.note.slice(0, 200) } });
+    focusNextStaple(sg);
+  };
+  const rejectStaple = (sg: (typeof stapleSugg)[number]) => { recordL({ type: 'manuell-fjern', ...stamp(), lineId: sg.lineId }); focusNextStaple(sg); };
   const stapleSection = stapleSugg.length > 0 && (
     <section aria-labelledby="basis-forslag">
       <div className="deptbar"><strong id="basis-forslag">🧂 Forslag: basisvarer</strong></div>
@@ -126,7 +136,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
         {stapleSugg.map((sg) => (
           <li key={sg.lineId}><b>{sg.text}</b><small className="sub">{sg.note} · ingen pris, ikke med i beregnet sum</small>
             <div className="stapleact">
-              <button className="ghost sm" aria-label={`Legg ${sg.text} på handlelista`} onClick={() => approveStaple(sg)}>＋ Legg på lista</button>
+              <button className="ghost sm" id={`basis-ok:${sg.lineId}`} aria-label={`Legg ${sg.text} på handlelista`} onClick={() => approveStaple(sg)}>＋ Legg på lista</button>
               <button className="ghost sm" aria-label={`Ikke nå: ${sg.text}`} onClick={() => rejectStaple(sg)}>Ikke nå</button>
             </div></li>
         ))}
@@ -171,7 +181,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
   if (state.slots.length === 0) {
     return (
       <>
-        <h1 className="page">Handleliste</h1>
+        <h1 className="page" id="liste-tittel" tabIndex={-1}>Handleliste</h1>
         <section className="card"><p>Lag en ukeplan først.</p></section>
         {manualSection}
       </>
@@ -220,7 +230,7 @@ export default function ListView({ state, update, record, week, basket, offerTot
   return (
     <>
       <div className="pagehead">
-        <div><h1 className="page">Handleliste</h1><span className="fine" role="status">{syncText}</span></div>
+        <div><h1 className="page" id="liste-tittel" tabIndex={-1}>Handleliste</h1><span className="fine" role="status">{syncText}</span></div>
         <div className="totalpill"><small>Anslått handel</small><strong>{kr(basket.totalOre)}</strong></div>
       </div>
       <button className={`ghost shoptoggle ${shop ? 'on' : ''}`} aria-pressed={shop} onClick={() => setShop(!shop)}>

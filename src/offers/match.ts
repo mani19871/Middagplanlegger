@@ -24,7 +24,10 @@ export type ReviewReason = 'tvetydig' | 'pris ukjent' | 'mengde ukjent' | 'flerp
 export interface MatchedOffer {
   offer: NormalizedOffer;
   ingredient: string;
-  /** Pris per 1000 g/ml (øre), eller per stk. null hvis mengde ikke er kjent. */
+  /**
+   * Pris per 1000 g/ml (øre), eller per stk for stykkvarer uten vekt (f.eks. egg i stk). null hvis mengden ikke er kjent.
+   * Brukes bare til sortering og visning, aldri i en sum.
+   */
   unitPriceOre: number | null;
   /** Uavklart: tilbudet mangler pris, mengde eller har vilkår, og kan ikke regnes som pakningspris. */
   needsReview: boolean;
@@ -95,7 +98,10 @@ export function matchOffer(offer: NormalizedOffer, ingredients: Ingredient[], sh
   const pick = pickIngredient(offer.heading, ingredients, terms, rules);
   if (!pick) return null;
   const best = pick.ingredient;
-  const unitPriceOre = offer.priceOre !== null && offer.amount ? Math.round((offer.priceOre / offer.amount) * 1000) : null;
+  // Stykkvarer uten vekt eller volum får pris per stk (O10); før ble de null og sortert sist.
+  const unitPriceOre = offer.priceOre === null ? null
+    : offer.amount ? Math.round((offer.priceOre / offer.amount) * 1000)
+      : best.unit === 'stk' && offer.unit === null && offer.pieces ? Math.round(offer.priceOre / offer.pieces) : null;
   // Stykkpris kan bare brukes direkte for ingredienser målt i stykk; ellers trengs vekt i samme enhet.
   const unknownAmount = best.unit === 'stk' ? offer.pieces === null : offer.amount === null || offer.unit !== best.unit;
   const multipack = (offer.pieces ?? 1) > 1 && offer.unit !== null;

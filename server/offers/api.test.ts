@@ -10,6 +10,7 @@ import type { LiveResponse } from '../../src/offers/client';
 import type { NormalizedOffer } from '../../src/offers/types';
 import { API_CSP, createApp } from '../app';
 import { createOffersApi, type OffersApiOptions } from './api';
+import { isStale } from '../../src/engine/prices';
 import { SqliteOfferStore } from './sqlite';
 
 const offer = (id: string, over: Partial<NormalizedOffer> = {}): NormalizedOffer => ({
@@ -69,6 +70,18 @@ describe('GET /api/offers/lagret', () => {
     expect(body.offers.map((l) => l.offer.id)).toEqual(['ok']);
   });
 
+  it('M5: aldersgrensen regnes i norsk dato, som klienten: en pris sett 00:30 norsk tid for 14 dager siden er med, 23:30 dagen før er ikke', async () => {
+    const t = await start(); // i dag 2026-11-24 (norsk tid); grense 2026-11-10
+    await t.store.record([
+      offer('kant', { observed: '2026-11-09T23:30:00.000Z' }), // 10.11. 00:30 norsk tid: 14 dager
+      offer('for-gammel', { observed: '2026-11-09T22:30:00.000Z' }), // 9.11. 23:30 norsk tid: 15 dager
+    ], 'NO', '2026-11-23T08:00:05.000Z');
+    await t.store.setLastFetch('2026-11-23T08:00:05.000Z');
+    const body = (await (await fetch(`${t.base}/api/offers/lagret`)).json()) as LiveResponse;
+    expect(body.offers.map((l) => l.offer.id)).toEqual(['kant']);
+    expect(isStale('2026-11-09T23:30:00.000Z', '2026-11-24')).toBe(false);
+    expect(isStale('2026-11-09T22:30:00.000Z', '2026-11-24')).toBe(true);
+  });
   it('husholdningstilbud (utvidelse C) i et eget felt «other»: ikke mat, ikke sensitive varer, ikke utløpte eller gamle priser', async () => {
     const t = await start({ imageHosts: ['bilder.example.test'] });
     await t.store.record([

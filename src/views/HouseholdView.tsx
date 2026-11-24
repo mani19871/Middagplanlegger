@@ -16,6 +16,8 @@ import type { ServerExport } from '../sync/protocol';
 interface Props {
   state: AppState; update: (f: (s: AppState) => AppState) => void; runtime: SyncRuntime; status: SyncStatus;
   statusText: string; purchaseConflicts: number; initialCode: string; openList: () => void;
+  /** Konflikter i handlelista som chipen «⚠ Konflikt» også teller: ulike valg på linjer og ulike godkjente lister (V10). */
+  listConflicts?: { lines: number; approved: boolean };
 }
 const DOC_TEXT: Record<DocName, string> = { plan: 'Ukeplanen', innstillinger: 'Innstillingene' };
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'aldri');
@@ -30,7 +32,7 @@ function saveFile(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export default function HouseholdView({ state, update, runtime, status, statusText, purchaseConflicts, initialCode, openList }: Props) {
+export default function HouseholdView({ state, update, runtime, status, statusText, purchaseConflicts, initialCode, openList, listConflicts }: Props) {
   const sync = state.sync;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +181,12 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
       {purchaseConflicts > 0 && (
         <div className="banner warn">⚠ {purchaseConflicts} vare{purchaseConflicts === 1 ? '' : 'r'} er markert som handlet med ulikt antall.
           Bekreft antallet i handlelista eller matskapet. <button className="ghost sm" onClick={openList}>Åpne handlelista</button></div>
+      )}
+      {listConflicts && (listConflicts.lines > 0 || listConflicts.approved) && (
+        <div className="banner warn">⚠ {listConflicts.approved ? 'To voksne har godkjent ulike handlelister.' : ''}
+          {listConflicts.approved && listConflicts.lines > 0 ? ' ' : ''}
+          {listConflicts.lines > 0 ? `To enheter har valgt ulikt for ${listConflicts.lines} vare${listConflicts.lines === 1 ? '' : 'r'} i handlelista.` : ''}
+          {' '}Velg hva som skal gjelde i handlelista. <button className="ghost sm" onClick={openList}>Åpne handlelista</button></div>
       )}
       {error && <div className="banner warn" role="alert">{error}</div>}
 

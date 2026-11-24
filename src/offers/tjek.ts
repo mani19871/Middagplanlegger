@@ -2,6 +2,7 @@
 // tilbudstrolden-mcp (MIT, © 2026 Olga Safonova), se THIRD_PARTY.md.
 // Bruk forutsetter skriftlig avtale/vilkår fra Tjek om visnings- og viderebruksrett.
 import type { Unit } from '../engine/types';
+import { osloDate as osloDay } from '../engine/oslo';
 import type { Catalog, CatalogPage, Dealer, NormalizedOffer, OfferQuery, OfferSource } from './types';
 
 /**
@@ -41,11 +42,11 @@ const toOre = (kr: number | null | undefined) => (typeof kr !== 'number' || !Num
  * Dato (YYYY-MM-DD) i norsk tid for et tidspunkt fra Tjek. Tjek oppgir tid med sone (ofte UTC), så de ti første tegnene
  * er ikke nødvendigvis den norske datoen. Slutt nøyaktig ved midnatt er eksklusiv og gjelder ikke den nye dagen.
  */
-const OSLO = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit' });
 export function osloDate(iso: string, end = false): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return iso.slice(0, 10);
-  return OSLO.format(new Date(end ? t - 1000 : t));
+  // Samme regel som motoren (src/engine/oslo.ts), så klient og server gir samme dato (M5). Date.parse normaliserer formatet.
+  return osloDay(new Date(end ? t - 1000 : t).toISOString()) ?? iso.slice(0, 10);
 }
 
 const TO_G: Record<string, number> = { g: 1, kg: 1000, hg: 100 };

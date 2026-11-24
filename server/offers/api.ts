@@ -3,6 +3,7 @@
 // ratebegrenset per IP, høyst `maxOffers` tilbud. Feilsvar er faste norske tekster; loggen får bare navnet på feilen.
 // Se docs/sikkerhet.md (S21).
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { osloDate, osloMidnightUtc } from '../../src/engine/oslo';
 import { MAX_PRICE_AGE_DAYS } from '../../src/engine/prices';
 import type { Ingredient } from '../../src/engine/types';
 import type { LiveResponse } from '../../src/offers/client';
@@ -29,7 +30,6 @@ export interface OffersApiOptions {
   log?: (m: string) => void;
 }
 
-const OSLO = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit' });
 const minusDays = (day: string, n: number) => { const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 /** Tilbake til kildens form: observasjonstiden er siste gang kilden viste prisen. Interne felt (status, første observasjon) holdes inne. */
 const toOffer = (r: OfferObservation, hosts: string[]): NormalizedOffer => ({
@@ -64,8 +64,10 @@ export function createOffersApi(o: OffersApiOptions) {
     }
     const key = `${today}|${last}`;
     if (memo?.key === key) return memo.body;
-    // Bare priser sett innenfor aldersgrensen (src/engine/prices.ts); en eldre pris er ikke et tilbud i dag.
-    const rows = await o.store.current({ today, observedSince: minusDays(today, MAX_PRICE_AGE_DAYS), limit: maxOffers * 4 });
+    // Bare priser sett innenfor aldersgrensen (src/engine/prices.ts); en eldre pris er ikke et tilbud i dag. Grensen er norsk
+    // midnatt i UTC, fordi `last_observed` er UTC-tid og klienten regner alder i norsk dato (M5).
+    const since = osloMidnightUtc(minusDays(today, MAX_PRICE_AGE_DAYS)) ?? minusDays(today, MAX_PRICE_AGE_DAYS);
+    const rows = await o.store.current({ today, observedSince: since, limit: maxOffers * 4 });
     const live: LiveOffer[] = [];
     const all: NormalizedOffer[] = [];
     for (const r of rows) {
@@ -103,7 +105,7 @@ export function createOffersApi(o: OffersApiOptions) {
     }
     if (raw.includes('?')) { send(res, 400, { error: 'ugyldig_forespørsel', message: 'Ugyldig forespørsel.' }); return true; }
     try {
-      const body = await build(OSLO.format(new Date(t)), await o.store.lastFetch());
+      const body = await build(osloDate(new Date(t).toISOString()) ?? '', await o.store.lastFetch());
       send(res, 200, body, req.method === 'HEAD');
     } catch (e) {
       log(`tilbud-lager-feil: ${e instanceof Error ? e.name : typeof e}`);

@@ -4,8 +4,9 @@
 // Sikkerhetshoder, statiske filer og krasjvern ligger i server/app.ts (docs/sikkerhet.md).
 // Start: npm run server  (NODE_USE_ENV_PROXY=1 hvis du er bak proxy). Port: PORT (standard 8787).
 import { existsSync, mkdirSync } from 'node:fs';
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
+import { osloDate } from '../src/engine/oslo';
 import { ingredients } from '../src/data/catalog';
 import { collectHousehold } from '../src/offers/household';
 import { collectOffers, type LiveOffer } from '../src/offers/service';
@@ -16,6 +17,7 @@ import { createOffersApi } from './offers/api';
 import { CallBudget, startOfferCollector, startOfferRetention, type OfferCollector } from './offers/collector';
 import { offerConfigFrom, paperCallsPerDay } from './offers/config';
 import { allowedImage, foreignHost, imageHostsFrom } from './offers/images';
+import { createLiveOffersHandler } from './offers/live';
 import { createPapersApi } from './offers/papers';
 import { SqliteOfferStore } from './offers/sqlite';
 import { retentionDaysFrom, startRetention, tokenIdleMsFrom } from './retention';
@@ -50,7 +52,7 @@ startRetention({ storage, days: retentionDays, now: () => new Date().toISOString
 const TTL_MS = 6 * 60 * 60 * 1000;
 /** Etter en feil mot Tjek venter vi før neste forsøk, så anonyme kall til /api/offers ikke kan hamre på Tjek. */
 const RETRY_MS = 5 * 60 * 1000;
-const oslo = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' });
+const oslo = () => osloDate(new Date().toISOString())!; // norsk dato, samme regel som motoren (src/engine/oslo.ts)
 
 // Tilbud og priser fra Tjek: lagres i en egen SQLite-fil uten persondata (brukerens opplysning: avtalen tillater lagring
 // av priser; phase0/tjek-avtale.md). Kallbudsjettet teller alle kall mot Tjek, også fra live-visningen.
@@ -116,24 +118,19 @@ function refresh() {
     .finally(() => { refreshing = null; });
 }
 
-function offers(req: IncomingMessage, res: ServerResponse): boolean {
-  if ((req.url ?? '').split('?')[0] !== '/api/offers') return false;
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.statusCode = 405; res.setHeader('Allow', 'GET, HEAD'); res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ error: 'ugyldig_forespørsel', message: 'Metoden er ikke tillatt.' }));
-    return true;
-  }
-  if (!cache || Date.now() - Date.parse(cache.observed) > TTL_MS || cache.day !== oslo()) refresh();
-  const failed = !cache && (failedAt > 0 || (collector?.state().failures ?? 0) > 0 || !offerCfg.fetch);
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
-  res.end(JSON.stringify({
-    status: cache ? 'ok' : failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek',
-    observed: cache?.observed ?? null, offers: withImages(cache?.offers ?? []),
-    other: (cache?.other ?? []).map((o) => ({ ...o, image: allowedImage(o.image, imageHosts) })),
-  }));
-  return true;
-}
+// Live-tilbud fra minnet. Ratebegrensning per IP før svaret bygges og før en ny henting startes (O8, server/offers/live.ts).
+const offers = createLiveOffersHandler({
+  trustProxy: process.env.TRUST_PROXY === '1',
+  onRequest: () => { if (!cache || Date.now() - Date.parse(cache.observed) > TTL_MS || cache.day !== oslo()) refresh(); },
+  body: () => {
+    const failed = !cache && (failedAt > 0 || (collector?.state().failures ?? 0) > 0 || !offerCfg.fetch);
+    return {
+      status: cache ? 'ok' : failed ? 'error' : 'loading', error: failed ? 'Tilbud er ikke tilgjengelige akkurat nå.' : null, source: 'tjek',
+      observed: cache?.observed ?? null, offers: withImages(cache?.offers ?? []),
+      other: (cache?.other ?? []).map((o) => ({ ...o, image: allowedImage(o.image, imageHosts) })),
+    };
+  },
+});
 
 // Rekkefølge: synk-API, lagrede tilbud, live-tilbud (minnet), statiske filer. Tilbud når aldri synk-lagringen.
 const handlers = [

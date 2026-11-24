@@ -8,23 +8,20 @@ Uavhengig gjennomgang av hele repoet på branch `claude/middagsplanner-app-wwuq1
 |---|---|---|---|
 | Høy | 9 | 9 | 0 |
 | Middels | 15 | 12 + 1 delvis | 2 |
-| Lav | 12 | 7 | 5 |
-| **Sum** | **36** | **28 + 1 delvis** | **7** |
+| Lav | 12 | 12 | 0 |
+| **Sum** | **36** | **33 + 1 delvis** | **2 + resten av O4** |
 
 Oppdatert 2026-11-22: E7, S1 og S2 er rettet (se «Rettet»). Runde 2 (alt bygget etter `c137674`) står nederst: 21 funn, 17 rettet og 1 delvis.
+
+Oppdatert 2026-11-24 (oppfølging): V10, O8, O10, S6 og S7 fra første runde og M5, V16 og resten av V17 fra runde 2 er rettet. Åpne er nå V7, O5 og O4b (første runde) og V12 (runde 2). Se «Oppfølging 2026-11-24» nederst.
 
 ## Åpne funn (produktbeslutning eller for store til å rette her)
 
 | # | Alv. | Fil:linje | Funn | Reproduksjon | Anbefaling |
 |---|---|---|---|---|---|
-| V7 | Middels | `src/store.ts:116` | Med appen åpen i to faner skriver hver fane hele tilstanden til samme localStorage-nøkkel. En fane kan da slette den andre fanens usendte utboks. | Fane A markerer kjøp (utboks = [kjøp]). Fane B, åpnet tidligere, krysser av en vare og skriver uten kjøpet. Etter ny innlasting er kjøpet borte. | Lytt på `storage`-hendelsen og flett de idempotente loggene og utboksene, eller tillat bare én aktiv fane (BroadcastChannel). |
-| O5 | Middels | `src/offers/service.ts:19` | Én feilet Tjek-forespørsel forkaster hele innsamlingen (cirka 80 kall i rekke), og det kommer et nytt forsøk først etter fem minutter. Det er bevisst: testen «lar kildefeil boble opp» krever det, og nedkjølingen vernet Tjek. Nå har hvert kall også tidsavbrudd (O6). | Kall 60 av 80 får 429. Svaret blir status `error` i fem minutter. | Bestem om et delvis resultat skal vises, merket som ufullstendig. |
-| O4b | Middels | `src/offers/tjek.ts:109` | Tilbud uten `dealer.country` slippes gjennom landfilteret. Valutadelen er rettet (O4). | Et tilbud uten land i et søk med `country_id=NO` tas med. | Krev land bare når Tjek-svaret alltid har det. Phase 0 sier at feltet finnes, men ikke at det alltid er med. Sjekk mot Tjek før det strammes inn. |
-| S6 | Lav | `server/sync/api.ts:384` | `/healthz` har ingen ratebegrensning, og hvert kall går til databasen. CLAUDE.md sier at alle endepunkter skal ha ratebegrensning. | Ubegrensede anonyme kall. | IP-grense eller et unntak dokumentert i `docs/sikkerhet.md`. Hører til synk-økten. |
-| S7 | Lav | `server/sync/api.test.ts` | De negative testene for `bare_eier`, ugyldig anker og ukjente felt ligger i `api.test.ts`, ikke i `security.test.ts` som CLAUDE.md krever. Det gjelder også testen for anker med linjeskift fra denne gjennomgangen. | – | Flytt testene når synk-økten er ferdig med filene. |
-| O8 | Lav | `server/index.ts:68` | `/api/offers` har ingen ratebegrensning. Svaret kommer fra minnet, så Tjek beskyttes av hurtigbufferen og nedkjølingen, men CLAUDE.md krever ratebegrensning på alle endepunkter. | Ubegrensede anonyme kall. | Bruk `RateLimiter` fra synk-API-et. |
-| V10 | Lav | `src/App.tsx` (synkchip) | Chipen «⚠ Konflikt» teller også konflikter i handlelista (valg på linjer og godkjente lister), men Husstand-siden forklarer bare dokument- og kjøpskonflikter. | To enheter velger ulikt på én linje. Brukeren trykker på chipen og ser ingenting å løse. | Vis en lenke til Handleliste på Husstand-siden. HouseholdView eies nå av økten «innsyn-og-sletting». |
-| O10 | Lav | `src/offers/match.ts:101` | `unitPriceOre` er dokumentert som «per stk» for stykkvarer, men regnes bare fra `amount`. Eggtilbud sorteres derfor sist. | Tilbud med enhet `pcs` og 12 stk får `unitPriceOre = null`. | Bruk `priceOre / pieces` for stykkvarer. Påvirker bare sortering. |
+| V7 | Middels | `src/store.ts` (`usePersistentState`) | Med appen åpen i to faner skriver hver fane hele tilstanden til samme localStorage-nøkkel. En fane kan da slette den andre fanens usendte utboks (også `cookNow`). | Fane A markerer kjøp (utboks = [kjøp]). Fane B, åpnet tidligere, krysser av en vare og skriver uten kjøpet. Etter ny innlasting er kjøpet borte. | **Fortsatt åpen (2026-11-24): krever større endring og et valg.** Riktig retting er å lytte på `storage`-hendelsen og flette tilstanden felt for felt: de idempotente loggene og utboksene som union på id (`inventory`, `list`, `listChanges`, `planHistory` og utboksene), dokumentfeltene (plan, innstillinger) tre-veis mot `sync.docs`-basen som synken gjør, og lokale felt (`cookNow`, postnummer, krav) med en egen regel. Det berører hele `AppState` og trenger tester for hvert felt. Enklere alternativ: én aktiv fane (BroadcastChannel/Web Locks; de andre fanene viser «Appen er åpen i en annen fane» og skriver ikke). Anbefaling: ta én-aktiv-fane først (lite og trygt), fletting senere hvis det trengs. |
+| O5 | Middels | `src/offers/service.ts:19` | Én feilet Tjek-forespørsel forkaster hele innsamlingen (cirka 80 kall i rekke), og det kommer et nytt forsøk først etter fem minutter. Det er bevisst: testen «lar kildefeil boble opp» krever det, og nedkjølingen vernet Tjek. Nå har hvert kall også tidsavbrudd (O6). | Kall 60 av 80 får 429. Svaret blir status `error` i fem minutter. | Bestem om et delvis resultat skal vises, merket som ufullstendig. Produktvalg, ikke vurdert på nytt 2026-11-24. |
+| O4b | Middels | `src/offers/tjek.ts:109` | Tilbud uten `dealer.country` slippes gjennom landfilteret. Valutadelen er rettet (O4). | Et tilbud uten land i et søk med `country_id=NO` tas med. | Krev land bare når Tjek-svaret alltid har det. Phase 0 sier at feltet finnes, men ikke at det alltid er med. Sjekk mot Tjek før det strammes inn. **Fortsatt åpen (2026-11-24):** et valg som krever ekte Tjek-svar; formprøven (`phase0/tjek-formprøve.md`) sier at `country_id` ikke filtrerer, men ikke hvor ofte landet mangler. Anbefaling: tell tilbud uten land i innsamleren (bare antall i loggen) i en uke, og krev land hvis tallet er null. |
 
 ## Rettet
 
@@ -59,6 +56,11 @@ Oppdatert 2026-11-22: E7, S1 og S2 er rettet (se «Rettet»). Runde 2 (alt bygge
 | O6 | Lav | `server/index.ts` | Kall mot Tjek hadde ikke tidsavbrudd, så et Tjek som hang ga «loading» i flere minutter. Nå er det 15 s per kall. | – |
 | O7 | Lav | `src/offers/tjek.ts` | Omregning av hg og dl ga flyttallsrester (229,99999 g). | `offers.test.ts`: «pakningsstørrelser regnes om …» |
 | O9 | Lav | `src/offers/match.ts` | Dobbelt eller hardt mellomrom i overskriften hindret treff på søkeord med to ord. | `offers.test.ts`: «flere mellomrom eller hardt mellomrom …» |
+| V10 | Lav | `src/views/HouseholdView.tsx`, `src/App.tsx` | Chipen «⚠ Konflikt» talte også konflikter i handlelista (ulike valg på en linje, ulike godkjente lister), men Husstand-siden forklarte bare dokument- og kjøpskonflikter. Nå viser Husstand også disse, med antall og «Åpne handlelista». (Rettet 2026-11-24.) | `kodegjennomgang2-ui.test.tsx`: «V10 Husstand forklarer også konflikter i handlelista …» |
+| O8 | Lav | `server/offers/live.ts` (ny), `server/index.ts` | `/api/offers` (live, fra minnet) hadde ingen ratebegrensning. Nå 60 kall per minutt per IP (`TRUST_PROXY` og IPv6 /64 som de andre), før svaret bygges og før et nytt oppslag mot Tjek startes; `429 for_mange_forespørsler` med `Retry-After`, også for andre metoder (som `/api/offers/lagret`). Handleren er flyttet ut av `server/index.ts` så den kan testes. (2026-11-24.) | `security.test.ts`: «O8: /api/offers (live) har grense per IP …» |
+| O10 | Lav | `src/offers/match.ts`, `src/views/papers/LiveOffers.tsx` | `unitPriceOre` var dokumentert som «per stk» for stykkvarer, men ble bare regnet fra `amount`, så eggtilbud (stk uten vekt) fikk `null` og ble sortert sist. Nå: pris per stk for stykkvarer uten vekt eller volum; visningen sier «… kr/stk» og antall stk. Brukes bare til sortering og visning, aldri i en sum. (2026-11-24.) | `offers.test.ts`: «O10: stykkvarer (egg i stk) får pris per stk …» |
+| S6 | Lav | `server/sync/api.ts` (`/healthz`, `healthPerMin`) | `/healthz` hadde ingen ratebegrensning, og hvert kall gikk til databasen. Nå 60 per minutt per IP med egen teller; over grensen `429` uten kall til databasen. Docker-sjekken (hvert 30. s fra `127.0.0.1`) og en oppetidstjeneste ligger langt under, og en annen IP teller for seg. Valget av grense (ikke unntak) følger regelen i CLAUDE.md. (2026-11-24.) | `security.test.ts`: «S6: /healthz har grense per IP …», «S6: standardgrensen tåler Docker-helsesjekken …» |
+| S7 | Lav | `server/sync/security.test.ts`, `server/sync/api.test.ts` | De negative testene for `bare_eier`, ugyldig anker, anker med linjeskift og ukjente felt lå i `api.test.ts`. De er flyttet uendret til `security.test.ts` (egen `describe`). (2026-11-24.) | Flytting, ingen ny test. Testene gikk grønt før og etter. |
 
 ## Ingen tester er slettet eller svekket
 
@@ -103,8 +105,10 @@ Testene ligger her:
 |---|---|---|---|
 | Høy | 2 | 2 | 0 |
 | Middels | 2 | 2 | 0 |
-| Lav | 17 | 13 + 1 delvis | 3 + resten av V17 |
-| **Sum** | **21** | **17 + 1 delvis** | **3 + 1 delvis** |
+| Lav | 17 | 16 | 1 |
+| **Sum** | **21** | **20** | **1** |
+
+Oppdatert 2026-11-24: M5, V16 og resten av V17 er rettet. Bare V12 (produktbeslutning) er åpen.
 
 S8 og S9 er satt til Høy fordi definisjonen sier det: S8 stopper synk, og S9 er siste-skriving-vinner. Begge gjelder smale tilfeller. S12 bryter strengt tatt «arket skal ikke love mer enn koden gjør», men er satt til Lav etter virkning: forskjellen er sekunder mot minutter.
 
@@ -128,20 +132,21 @@ S8 og S9 er satt til Høy fordi definisjonen sier det: S8 stopper synk, og S9 er
 | V13 | Lav | `src/views/ListView.tsx` | **Feil:** en `hus:`-linje som ikke kan tolkes (fra en annen eller eldre klient), var usynlig og kunne ikke fjernes. **Nå:** den vises under «Fra kundeaviser». | «V13 …» |
 | V14 | Lav | `src/views/PapersView.tsx` | **Feil:** fanene i Kundeaviser manglet `aria-pressed` og gruppe, så en skjermleser fikk ikke vite hvilken som var valgt. **Nå:** begge deler er på plass, som i Kontroll og Matskap. | «V14 …» |
 | V15 | Lav | `src/views/household/HouseholdCatch.tsx` | **Feil:** ga `householdLineId` null (nøkkel over 80 tegn eller med `#`), ble ingenting lagret, men meldingen sa «er lagt på handlelista». **Nå:** meldingen sier at varen ikke kan legges på. | Kodebevis (React-tilstand). Tjek-id-er er korte, så det skjer neppe med ekte data. |
-| V17 | Lav (delvis) | `src/views/StaplesView.tsx` (`parseStapleMin`) | **Feil 1:** en ugyldig minstemengde ble forkastet uten melding. **Feil 2:** 0,4 ble avrundet til 0, som `isValidStaples` avviser. Innstillingene sluttet da å synke (og ga etter S8 «feil»). **Nå:** verdien avrundes før sjekken, og ugyldig verdi gir melding. **Åpent:** en ugyldig mengde i «Lag nå» forkastes fortsatt uten melding (bare lokalt, ingen synk). | «V17 basisvarer: en minstemengde som avrundes til 0 godtas ikke …» |
+| V17 | Lav (delvis) | `src/views/StaplesView.tsx` (`parseStapleMin`) | **Feil 1:** en ugyldig minstemengde ble forkastet uten melding. **Feil 2:** 0,4 ble avrundet til 0, som `isValidStaples` avviser. Innstillingene sluttet da å synke (og ga etter S8 «feil»). **Nå:** verdien avrundes før sjekken, og ugyldig verdi gir melding. **Rettet 2026-11-24 (resten):** en ugyldig mengde i «Lag nå» (negativ, 0, 0,4 som ble 0, tekst nettleseren ikke kan lese) forkastes ikke lenger stille. Den lagres ikke, og en melding i et status-område sier hva som er galt (`parseCookQty`). 0 ble før lagret som 0 og oversett av `mergeHave`, så feltet viste 0 mens forslagene brukte matskapets mengde. | «V17 basisvarer: …», «V17 «Lag nå»: ugyldig mengde forkastes ikke stille …»; `npm run check:a11y`: «V17 Lag nå: …» (feilet før) |
+| M5 | Lav | `src/engine/oslo.ts` (ny), `src/engine/prices.ts`, `src/offers/tjek.ts`, `server/offers/api.ts`, `server/offers/papers.ts`, `server/index.ts`, `src/views/priceText.ts`, `src/views/papers/LiveOffers.tsx` | **Feil:** tilbudenes `observed` er UTC-tid, men alder ble regnet fra de ti første tegnene. En pris sett mellom norsk midnatt og 01:00/02:00 ble én dag for gammel. **Nå:** motoren regner om tid med sone til norsk dato (`osloDate`) med fast regel: ren kalenderregning, EU-sommertid (siste søndag i mars og oktober, 01:00 UTC), ingen klokke, ingen Intl eller tidssonedatabase. Samme funksjon brukes for Tjeks gyldighetsdatoer, serverens «i dag» (tilbud, aviser, kallbudsjett) og datovisningen, så klient og server gir samme dato (regel 1). Serverens aldersgrense for lagrede tilbud var en UTC-dato mot UTC-tid og hadde samme feil; den er nå norsk midnatt i UTC (`osloMidnightUtc`). Bare dato eller tid uten sone tolkes som før. **Avgrensning:** klientens handledag (`src/views/dates.ts`) er fortsatt enhetens lokale dato (bare visning). | `planner.test.ts`: «M5 …» (var `it.fails`, nå `it`, med to nye tester for sommertid og referansedato); `oslo.test.ts` (regelen mot Europe/Oslo i tidssonedatabasen rundt alle skifter 2000–2040); `server/offers/api.test.ts`: «M5: aldersgrensen regnes i norsk dato …» (feilet før) |
+| V16 | Lav | `src/views/focus.ts` (ny), `App.tsx`, `CookNowView.tsx`, `ListView.tsx`, `household/HouseholdCatch.tsx`, `papers/TjekPapers.tsx` | **Feil:** etter handlinger som fjerner eller deaktiverer knappen havnet fokus på `body`. **Nå** (`focusAfterRender`, etter neste bilde): «Åpne «Lag nå»» → overskriften «Lag nå»; «Åpne handlelista» (basisvarer, uka, Husstand) → overskriften «Handleliste»; «Legg manglende …» og «＋ Legg på lista» → bekreftelsen i status-området; Godkjenn/«Ikke nå» på basisvareforslag → neste forslag, ellers overskriften; åpnet avis → avisens overskrift; «Neste →» på siste side og «← Forrige» på første → den andre knappen; «← Tilbake» → avisen man åpnet. Mål uten egen fokus har `tabIndex={-1}`. | `npm run check:a11y`: ti nye V16-sjekker (alle feilet før, `body`), med oppdiktet testavis bare i sjekken |
 | D1 | Lav | `docs/sikkerhet.md` | **Feil:** S7 sa at `SYNC_RETENTION_DAYS` har standard 365. Koden og CLAUDE.md sier 730. «Tester» sa at `api.test.ts` og `engine.test.ts` var uendret. **Nå:** begge stedene er rettet. `docs/synk.md` er oppdatert for O11, O12, O13, S8 og S9. | – |
 
 ### Åpne funn fra runde 2
 
 | # | Alv. | Fil:linje | Funn | Reproduksjon | Anbefaling |
 |---|---|---|---|---|---|
-| M5 | Lav | `src/engine/prices.ts:16` (`dayNumber`), `src/offers/hints.ts:20`, `src/engine/household.ts` | Tilbudenes `observed` er en UTC-tid, mens handledagen er en norsk dato. En pris sett mellom norsk midnatt og 01:00/02:00 blir regnet én dag for gammel, akkurat på 14-dagersgrensen. Feilen går i trygg retning: prisen regnes som eldre, aldri som nyere. Katalogpriser (bare dato) påvirkes ikke. | `planner.test.ts`: «M5 …» (`it.fails`) | Gjør `observed` om til norsk dato utenfor motoren (`osloDate`) før `isStale`, i hints og i husholdningsvisningene. Ingen klokke eller tidssone i motoren. |
-| V12 | Lav | `src/views/ListView.tsx:84` | En «Lag nå»-linje som ble krysset av forrige uke, står som ikke krysset av etter ukeskiftet. «Lag nå» sier samtidig «✓ Ligger på handlelista». Basisvarelinjer beholder krysset for sin egen uke. | `kodegjennomgang2-ui.test.tsx`: «V12 …» (`it.fails`) | Produktbeslutning: enten uke i linja (som basisvarer), eller dokumenter det som for «Andre varer». |
-| V16 | Lav | `PantryView.tsx:116`, `StaplesView.tsx:93`, `CookNowView.tsx:227`, `HouseholdCatch.tsx:68`, `ListView.tsx:123`, `TjekPapers.tsx:87` | Etter handlinger som fjerner eller deaktiverer knappen, flyttes ikke fokus, så det havner på `body`. Det gjelder blant annet «Åpne «Lag nå»», «Legg manglende …», «＋ Legg på lista», Godkjenn/«Ikke nå» på basisvareforslag og «Neste →» på siste avisside. «← Tilbake» fra en avis gir heller ikke fokus tilbake. | Kodebevis. Krever nettleser. | Flytt fokus til overskrift eller statuslinje (`tabIndex=-1`), og legg det inn i `npm run check:a11y`. |
+| V12 | Lav | `src/views/ListView.tsx:84` | En «Lag nå»-linje som ble krysset av forrige uke, står som ikke krysset av etter ukeskiftet. «Lag nå» sier samtidig «✓ Ligger på handlelista». Basisvarelinjer beholder krysset for sin egen uke. | `kodegjennomgang2-ui.test.tsx`: «V12 …» (`it.fails`, beholdt) | Produktbeslutning, ikke endret 2026-11-24. **Anbefaling:** gi «Lag nå»-linjer uke i linje-id-en, som basisvarer (`lagnå:<rett>\|<vare>:<uke>:<n>`), og vis dem bare i uka de ble lagt til. Da beholder linja krysset i sin uke, «Lag nå» viser «✓ Ligger på handlelista» bare for gjeldende uke, og en ny uke kan legge varen på igjen. Eldre linjer uten uke gjenkjennes på prefikset og regnes til uka de ble lagt til (`at`). Alternativet (dokumentere at krysset bare gjelder aktiv uke, som for «Andre varer») er enklere, men lar «Lag nå» si «Ligger på handlelista» for en vare som er handlet. Krever endring i `cookNowLineId`, `ListView` og en test for idempotens på tvers av enheter (regel 8). |
 
 **Åpne funn fra første runde, kontrollert på nytt:**
 - **Gjelder fortsatt:** V7 (to faner, nå også `cookNow`), V10, O8 (`/api/offers` uten ratebegrensning; `/api/offers/lagret` og `/api/aviser` har den) og O10.
 - **Ikke vurdert på nytt i denne runden:** O5, O4b, S6 og S7.
+- **2026-11-24:** V10, O8, O10, S6 og S7 er rettet. V7, O5 og O4b står åpne (se tabellen øverst).
 
 ### Sjekket i runde 2 uten funn
 
@@ -194,6 +199,37 @@ Det viktigste denne runden:
   - En gjenoppretting fra en veldig tidlig kopi kunne gi siste-skriving-vinner (S9).
   - Anonyme kall kunne bruke opp Tjek-budsjettet (O11).
   - Barneprodukter slapp inn i husholdningsvarene (M3).
-- **Åpent:** bare små ting uten kjent skade (M5 feiler i trygg retning) og produktvalg (V12, V16).
+- **Åpent:** bare små ting uten kjent skade (M5 feiler i trygg retning) og produktvalg (V12, V16). Oppdatert 2026-11-24: M5 og V16 er rettet; bare V12 står åpen.
 
 Før piloten anbefales det å se delbudsjettet for aviser (O11) mot det faktiske antallet aviser i formprøven, og å ta V16 (fokus) sammen med neste a11y-runde.
+
+## Oppfølging 2026-11-24
+
+Rettet de åpne funnene som var klart feil og kunne testes: M5, V16 og resten av V17 fra runde 2, og V10, O8, O10, S6 og S7 fra første runde (se tabellene over). Metode: først en test som feilet (eller en sjekk i `npm run check:a11y` for fokus), så retting, så grønt.
+
+**Regel 1 (M5).** Motoren har fortsatt ingen klokke, tilfeldighet eller nett (sjekket med grep: ingen `Date`, `Intl` eller `Math.random` i `src/engine/` utenfor tester). Omregningen til norsk dato er ren kalenderregning med fast regel, så samme tekst gir samme dato i nettleser, server og test, uavhengig av maskinens tidssone og tidssonedatabase. Regelen er sammenlignet med Europe/Oslo i tidssonedatabasen hvert 20. minutt rundt alle sommertidsskifter 2000–2040 og gjennom hele 2024–2027. Regelen gjelder EU-sommertid (Norge siden 1996); endrer EU eller Norge reglene, må `src/engine/oslo.ts` endres.
+
+**Nytt funn under kontrollen (D2, Lav, rettet):** `npm run check:csp` feilte på «personvern-arket viser serverens oppbevaringstid», også på koden fra før disse endringene. Det er to feil fra før:
+- Arket viste «Fikk ikke hentet serverens oppbevaringstid akkurat nå» mens svaret fortsatt var på vei.
+- Sjekken telte teksten uten å vente på svaret, så resultatet hang på tidsløpet.
+
+Nå står det «Henter serverens oppbevaringstid …» til svaret kommer (`retentionText(…, pending)`), og sjekken venter på teksten (høyst 5 s). Test: `privacyText.test.ts`, som feilet før.
+
+**Fortsatt åpent, og hvorfor:**
+- **V7 (to faner):** krever fletting av hele `AppState` eller én aktiv fane. Anbefaling i tabellen øverst.
+- **O5 (delvis resultat ved Tjek-feil):** produktvalg.
+- **O4b (landfilter):** krever ekte Tjek-svar. Anbefaling i tabellen øverst.
+- **V12 («Lag nå»-kryss ved ukeskifte):** produktbeslutning. Anbefaling i tabellen for runde 2. `it.fails`-testen er beholdt.
+
+**Tester som er endret (ingen slettet eller svekket):**
+- `planner.test.ts`, M5: `it.fails` er blitt `it`, med samme forventninger. To nye tester er lagt til.
+- `src/views/priceText.test.ts`: én forventning låste den gamle UTC-oppførselen som M5 retter. `priceAgeDays('2026-11-17T23:59:00Z', '2026-12-01')` var 14 og er nå 13, fordi tiden er 00:59 18.11. norsk tid. Et nytt kanttilfelle er lagt til: 22:59Z (23:59 17.11. norsk tid) gir 14. Testen er like streng som før.
+- `api.test.ts` → `security.test.ts` (S7): fire tester er flyttet uendret, og `describe` i `api.test.ts` har fått nytt navn.
+- `scripts/checks/a11y.cjs`: basisvaresteget går nå til handlelista med «Åpne handlelista» i stedet for fanen. Det er strengere, fordi knappen også sjekkes. I «Lag nå» prøves først en ugyldig mengde (−3) før 8 egg legges til.
+
+**Ikke testet:**
+- Fokus er bare sjekket i Chromium (Playwright) og ikke med en ekte skjermleser.
+- Avisleseren er sjekket med en oppdiktet testavis uten bilder, som bare finnes i sjekken.
+- Ratebegrensningen på `/healthz` er ikke prøvd mot Docker-helsesjekken i et kjørende image, bare med test og røyktest.
+- Klientens handledag følger fortsatt enhetens lokale dato.
+

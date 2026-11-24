@@ -33,9 +33,13 @@ export function tokenIdleText(): string {
   return `En enhet som ikke har vært i kontakt med serveren på lenge, mister nøkkelen og forlater husstanden (standard ${TOKEN_IDLE_DEFAULT_DAYS} dager, om lag to år; serveren kan være satt opp annerledes).`;
 }
 
-/** Hvor lenge serveren beholder husstanden. Sier bare det serveren har oppgitt; ellers forslaget og at det ikke er bestemt. */
-export function retentionText(days: number | undefined, connected: boolean): string {
+/**
+ * Hvor lenge serveren beholder husstanden. Sier bare det serveren har oppgitt; ellers forslaget og at det ikke er bestemt.
+ * `pending`: svaret fra serveren er på vei (da står det ikke at hentingen feilet).
+ */
+export function retentionText(days: number | undefined, connected: boolean, pending = false): string {
   if (days === undefined) {
+    if (connected && pending) return 'Henter serverens oppbevaringstid …';
     return connected
       ? 'Fikk ikke hentet serverens oppbevaringstid akkurat nå.'
       : 'Serveren kan være satt opp til å slette husstander som ikke har vært i bruk på en tid. Standard er 730 dager (om lag to år), men serveren kan være satt opp annerledes. Du ser hva som gjelder her når enheten er med i en husstand.';
@@ -49,10 +53,14 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
   const connected = !!state.sync;
   const [days, setDays] = useState<number | undefined>(retentionDays);
   const token = state.sync?.token;
+  const [pending, setPending] = useState(retentionDays === undefined && !!token);
   useEffect(() => {
     if (retentionDays !== undefined || !token) return;
     let stop = false;
-    defaultApi.withToken(token).household().then((r) => { if (!stop && typeof r.retentionDays === 'number') setDays(r.retentionDays); }).catch(() => { /* vises som ukjent */ });
+    setPending(true);
+    defaultApi.withToken(token).household().then((r) => { if (!stop && typeof r.retentionDays === 'number') setDays(r.retentionDays); })
+      .catch(() => { /* vises som ukjent */ })
+      .finally(() => { if (!stop) setPending(false); });
     return () => { stop = true; };
   }, [token, retentionDays]);
 
@@ -118,7 +126,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
       <h3>Hvor lenge</h3>
       <ul className="plain">
         <li>Til eieren sletter husstanden, eller til den siste forlater den.</li>
-        <li>{retentionText(days, connected)}</li>
+        <li>{retentionText(days, connected, pending)}</li>
         <li>{tokenIdleText()}</li>
         <li>En fjernet enhet blir stående som «Tidligere medlem» med enhets-id, og endringene den gjorde blir liggende, til husstanden slettes.</li>
         <li>Sikkerhetskopier av serveren kan inneholde slettede data en tid etter slettingen. Hvor lenge er ikke endelig bestemt (forslag: 30 dager).</li>

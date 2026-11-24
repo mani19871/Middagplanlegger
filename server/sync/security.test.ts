@@ -5,6 +5,7 @@ import { connect } from 'node:net';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SyncApi, SyncError } from '../../src/sync/api';
 import { cleanLabel, type Envelope } from '../../src/sync/protocol';
@@ -58,6 +59,7 @@ const fetchFn = (url: string, init?: RequestInit) => fetch(url, init);
 const anon = () => new SyncApi(srv.base, fetchFn);
 const code = async (p: Promise<unknown>) => { try { await p; return 'ok'; } catch (e) { return e instanceof SyncError ? `${e.status} ${e.code}` : String(e); } };
 const req = (path: string, init: RequestInit = {}) => fetch(`${srv.base}${path}`, init);
+const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const post = (path: string, body: string, headers: Record<string, string> = {}) =>
   req(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body });
 const telling = (id: string, by: string, at = '2026-11-23T10:00:00.000Z'): Envelope =>
@@ -614,3 +616,111 @@ function usageOf() {
   const db = (s as unknown as { db: { prepare(q: string): { get(): { id: string } } } }).db;
   return s.usage(db.prepare('SELECT id FROM households LIMIT 1').get().id);
 }
+
+describe('ratebegrensning på åpne endepunkter (kodegjennomgang S6, O8)', () => {
+  it('S6: /healthz har grense per IP; over grensen 429 med norsk feilkode uten kall til databasen, og neste minutt virker igjen', async () => {
+    await srv.close();
+    srv = await start({ trustProxy: true, limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, joinPer10Min: 1000, healthPerMin: 3 } });
+    let pings = 0;
+    const ping = srv.storage.ping.bind(srv.storage);
+    srv.storage.ping = async () => { pings++; return ping(); };
+    const ip = (n: number) => ({ headers: { 'X-Forwarded-For': `203.0.113.${n}` } });
+    const codes: number[] = [];
+    for (let i = 0; i < 5; i++) codes.push((await req('/healthz', ip(1))).status);
+    expect(codes).toEqual([200, 200, 200, 429, 429]);
+    expect(pings).toBe(3);
+    const r = await req('/healthz', ip(1));
+    expect(r.status).toBe(429);
+    expect(await r.json()).toEqual({ error: 'for_mange_forespørsler', message: expect.any(String) });
+    expect((await req('/healthz', ip(2))).status).toBe(200); // en annen IP (f.eks. Docker-helsesjekken på 127.0.0.1) teller for seg
+    srv.advance(60_000);
+    expect((await req('/healthz', ip(1))).status).toBe(200);
+    expect(logs.join('\n')).not.toMatch(/203\.0\.113/);
+  });
+  it('S6: standardgrensen tåler Docker-helsesjekken og vanlig oppetidsovervåking (60 per minutt per IP)', async () => {
+    const codes = new Set<number>();
+    for (let i = 0; i < 60; i++) codes.add((await req('/healthz')).status);
+    expect([...codes]).toEqual([200]);
+    expect((await req('/healthz')).status).toBe(429);
+  });
+  it('O8: /api/offers (live) har grense per IP med norsk feilkode, før svaret bygges og før noe oppslag mot Tjek', async () => {
+    const { createLiveOffersHandler } = await import('../offers/live');
+    let clock = Date.parse('2026-11-23T10:00:00.000Z');
+    let requested = 0;
+    const live = createLiveOffersHandler({ perMinute: 2, trustProxy: true, now: () => clock, onRequest: () => { requested++; }, body: () => ({ status: 'loading' }) });
+    const server = createServer(createApp({ dist, handlers: [live], log: (m) => logs.push(m) }));
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const get = (n = 1, init: RequestInit = {}) => fetch(`${base}/api/offers`, { ...init, headers: { 'X-Forwarded-For': `198.51.100.${n}` } });
+      expect([(await get()).status, (await get()).status]).toEqual([200, 200]);
+      const r = await get();
+      expect(r.status).toBe(429);
+      expect(r.headers.get('retry-after')).toBe('60');
+      expect(await r.json()).toEqual({ error: 'for_mange_forespørsler', message: expect.any(String) });
+      expect(requested).toBe(2);
+      expect((await get(1, { method: 'POST' })).status).toBe(429); // grensen gjelder alle metoder, som /api/offers/lagret
+      expect((await get(2)).status).toBe(200);
+      expect((await get(3, { method: 'POST' })).status).toBe(405);
+      clock += 60_000;
+      expect((await get()).status).toBe(200);
+      expect(requested).toBe(4);
+    } finally { await new Promise<void>((r) => { server.closeAllConnections(); server.close(() => r()); }); }
+  });
+});
+
+// Flyttet uendret fra api.test.ts (kodegjennomgang S7): CLAUDE.md krever negative synktester her.
+describe('invitasjoner, anker og strenge feltlister (negative tester)', () => {
+  it('bare eieren kan lage og trekke tilbake invitasjoner (403 bare_eier)', async () => {
+    const { A, B } = await household();
+    expect(await code(B.invite())).toBe('403 bare_eier');
+    const inv = await A.invite();
+    const { invites } = await A.household();
+    expect(inv.code).toBeTruthy();
+    expect(await code(B.deleteInvite(invites[0].id))).toBe('403 bare_eier');
+    expect(await code(A.deleteInvite(invites[0].id))).toBe('ok');
+  });
+
+  it('sync-svaret har head; cursor etter head eller et anker som ikke finnes gir reset', async () => {
+    const { A } = await household();
+    await A.push([telling('t1', 'enhet-aaaa1111'), telling('t2', 'enhet-aaaa1111')]);
+    const r = await A.pull(0);
+    expect(r.head).toBe(r.cursor);
+    expect(r.reset).toBeUndefined();
+    const anchor = `${r.events[1].seq}:t2`;
+    expect((await A.pull(r.cursor, anchor)).reset).toBeUndefined();
+    expect(await A.pull(r.cursor + 5)).toMatchObject({ reset: true, events: [], cursor: 0 });
+    expect(await A.pull(r.cursor, `${r.events[1].seq}:noe-annet`)).toMatchObject({ reset: true });
+    expect(await code(A.pull(0, 'feil-format'))).toBe('400 ugyldig_forespørsel');
+  });
+
+  it('et hendelses-id med linjeskift låser ikke andre enheters synk (ankeret godtas)', async () => {
+    const { A, B } = await household();
+    const r = await A.push([telling('a\nb', 'enhet-aaaa1111'), telling('c\u2028d', 'enhet-aaaa1111')]);
+    expect(r.accepted).toHaveLength(2);
+    const p = await B.pull(0);
+    for (const e of p.events) {
+      const id = (e.event as { id: string }).id;
+      expect(await code(B.pull(p.cursor, `${e.seq}:${id}`))).toBe('ok');
+    }
+  });
+
+  it('ukjente felt i beholdning, liste og endring fjernes før lagring og deling (ikke avvist)', async () => {
+    const { A, B } = await household();
+    const r = await A.push([
+      { stream: 'beholdning', event: { type: 'telling', id: 'x1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5, navn: 'Kari', allergi: 'gluten' } as never },
+      { stream: 'liste', event: { type: 'manuell', id: 'x2', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'm1', text: 'Torsk', note: '', skjult: 'x' }, ekstra: 1 } as never },
+      { stream: 'endring', event: { type: 'angre-endring', id: 'x3', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'endring|x', posisjon: '59.9,10.7' } as never },
+    ]);
+    expect(r.accepted).toEqual(['x1', 'x2', 'x3']);
+    const got = (await B.pull(0)).events.map((e) => e.event);
+    expect(got).toEqual([
+      { type: 'telling', id: 'x1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5 },
+      { type: 'manuell', id: 'x2', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'm1', text: 'Torsk', note: '' } },
+      { type: 'angre-endring', id: 'x3', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'endring|x' },
+    ]);
+    // Også i databasen: feltene er aldri lagret.
+    const hh = (await srv.storage.authenticate(sha((A as unknown as { token: string }).token), srv.now()))!.householdId;
+    expect((await srv.storage.readSince(hh, 0, 10)).events.map((e) => e.body).join('')).not.toMatch(/Kari|gluten|skjult|ekstra|posisjon/);
+  });
+});

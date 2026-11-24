@@ -13,7 +13,7 @@ import { cookNow } from './cookNow';
 import { applyEvents, isValidEvent, type InventoryEvent } from './inventory';
 import { cleanStapleName, customStapleId, isValidStaples, stapleStatus, type StapleInfo } from './staples';
 import { classifyHousehold, householdCatch, householdTotal, householdOfferKey, parseHouseholdRules, type HouseholdOfferIn, type HouseholdRuleSet } from './household';
-import { isStale, priceAgeDays } from './prices';
+import { isStale, priceAgeDays, priceReferenceDate } from './prices';
 import { stapleListFacts } from '../sync/list';
 import { stapleChoices } from '../data/staples';
 import rawRules from '../data/household-rules.json';
@@ -502,11 +502,22 @@ describe('regresjon: kodegjennomgang runde 2, M4 husholdning: samme tilbud to ga
 });
 
 describe('regresjon: kodegjennomgang runde 2, M5 prisalder: observasjonstid i UTC gir én dag for mye alder rett etter norsk midnatt', () => {
-  // ÅPENT (runde 2, M5): feiler til observasjonstiden gjøres om til norsk dato utenfor motoren. Feilen går i trygg retning
-  // (prisen regnes én dag eldre). Når den rettes, blir it.fails rød: bytt til it.
-  it.fails('observert 00:30 norsk tid 9. nov (23:30Z 8. nov) er 14 dager før 23. nov, ikke 15', () => {
-    expect(priceAgeDays('2026-11-08T23:30:00.000Z', '2026-11-23')).toBe(14); // i dag: 15
+  // Rettet (var it.fails): observasjonstiden regnes om til norsk dato med fast regel (src/engine/oslo.ts, ingen klokke).
+  it('observert 00:30 norsk tid 9. nov (23:30Z 8. nov) er 14 dager før 23. nov, ikke 15', () => {
+    expect(priceAgeDays('2026-11-08T23:30:00.000Z', '2026-11-23')).toBe(14); // før rettingen: 15
     expect(isStale('2026-11-08T23:30:00.000Z', '2026-11-23')).toBe(false);
+  });
+  it('grensen går ved norsk midnatt, også om sommeren (+2) og med annen sone i teksten', () => {
+    expect(priceAgeDays('2026-11-08T22:59:59.000Z', '2026-11-23')).toBe(15); // 8.11. 23:59 norsk tid
+    expect(isStale('2026-11-08T22:59:59.000Z', '2026-11-23')).toBe(true);
+    expect(priceAgeDays('2026-06-08T22:30:00.000Z', '2026-06-23')).toBe(14); // 9.6. 00:30 sommertid
+    expect(priceAgeDays('2026-06-08T21:30:00.000Z', '2026-06-23')).toBe(15); // 8.6. 23:30 sommertid
+    expect(priceAgeDays('2026-11-09T00:30:00+01:00', '2026-11-23')).toBe(14);
+    expect(priceAgeDays('2026-11-09', '2026-11-23')).toBe(14); // katalogpriser (bare dato) er uendret
+  });
+  it('referansedatoen uten handledag er nyeste norske observasjonsdato', () => {
+    const obs = (observed: string) => ({ productId: 'p', storeId: 's', ore: 100, status: 'ordinær' as const, source: 'x', observed });
+    expect(priceReferenceDate([obs('2026-11-20'), obs('2026-11-20T23:30:00.000Z')])).toBe('2026-11-21');
   });
 });
 

@@ -92,4 +92,16 @@ describe('kodegjennomgang: tilbud', () => {
     expect(m.approved).toBe(false);
     expect(m.reasons).toContain('tvetydig');
   });
+  it('O10: stykkvarer (egg i stk) får pris per stk, så de sorteres etter pris og ikke sist', async () => {
+    const { sortLive, toLiveOffer } = await import('./service');
+    const egg = (id: string, price: number, n: number) => parseTjekOffer(raw({ id, heading: 'Egg frittgående', pricing: { price, pre_price: null, currency: 'NOK' },
+      quantity: { unit: { symbol: 'pcs', si: { symbol: 'pcs', factor: 1 } }, size: { from: n, to: n }, pieces: { from: 1, to: 1 } } }), '2026-11-21');
+    const m = matchOffer(egg('e12', 39.9, 12), ingredients, '2026-11-24')!;
+    expect(m.ingredient).toBe('egg');
+    expect(m.unitPriceOre).toBe(333); // 3990 / 12, før rettingen: null
+    const live = [egg('dyr', 49.9, 6), egg('billig', 39.9, 12)].map((o) => toLiveOffer(o, ingredients, '2026-11-24')!);
+    expect(sortLive(live).map((l) => l.offer.id)).toEqual(['billig', 'dyr']); // 333 før 832 øre/stk
+    // Vektvarer er uendret: per kg.
+    expect(matchOffer(parseTjekOffer(raw(), '2026-11-21'), ingredients, '2026-11-24')!.unitPriceOre).toBe(19975);
+  });
 });

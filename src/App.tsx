@@ -17,6 +17,7 @@ import PantryView from './views/PantryView';
 import CookNowView from './views/CookNowView';
 import StaplesView from './views/StaplesView';
 import { icons } from './views/art';
+import { focusAfterRender } from './views/focus';
 import symbolGreen from './assets/symbol-skoggronn.svg';
 import symbolWhite from './assets/symbol-hvit.svg';
 import { isoDate, shopDate, weekLabel, weekStart } from './views/dates';
@@ -109,6 +110,8 @@ export default function App() {
   const approvedHints = hints.filter((h) => h.approved).length;
   // Alle husholdningstilbud klassifisert med appens regler; handledag, kjede og gyldighet avgjøres per linje (engine/household.ts).
   const houseMatches = useMemo(() => (house?.offers ?? []).flatMap((o) => classifyHousehold(o, HOUSEHOLD_RULES, FOOD_TERMS) ?? []), [house]);
+  // Knapper som bytter til handlelista flytter fokus til overskriften der (V16), ikke til <body>.
+  const openList = () => { setTab('Handleliste'); focusAfterRender('liste-tittel'); };
   const regenerate = () => update((s) => ({ ...s, slots: generatePlan({ ...ctx, settings: s.settings }, s.slots), approved: false }));
 
   return (
@@ -143,11 +146,11 @@ export default function App() {
         )}
         {tab === 'Uka' && <WeekView mode={mode} setMode={setMode} state={state} update={update} ctx={ctx} alts={alts} basket={basket} activeStores={activeStores} kit={kit}
           offerTotal={offerTotal} approvedHints={approvedHints}
-          regenerate={regenerate} openList={() => setTab('Handleliste')} />}
+          regenerate={regenerate} openList={openList} />}
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} house={house} />}
         {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} kit={kit} houseMatches={houseMatches} />}
         {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
-          purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={() => setTab('Handleliste')} />}
+          purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={openList} listConflicts={{ lines: lineConflicts, approved: listConflict }} />}
         {tab === 'Matskap' && (
           <>
             <div className="chips tabs" role="group" aria-label="Matskap, Lag nå eller Basisvarer">
@@ -158,8 +161,8 @@ export default function App() {
             {pantryMode === 'lagnå'
               ? <CookNowView state={state} update={update} ctx={ctx} />
               : pantryMode === 'basis'
-                ? <StaplesView state={state} update={update} record={record} week={week} openList={() => setTab('Handleliste')} />
-                : <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} openCookNow={() => setPantryMode('lagnå')} />}
+                ? <StaplesView state={state} update={update} record={record} week={week} openList={openList} />
+                : <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} openCookNow={() => { setPantryMode('lagnå'); focusAfterRender('lagna-tittel'); }} />}
           </>
         )}
         <footer className="foot"><button className="link" onClick={() => setPrivacy(true)}>Personvern</button></footer>

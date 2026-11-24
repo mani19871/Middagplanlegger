@@ -343,7 +343,8 @@ describe('planversjoner (strøm planversjon)', () => {
   });
 });
 
-describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () => {
+// Negative tester (bare_eier, ugyldig anker, linjeskift i anker, ukjente felt) ligger i security.test.ts (kodegjennomgang S7).
+describe('helsesjekk, gjenoppretting og dokumentslekt', () => {
   it('GET /healthz svarer uten autentisering og uten innhold; 503 når databasen ikke svarer', async () => {
     const r = await raw('/healthz');
     expect(r.status).toBe(200);
@@ -352,29 +353,6 @@ describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () =>
     expect((await raw('/healthz', { method: 'HEAD' })).status).toBe(200);
     await srv.storage.close();
     expect((await raw('/healthz')).status).toBe(503);
-  });
-
-  it('bare eieren kan lage og trekke tilbake invitasjoner (403 bare_eier)', async () => {
-    const { A, B } = await household();
-    expect(await code(B.invite())).toBe('403 bare_eier');
-    const inv = await A.invite();
-    const { invites } = await A.household();
-    expect(inv.code).toBeTruthy();
-    expect(await code(B.deleteInvite(invites[0].id))).toBe('403 bare_eier');
-    expect(await code(A.deleteInvite(invites[0].id))).toBe('ok');
-  });
-
-  it('sync-svaret har head; cursor etter head eller et anker som ikke finnes gir reset', async () => {
-    const { A } = await household();
-    await A.push([telling('t1', 'enhet-aaaa1111'), telling('t2', 'enhet-aaaa1111')]);
-    const r = await A.pull(0);
-    expect(r.head).toBe(r.cursor);
-    expect(r.reset).toBeUndefined();
-    const anchor = `${r.events[1].seq}:t2`;
-    expect((await A.pull(r.cursor, anchor)).reset).toBeUndefined();
-    expect(await A.pull(r.cursor + 5)).toMatchObject({ reset: true, events: [], cursor: 0 });
-    expect(await A.pull(r.cursor, `${r.events[1].seq}:noe-annet`)).toMatchObject({ reset: true });
-    expect(await code(A.pull(0, 'feil-format'))).toBe('400 ugyldig_forespørsel');
   });
 
   it('cursor står alltid på en hendelse (ankeret), også når dokumenter er skrevet etterpå (S2)', async () => {
@@ -430,36 +408,6 @@ describe('helsesjekk, invitasjoner, gjenoppretting og strenge feltlister', () =>
       expect(r).toEqual({ ok: true, version: 2, revs: [d.revs[0], docRev(d.revs[0], 2, d.body)] });
       await st.close();
     } finally { rmSync(dir, { recursive: true, force: true }); }
-  });
-
-  it('et hendelses-id med linjeskift låser ikke andre enheters synk (ankeret godtas)', async () => {
-    const { A, B } = await household();
-    const r = await A.push([telling('a\nb', 'enhet-aaaa1111'), telling('c\u2028d', 'enhet-aaaa1111')]);
-    expect(r.accepted).toHaveLength(2);
-    const p = await B.pull(0);
-    for (const e of p.events) {
-      const id = (e.event as { id: string }).id;
-      expect(await code(B.pull(p.cursor, `${e.seq}:${id}`))).toBe('ok');
-    }
-  });
-
-  it('ukjente felt i beholdning, liste og endring fjernes før lagring og deling (ikke avvist)', async () => {
-    const { A, B } = await household();
-    const r = await A.push([
-      { stream: 'beholdning', event: { type: 'telling', id: 'x1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5, navn: 'Kari', allergi: 'gluten' } as never },
-      { stream: 'liste', event: { type: 'manuell', id: 'x2', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'm1', text: 'Torsk', note: '', skjult: 'x' }, ekstra: 1 } as never },
-      { stream: 'endring', event: { type: 'angre-endring', id: 'x3', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'endring|x', posisjon: '59.9,10.7' } as never },
-    ]);
-    expect(r.accepted).toEqual(['x1', 'x2', 'x3']);
-    const got = (await B.pull(0)).events.map((e) => e.event);
-    expect(got).toEqual([
-      { type: 'telling', id: 'x1', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', ingredient: 'pasta', amount: 5 },
-      { type: 'manuell', id: 'x2', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', line: { id: 'm1', text: 'Torsk', note: '' } },
-      { type: 'angre-endring', id: 'x3', at: '2026-11-23T10:00:00.000Z', by: 'enhet-aaaa1111', week: '2026-11-23', line: 'endring|x' },
-    ]);
-    // Også i databasen: feltene er aldri lagret.
-    const hh = (await srv.storage.authenticate(sha((A as unknown as { token: string }).token), srv.now()))!.householdId;
-    expect((await srv.storage.readSince(hh, 0, 10)).events.map((e) => e.body).join('')).not.toMatch(/Kari|gluten|skjult|ekstra|posisjon/);
   });
 });
 

@@ -16,12 +16,27 @@ import { ING_EMOJI } from './art';
 import { stapleStatus } from '../engine/staples';
 import { stapleListFacts } from '../sync/list';
 import { STAPLE_INFO, stapleStateText } from './StaplesView';
+import { focusAfterRender } from './focus';
 
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; ctx: Ctx }
 
 const SHOWN = 8;
 const TIMES = [15, 20, 30, 45, 60];
 const unitWord = (u: 'g' | 'ml' | 'stk') => (u === 'stk' ? 'stykk' : u);
+
+/**
+ * Mengde fra et felt i «Lag nå»: tom = finnes, mengde ukjent (null); ellers et helt tall over 0 (avrundet først, så 0,4 ikke
+ * blir 0). Alt annet, også tekst nettleseren ikke kunne lese som tall (`badInput`), er ugyldig og skal gi melding (runde 2, V17).
+ */
+export function parseCookQty(raw: string, badInput = false): number | null | 'ugyldig' {
+  if (badInput) return 'ugyldig';
+  if (raw.trim() === '') return null;
+  const v = Math.round(Number(raw.replace(',', '.')));
+  return Number.isFinite(v) && v > 0 ? v : 'ugyldig';
+}
+const QTY_RULE = 'den må være et helt tall over 0 (tomt felt betyr at mengden er ukjent). Fjern krysset hvis varen er brukt opp.';
+export const COOK_QTY_ADD_INVALID = `Mengden er ikke lagt til: ${QTY_RULE}`;
+export const cookQtyChangeInvalid = (name: string) => `Mengden for ${name} er ikke endret: ${QTY_RULE}`;
 
 export default function CookNowView({ state, update, ctx }: Props) {
   const { catalog, settings } = ctx;
@@ -37,6 +52,8 @@ export default function CookNowView({ state, update, ctx }: Props) {
   const [maxMinutes, setMaxMinutes] = useState<number | undefined>(undefined);
   const [addIng, setAddIng] = useState('');
   const [addQty, setAddQty] = useState('');
+  const [addBad, setAddBad] = useState(false);
+  const [qtyMsg, setQtyMsg] = useState('');
   const [added, setAdded] = useState<string | null>(null);
 
   const name = (id: string) => catalog.ingredients.find((i) => i.id === id)?.name ?? id;
@@ -70,17 +87,20 @@ export default function CookNowView({ state, update, ctx }: Props) {
     return { ...l, added: rest, soon: l.soon.filter((x) => x !== id) };
   });
   const toggleSoon = (id: string) => setLocal((l) => ({ ...l, soon: l.soon.includes(id) ? l.soon.filter((x) => x !== id) : [...l.soon, id].sort() }));
-  const setAmount = (id: string, raw: string) => {
-    const v = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
-    if (v !== null && !(Number.isFinite(v) && v >= 0)) return;
-    setLocal((l) => ({ ...l, added: { ...l.added, [id]: v === null ? null : Math.round(v) } }));
+  // Ugyldig mengde lagres ikke, og meldingen sier det (før: forkastet uten melding, runde 2, V17).
+  const setAmount = (id: string, raw: string, badInput = false) => {
+    const v = parseCookQty(raw, badInput);
+    if (v === 'ugyldig') { setQtyMsg(cookQtyChangeInvalid(name(id))); return; }
+    setQtyMsg('');
+    setLocal((l) => ({ ...l, added: { ...l.added, [id]: v } }));
   };
   const addItem = () => {
     if (!addIng) return;
-    const v = addQty.trim() === '' ? null : Number(addQty.replace(',', '.'));
-    if (v !== null && !(Number.isFinite(v) && v > 0)) return;
-    setLocal((l) => ({ ...l, added: { ...l.added, [addIng]: v === null ? null : Math.round(v) }, removed: l.removed.filter((x) => x !== addIng) }));
-    setAddIng(''); setAddQty('');
+    const v = parseCookQty(addQty, addBad);
+    if (v === 'ugyldig') { setQtyMsg(COOK_QTY_ADD_INVALID); return; }
+    setQtyMsg('');
+    setLocal((l) => ({ ...l, added: { ...l.added, [addIng]: v }, removed: l.removed.filter((x) => x !== addIng) }));
+    setAddIng(''); setAddQty(''); setAddBad(false);
   };
   const reset = () => setLocal(() => emptyCookNowLocal());
 
@@ -106,6 +126,7 @@ export default function CookNowView({ state, update, ctx }: Props) {
       return recordList(st, ...events);
     });
     setAdded(s.recipe.id);
+    focusAfterRender(`lagna-lagt-${s.recipe.id}`); // knappen blir deaktivert: fokus til bekreftelsen (V16)
   };
 
   const row = (id: string, fromStock: boolean) => {
@@ -121,7 +142,7 @@ export default function CookNowView({ state, update, ctx }: Props) {
           <div className="haveopts">
             <label className="amt"><span className="sr">Mengde {n} nå i {unitWord(unitOf(id))}</span>
               <input type="number" inputMode="decimal" min={0} placeholder="ukjent" key={`${id}:${amt ?? ''}`} defaultValue={amt === null ? '' : Math.round(amt)}
-                onBlur={(e) => { const cur = amt === null ? '' : String(Math.round(amt)); if (e.target.value !== cur) setAmount(id, e.target.value); }} />
+                onBlur={(e) => { const cur = amt === null ? '' : String(Math.round(amt)); if (e.target.value !== cur || e.target.validity.badInput) setAmount(id, e.target.value, e.target.validity.badInput); }} />
               <small aria-hidden>{unitOf(id)}</small></label>
             <button type="button" className={`pill pick ${soon ? 'on' : ''}`} aria-pressed={soon} aria-label={`${n} må brukes snart`} onClick={() => toggleSoon(id)}>⏰ Bruk snart</button>
           </div>
@@ -133,7 +154,7 @@ export default function CookNowView({ state, update, ctx }: Props) {
   const shown = result.suggestions.slice(0, SHOWN);
   return (
     <>
-      <h1 className="page">Lag nå</h1>
+      <h1 className="page" id="lagna-tittel" tabIndex={-1}>Lag nå</h1>
       <p className="fine">Hva kan dere lage av det som finnes hjemme akkurat nå? Kryss av og rett mengdene. Det du gjør her gjelder bare denne
         visningen og lagres på denne enheten. Det endrer ikke matskapet og deles ikke med husstanden.</p>
 
@@ -151,11 +172,12 @@ export default function CookNowView({ state, update, ctx }: Props) {
             <option value="">Velg vare …</option>
             {addable.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
           </select>
-          <input type="number" inputMode="decimal" min={0} placeholder="mengde" value={addQty} onChange={(e) => setAddQty(e.target.value)}
+          <input type="number" inputMode="decimal" min={0} placeholder="mengde" value={addQty} onChange={(e) => { setAddQty(e.target.value); setAddBad(e.target.validity.badInput); }}
             aria-label={`Mengde${addIng ? ` i ${unitWord(unitOf(addIng))}` : ''} (tom: ukjent)`} />
           {addIng && <small aria-hidden>{unitOf(addIng)}</small>}
         </div>
         <button className="ghost" disabled={!addIng} onClick={addItem}>＋ Legg til</button>
+        <p className="fine warntext" role="status" aria-live="polite">{qtyMsg}</p>
         {(local.removed.length > 0 || Object.keys(local.added).length > 0 || local.soon.length > 0) &&
           <button className="ghost" onClick={reset}>Nullstill valgene her</button>}
       </div>
@@ -232,7 +254,7 @@ export default function CookNowView({ state, update, ctx }: Props) {
                     {s.missingCostOre > 0 && ` Kjent delsum: ${kr(s.missingCostOre)}.`}</div>}
                 <button className="ghost" disabled={allOn} aria-label={`Legg manglende for ${s.recipe.name} på handlelista`} onClick={() => addMissing(s)}>
                   {allOn ? '✓ Ligger på handlelista' : '🛒 Legg manglende på handlelista'}</button>
-                <p className="fine" role="status">{added === s.recipe.id ? 'Lagt i handlelista under «Fra Lag nå». Ikke med i beregnet sum.' : ''}</p>
+                <p className="fine" role="status" id={`lagna-lagt-${s.recipe.id}`} tabIndex={-1}>{added === s.recipe.id ? 'Lagt i handlelista under «Fra Lag nå». Ikke med i beregnet sum.' : ''}</p>
               </>
             ) : <p className="pill ok">Alt finnes hjemme</p>}
             <p className="allergen">{recipeAllergenText(s.recipe, catalog)}</p>

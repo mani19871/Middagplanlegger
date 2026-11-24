@@ -17,6 +17,9 @@ describe('personvern-arket: tidsfrister', () => {
     expect(retentionText(365, true)).toMatch(/12 måneder \(365 dager\)/);
     expect(retentionText(90, true)).toMatch(/90 dager/);
     expect(retentionText(0, true)).toMatch(/sletter ikke husstander automatisk/);
+    // Mens svaret er på vei, står det ikke at hentingen feilet (fantes i npm run check:csp: kappløp, 2026-11-24).
+    expect(retentionText(undefined, true, true)).toBe('Henter serverens oppbevaringstid …');
+    expect(retentionText(undefined, true, false)).toMatch(/^Fikk ikke hentet/);
   });
 
   it('tokenutløpet i arket er det samme som standarden i serveren (730 dager) og nevner at serveren kan ha en annen verdi', () => {

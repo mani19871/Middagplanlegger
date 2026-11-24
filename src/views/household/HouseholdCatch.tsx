@@ -13,6 +13,7 @@ import type { NormalizedOffer } from '../../offers/types';
 import { householdListFacts } from '../../sync/list';
 import { stapleChoices } from '../../data/staples';
 import { catchPriceText, HIGHLIGHT_TEXT, reasonText, seenText, validityText } from './householdText';
+import { focusAfterRender } from '../focus';
 
 export interface HouseholdFeed { status: 'ok' | 'loading' | 'error' | 'av'; offers: NormalizedOffer[]; observed: string | null }
 interface Props { state: AppState; update: (f: (s: AppState) => AppState) => void; feed: HouseholdFeed | null; shopDate: string }
@@ -51,6 +52,7 @@ export default function HouseholdCatch({ state, update, feed, shopDate }: Props)
       return id ? recordList(s, { type: 'manuell', ...st, line: { id, text: m.name.slice(0, 200), note: `tilbud hos ${m.offer.dealerName}`.slice(0, 200) } }) : s;
     });
     setMsg(`${m.name} (${m.offer.dealerName}) er lagt på handlelista under «Andre varer».`);
+    focusAfterRender('hus-melding'); // knappen blir deaktivert: fokus til bekreftelsen (V16)
   };
 
   const tile = (m: HouseholdMatch<NormalizedOffer>, review: boolean) => {
@@ -98,7 +100,7 @@ export default function HouseholdCatch({ state, update, feed, shopDate }: Props)
         ))}
         <p className="fine">Valget deles med de andre voksne i husstanden. Gruppene er generelle; appen spør ikke om helse eller barn.</p>
       </fieldset>
-      <p className="fine" role="status">{msg}</p>
+      <p className="fine" role="status" id="hus-melding" tabIndex={-1}>{msg}</p>
       {result.blocked === 'kjede' && <div className="banner warn">Ingen kjede valgt: ingen tilbud vises. Velg kjedene dere handler hos under «Rediger uke» → «Flere valg».</div>}
       {!result.blocked && (!feed || feed.status === 'loading') && <p className="card">Henter tilbud …</p>}
       {!result.blocked && feed && (feed.status === 'error' || feed.status === 'av') && <div className="banner warn">Tilbud fra Tjek er ikke tilgjengelige akkurat nå. Varer på lista vises uten pris.</div>}

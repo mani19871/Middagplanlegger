@@ -57,6 +57,10 @@ const DEFAULT_RATES = {
   /** Per IP: forsøk på å bli med per 10 min (mot gjetting av koder). */ joinPer10Min: 20,
   /** Alle IP-er samlet: feilede forsøk på å bli med per 10 min (mot gjetting fra mange adresser). */ joinFailGlobalPer10Min: 1000,
   /** Per enhet: eksporter per time (en eksport kan være flere MB). */ exportPerHour: 10,
+  /**
+   * Per IP: helsesjekker per minutt (S6). Docker-sjekken (hvert 30. s) og en oppetidstjeneste ligger langt under; grensen
+   * hindrer bare at anonyme kall hamrer på databasen. Egen teller, så synk-kall og helsesjekk ikke stjeler fra hverandre.
+   */ healthPerMin: 60,
 };
 /** Kvoter per husstand. En familie bruker en brøkdel; de stopper et medlem eller et stjålet token fra å fylle disken. */
 export const DEFAULT_QUOTAS = {
@@ -419,11 +423,18 @@ export function createSyncApi(opts: SyncApiOptions) {
     try { url = new URL(req.url ?? '/', 'http://localhost'); } catch { return false; }
     // Helsesjekk for Docker og oppetidsovervåking: databasen svarer. Ingen innhold, ingen autentisering.
     if (url.pathname === '/healthz' && (req.method === 'GET' || req.method === 'HEAD')) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      // Ratebegrensning før databasen spørres (S6). Ingen logg: IP-en skal ikke i loggen.
+      if (!limiter.hit(`health:${clientIp(req)}`, rates.healthPerMin, 60_000, Date.parse(now()))) {
+        res.statusCode = 429;
+        res.setHeader('Retry-After', '60');
+        res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ error: 'for_mange_forespørsler', message: MESSAGES.for_mange_forespørsler }));
+        return true;
+      }
       let ok = true;
       try { await storage.ping(); } catch { ok = false; log('helsesjekk: databasen svarer ikke'); }
       res.statusCode = ok ? 200 : 503;
-      res.setHeader('Cache-Control', 'no-store');
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ status: ok ? 'ok' : 'feil' }));
       return true;
     }

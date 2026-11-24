@@ -5,6 +5,7 @@
 // oss til vilkårlige oppslag. Anonymt, bare GET/HEAD, ingen parametre, ratebegrenset per IP. Se docs/sikkerhet.md (S22).
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Catalog, CatalogPage } from '../../src/offers/types';
+import { osloDate } from '../../src/engine/oslo';
 import { ipKey, RateLimiter } from '../sync/rateLimit';
 import { allowedImage } from './images';
 
@@ -34,7 +35,6 @@ export interface PapersResponse {
 }
 export interface PagesResponse { status: 'ok' | 'error'; error: string | null; source: 'tjek'; observed: string | null; imagesAllowed: boolean; catalog: Catalog | null; pages: CatalogPage[] }
 
-const OSLO = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit' });
 const plusDays = (day: string, n: number) => { const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const LIST_ERROR = 'Kundeavisene er ikke tilgjengelige akkurat nå.';
 const PAGES_ERROR = 'Avissidene er ikke tilgjengelige akkurat nå.';
@@ -56,7 +56,7 @@ export function createPapersApi(o: PapersApiOptions) {
   const pagesLoading = new Map<string, Promise<void>>();
 
   const t = () => Date.parse(now());
-  const today = () => OSLO.format(new Date(t()));
+  const today = () => osloDate(new Date(t()).toISOString())!; // samme regel som motoren og klienten (M5)
   /** Gjeldende og kommende (fra innen 7 dager), sortert på kjede, start og id. */
   const visible = (cs: Catalog[]) => {
     const d = today(), horizon = plusDays(d, 7);
