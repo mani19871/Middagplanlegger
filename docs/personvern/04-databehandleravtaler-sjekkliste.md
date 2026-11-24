@@ -4,6 +4,8 @@
 
 **Avstemt 2026-11-22 mot synk-løsningen og driftsoppsettet** (`docs/synk.md`, `docs/hosting.md`, `docs/drift/`): avsnitt 1a under er nytt og beskriver hva en databehandler faktisk vil få. Ingen leverandør er likevel valgt eller kontaktet.
 
+**Status 2026-11-24 (fra `../pilot-sjekkliste.md`; ingenting kontrollert av oss):** hosting er valgt av eieren (2026-11-22): **eierens one.com-server, delt med et annet prosjekt**, i Europa, **land ikke bekreftet**. Eieren opplyser at en databehandleravtale med one.com finnes; **vi har ikke sett den**, og versjon, dato og underleverandørliste er ikke bevart. Lagring av sikkerhetskopier: **leverandør ikke valgt, ingen avtale**. E-post `kontakt@husvett.no` og domene `husvett.no` (registrert hos one.com ifølge eieren): leverandør, avtale og om postkassen virker er ikke bekreftet. Spørsmålene under er derfor ikke besvart for noen leverandør. Avsnittet i personvernerklæringen (`02`) står som åpne punkter Å3–Å5.
+
 Sjekklisten brukes **før** en leverandør velges og **før** ekte persondata lagres der. Leverandørene i `docs/hosting.md` er eksempler, ikke utvalgt.
 
 ## 1. Alle leverandører som får behandle persondata

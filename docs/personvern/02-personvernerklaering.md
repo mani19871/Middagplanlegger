@@ -1,9 +1,11 @@
-> **UTKAST. Ikke juridisk rådgivning. Må kvalitetssikres av noen med personvernkompetanse før bruk.**
-> Tekst i [hakeparenteser] må fylles ut eller avgjøres. **Avstemt 2026-11-22 mot synk-løsningen** (`docs/synk.md`, koden): erklæringen beskriver nå hva appen faktisk lagrer (kostkrav og postnummer synkes ikke). Den må likevel ikke publiseres før en fagperson har lest den, og den må oppdateres hvis noe i appen endres. Appen har et ark «Personvern» (Husstand-skjermen og bunnen av hver side) med en kortere tekst bygget på dette utkastet, merket UTKAST og «ikke ferdig vurdert av fagperson»; den må byttes når erklæringen er godkjent.
+> **UTKAST. Ikke juridisk rådgivning. Ikke publisert. Må kvalitetssikres av noen med personvernkompetanse (eller eieren må skrive at den publiseres uten, pilot-sjekkliste del H) før bruk.**
+> **Avstemt 2026-11-22 mot synk-løsningen** (`docs/synk.md`, koden): erklæringen beskriver hva appen faktisk lagrer (kostkrav og postnummer synkes ikke). **Utfylt 2026-11-24** med det eieren allerede har avgjort (AVVR AS, kontakt-e-post, 730 dager, domene, hosting i Europa) og avstemt mot arket «Personvern» i appen (`src/views/PrivacySheet.tsx`).
+> Det som ikke er avgjort, står som **[ÅPENT Å1–Å19 – hvem som må avgjøre: hva]**. Alle er samlet i tabellen «Åpne punkter» nederst. Ingenting er funnet på for å fylle hull: databehandleravtaler, underleverandører, land og frister utover eierens beslutninger er ikke ført inn som fakta.
+> Appen har et ark «Personvern» (Husstand-skjermen og bunnen av hver side) med en kortere tekst; den må byttes eller stemmes av mot denne når erklæringen er godkjent (se `docs/pilot-sjekkliste.md`, B5).
 
 # Personvernerklæring for Husvett (pilot)
 
-Sist oppdatert: [dato]
+Sist oppdatert: 2026-11-24 (utkast; ikke publisert, ingen fast adresse ennå, **[ÅPENT Å2 – Eier]**)
 
 ## Kort fortalt
 
@@ -14,11 +16,13 @@ Sist oppdatert: [dato]
 - Vi selger ikke opplysninger, og vi bruker dem ikke til reklame.
 - Du kan når som helst slette husstanden og alt vi har lagret om den.
 
-Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Appen kan ikke garantere at en vare er fri for allergener. Les alltid varedeklarasjonen.
+Appen er en **pilot**. Priser og tilbud er anslag, ikke løfter om sluttpris. Butikker, priser og de fleste aviser i appen er **demodata** og merket slik. Appen kan ikke garantere at en vare eller rett er fri for allergener. Les alltid varedeklarasjonen.
 
 ## Hvem er ansvarlig?
 
-AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for opplysningene (behandlingsansvarlig). Spørsmål om personvern: **kontakt@husvett.no** [oppgitt av eieren 2026-11-22; **ikke bekreftet at postkassen er opprettet eller virker**, og den må ikke publiseres som kontaktadresse før den er prøvd]. [Adressen er selskapets forretningsadresse i Enhetsregisteret, oppslag 2026-11-22.]
+AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for opplysningene (behandlingsansvarlig). Adressen er selskapets forretningsadresse i Enhetsregisteret (oppslag 2026-11-22; eieren har bekreftet at den skal stå her). Tjenesten heter Husvett og er tenkt på husvett.no **[ÅPENT Å2 – Eier: domenet er valgt, men ikke bekreftet kjøpt, registrert i AVVR AS sitt navn eller koblet til serveren]**.
+
+Spørsmål om personvern, innsyn og sletting: **kontakt@husvett.no**. **[ÅPENT Å1 – Eier: adressen er oppgitt av eieren, men det er ikke bekreftet at postkassen er opprettet og virker. Erklæringen skal ikke publiseres før en prøvemelding utenfra er kommet fram.]**
 
 ## Hva vi lagrer, og hvorfor
 
@@ -26,51 +30,55 @@ AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim, er ansvarlig for op
 
 | Hva | Hvorfor | Hvor lenge |
 | --- | --- | --- |
-| Valgte butikker, budsjett, antall butikkstopp, hvilke dager dere lager middag og hvor lang tid, om tilbud brukes og hvilke kjeder | Regne ut ukeplan og anslått pris | Til husstanden slettes, og senest når ingen enhet i husstanden har vært i kontakt med serveren på 730 dager (om lag to år; automatisk, eierens valg 2026-11-22) |
+| Valgte butikker, budsjett, antall butikkstopp, hvilke dager dere lager middag og hvor lang tid, om tilbud brukes og hvilke kjeder | Regne ut ukeplan og anslått pris | Til husstanden slettes (av eieren, eller når den siste enheten forlater den), og senest når ingen enhet i husstanden har vært i kontakt med serveren på 730 dager (om lag to år; automatisk, eierens valg 2026-11-22) |
 | Etiketter for personer («Voksen 1», «Barn 1»), porsjonsstørrelse, dager hjemme. Etiketten er fritekst: skriv ikke navn eller helseopplysninger der | Regne ut hvor mye mat dere trenger | Samme |
-| Plan (hvilke middager), handleliste med avkrysninger og egne linjer du skriver inn, kjøp, det dere har hjemme, hva som er laget, og valg ved utsolgt vare | Gi dere samme plan og liste på alle enhetene | Samme |
-| Hvilke enheter som er med: en tilfeldig enhets-id, en etikett du velger («Voksen 2»), når enheten ble med og sist var i bruk (avrundet til minutt), og en kode som bare lagres i uleselig form (sha256) | Koble enhetene til samme husstand og vite hvem som har krysset av | Til husstanden slettes. Fjernes en enhet, blir en tom «rad» med id og etikett liggende til husstanden slettes [dette skal endres] |
+| Plan (hvilke middager) og om handlelista er godkjent, godkjente lister (tidligere versjoner), handleliste med avkrysninger og egne linjer du skriver inn, kjøp, det dere har hjemme, hva som er laget, valg ved utsolgt vare og «fant ikke» | Gi dere samme plan og liste på alle enhetene | Samme |
+| Basisvarer (varer dere alltid vil ha hjemme, med minstemengde og «har / snart tom / tom») og «Andre varer» (hvilke varegrupper dere følger og varer dere legger på lista, med varenavn og kjede). Egne navn på basisvarer og handlelinjer er fritekst | Foreslå og huske varer på handlelista | Samme |
+| Hvilke enheter som er med: en tilfeldig enhets-id, en etikett du velger («Voksen 2»), når enheten ble med og sist var i bruk (avrundet til minutt), og en kode som bare lagres i uleselig form (sha256) | Koble enhetene til samme husstand og vite hvem som har krysset av | Til husstanden slettes. Fjernes en enhet, blir en tom «rad» med id og etikett liggende til husstanden slettes **[ÅPENT Å15 – Eier/utvikler: dette skal endres, pilot-sjekkliste D3]** |
 | Tidspunkt for hver endring, satt av enheten din (enhetens klokke), og når serveren mottok den | Riktig rekkefølge når enheter har vært uten nett | Samme |
 
-**Bare på enheten din (sendes ikke til oss):** postnummer, allergier og kostkrav (vegetar, valgte allergener, matvarer som skal unngås), og en kopi av alt over. Enheten din lagrer også nøkkelen som viser at den er med i husstanden.
+**Bare på enheten din (sendes ikke til oss):** postnummer, allergier og kostkrav (vegetar, valgte allergener, matvarer som skal unngås), valg du gjør i «Lag nå», og en kopi av alt over. Enheten din lagrer også nøkkelen som viser at den er med i husstanden.
 
-**Vi lagrer ikke:** e-post, passord, navn, adresse, posisjon, bilder, kvitteringer. Tilbud og priser fra Tjek lagres på serveren, men de handler om varer og sier ingenting om deg eller husstanden.
+**Vi lagrer ikke:** e-post, passord, navn, adresse, posisjon, bilder, kvitteringer. Tilbud og priser fra Tjek lagres på serveren, men de handler om varer og sier ingenting om deg eller husstanden. **[ÅPENT Å17 – Eier: hvor lenge priser fra Tjek kan lagres, er ikke bekreftet med Tjek (pilot-sjekkliste E3).]**
 
 | Annet | Hvorfor | Hvor lenge |
 | --- | --- | --- |
-| Teknisk logg: i vårt oppsett lagres ikke IP-adresse eller innhold i tilgangslogg [må bekreftes for valgt leverandør]. IP-adressen din brukes kort i serverens minne for å stoppe misbruk og glemmes når serveren starter på nytt | Sikkerhet og feilretting | [14] dager hvis noe logges |
-| Henvendelser du sender oss | Svare deg | [12] måneder etter at saken er avsluttet |
+| Teknisk logg: i vårt oppsett lagres ikke IP-adresse eller innhold i tilgangslogg. IP-adressen din brukes kort i serverens minne for å stoppe misbruk og glemmes når serveren starter på nytt. Hva leverandørens nettverk og brannmur logger, er ikke kontrollert | Sikkerhet og feilretting | **[ÅPENT Å7 – Eier/drift: logger og loggtid er ikke avgjort (forslag 14 dager hvis noe logges; pilot-sjekkliste C11, A7)]** |
+| Henvendelser du sender oss | Svare deg | **[ÅPENT Å8 – Eier: ikke avgjort (forslag 12 måneder etter at saken er avsluttet)]** |
 
-Hvis ingen enhet i en husstand har vært i kontakt med serveren på 730 dager (om lag to år), sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. Det som er lagret på enhetene dine, slettes ikke. Nøkkelen som viser at enheten din er med i husstanden, slutter å virke etter 730 dager uten bruk, altså samtidig med at husstanden slettes; frem til da kan du åpne, laste ned og slette husstanden i appen. Mister du en enhet, kan eieren fjerne den; ellers har nøkkelen på den gyldighet i opptil to år. [Bygget: `SYNC_RETENTION_DAYS=730` og `SYNC_TOKEN_IDLE_DAYS=730` (standard i koden), eierens valg 2026-11-22, pilot-sjekkliste D15 (avgjort).]
+Hvis ingen enhet i en husstand har vært i kontakt med serveren på 730 dager (om lag to år), sletter vi husstanden og alt vi har om den automatisk. Det er eneste kriterium. Vi har ingen kontaktinformasjon og kan derfor ikke varsle på forhånd. En enhet med appen åpen og på nett holder husstanden i live. Det som er lagret på enhetene dine, slettes ikke. Nøkkelen som viser at enheten din er med i husstanden, slutter å virke etter 730 dager uten bruk, altså samtidig med at husstanden slettes; frem til da kan du åpne, laste ned og slette husstanden i appen. Mister du en enhet, kan eieren fjerne den; ellers har nøkkelen på den gyldighet i opptil to år. *(Oppsett: `SYNC_RETENTION_DAYS=730` og `SYNC_TOKEN_IDLE_DAYS=730`, eierens valg 2026-11-22, pilot-sjekkliste D15.)*
 
 Merk: selv om vi ikke lagrer allergier og kostkrav som egne opplysninger, kan planen og handlelisten din si noe om hva dere spiser og kjøper. Skriv ikke helseopplysninger eller navn i etiketter og egne handlelinjer.
 
 ## Hva vi bruker opplysningene til, og lovlig grunn
 
-- **Levere tjenesten** (plan, liste, synk): vi trenger opplysningene for å gi deg tjenesten du ber om. [Grunnlag: avtale, personvernforordningen art. 6 nr. 1 b. Må verifiseres.]
-- **Allergier og kostkrav:** disse kan si noe om helse eller livssyn, som er særlig beskyttede opplysninger. **Vi lagrer dem ikke hos oss.** De blir på enheten din, og filteret virker bare der. [Fagperson må vurdere om lagring på din egen enhet i appen vår krever noe mer av oss. Hvis deling mellom enheter senere bygges, spør vi om uttrykkelig samtykke (art. 9 nr. 2 a) først. Se `06-samtykke-helsekost.md`.]
-- **Sikkerhet og drift:** vi har en berettiget interesse i å holde tjenesten trygg og stabil (art. 6 nr. 1 f). [Må verifiseres.]
+- **Levere tjenesten** (plan, liste, synk): vi trenger opplysningene for å gi deg tjenesten du ber om. **[ÅPENT Å10 – Fagperson: behandlingsgrunnlag. Utkastet bruker avtale, personvernforordningen art. 6 nr. 1 b; i en gratis pilot kan berettiget interesse (f) passe bedre. Må verifiseres.]**
+- **Allergier og kostkrav:** disse kan si noe om helse eller livssyn, som er særlig beskyttede opplysninger. **Vi lagrer dem ikke hos oss.** De blir på enheten din, og filteret virker bare der. **[ÅPENT Å11 – Fagperson: om lagring på din egen enhet i appen vår krever noe mer av oss, og om plan, handleliste og fritekst indirekte kan avsløre helse eller livssyn (art. 9, pilot-sjekkliste B2). Hvis deling mellom enheter senere bygges, spør vi om uttrykkelig samtykke (art. 9 nr. 2 a) først. Se `06-samtykke-helsekost.md`.]**
+- **Sikkerhet og drift:** vi har en berettiget interesse i å holde tjenesten trygg og stabil (art. 6 nr. 1 f). **[ÅPENT Å10 – Fagperson: må verifiseres.]**
 - **Svare på henvendelser og rettigheter:** for å oppfylle rettighetene dine.
 
-Vi bruker ikke opplysningene til markedsføring, og profilene til barn brukes aldri til markedsføring. Vi tar ingen avgjørelser om deg som har rettslig virkning ved hjelp av automatikk. Planmotoren foreslår middager, og det er alltid du som velger. [KI brukes ikke i piloten. Innføres det senere, oppdaterer vi dette og spør deg om valget.]
+Vi bruker ikke opplysningene til markedsføring, og profilene til barn brukes aldri til markedsføring. Vi tar ingen avgjørelser om deg som har rettslig virkning ved hjelp av automatikk. Planmotoren foreslår middager, og det er alltid du som velger. KI brukes ikke i appen i piloten (noen oppskrifter er skrevet som utkast med hjelp av KI, se under, men appen sender ikke dine opplysninger til noen KI-tjeneste). Innføres KI senere, oppdaterer vi dette og spør deg om valget.
 
 ## Allergier og kostkrav: du må legge dem inn på hver enhet
 
-Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å lagre dem hos oss, fordi vi ikke gjør det. Konsekvensen er at **de ikke deles**: har du lagt inn nøtteallergi på din telefon, vet ikke den andre voksne sin telefon om det, og en plan laget der kan inneholde nøtter. Appen viser alltid hva en rett inneholder av allergener (uansett filter), viser et varsel på en enhet uten filter, og sier fra i plan-skjemaet. Legg inn de samme kravene på alle enheter som lager planer. [Se `06-samtykke-helsekost.md` for hva som må på plass hvis vi senere vil dele dem.]
+Når du legger inn allergier eller kostkrav, spør vi ikke om samtykke til å lagre dem hos oss, fordi vi ikke gjør det. Konsekvensen er at **de ikke deles**: har du lagt inn nøtteallergi på din telefon, vet ikke den andre voksne sin telefon om det, og en plan laget der kan inneholde nøtter. Appen viser alltid hva en rett inneholder av allergener (uansett filter), viser et varsel på en enhet uten filter, og sier fra i plan-skjemaet. Legg inn de samme kravene på alle enheter som lager planer. *(Se `06-samtykke-helsekost.md` for hva som må på plass hvis vi senere vil dele dem.)*
+
+**Appen garanterer aldri allergenfrihet.** Oppskriftene i piloten er demooppskrifter eller utkast skrevet for Husvett (skrevet som KI-utkast), ikke testkokt, og allergenene er ikke kontrollert av en person. Allergiopplysningene i appen er forenklet. Alle med allergi må lese varedeklarasjonen på varen selv, hver gang. Når et allergi-, kost- eller råvarefilter er på, skjules KI-utkastene, og appen sier hvor mange som er skjult.
 
 ## Hvem får se opplysningene?
 
-- **Du og de du inviterer til husstanden.** Alle voksne i husstanden kan se og endre alt husstanden har delt (plan, liste, innstillinger, hvem som har krysset av). Den som har en gyldig invitasjonskode innen 24 timer, kan bli med, så del koden bare med den du vil invitere.
-- **Vår leverandør av drift og lagring** ([navn, land for datasenter]). De behandler opplysningene på våre vegne og har ikke lov til å bruke dem til egne formål. Vi har [databehandleravtale]. [Underleverandører: liste eller lenke.]
-- **Vi** (driftsansvarlig, rollen «Admin» i AVVR AS; rollen navngis ikke her) har bare tilgang når det trengs for drift og feilretting.
+- **Du og de du inviterer til husstanden.** Alle voksne i husstanden kan se og endre alt husstanden har delt (plan, liste, innstillinger, hvem som har krysset av). Den som har en gyldig invitasjonskode innen 24 timer, kan bli med uten at eieren godkjenner, så del koden bare med den du vil invitere.
+- **Vår leverandør av drift og lagring.** Serveren leies hos one.com (eierens valg 2026-11-22) og står i Europa. **[ÅPENT Å3 – Eier: landet/datasenteret er ikke bekreftet, og dermed heller ikke at det er i EØS. Skriv ikke «EØS» før det er bekreftet.]** Leverandøren behandler opplysningene på våre vegne og har ikke lov til å bruke dem til egne formål. **[ÅPENT Å4 – Eier: dette forutsetter en databehandleravtale. Eieren opplyser at en avtale med one.com finnes; vi har ikke sett den, og versjon, dato og underleverandørliste er ikke bevart (pilot-sjekkliste B6). Underleverandører kan ikke listes før det er hentet.]**
+- **Vi** (driftsansvarlig, rollen «Admin» i AVVR AS; rollen navngis ikke her) har tilgang når det trengs for drift og feilretting. **[ÅPENT Å16 – Eier: serveren deles med et annet prosjekt, og andre med administratortilgang på serveren kan teknisk lese databasen (pilot-sjekkliste C16, C17, B8). Eieren har akseptert risikoen for testserveren (C17), men tilgangslisten er ikke ført. Avgjør hva erklæringen skal si om dette; anbefalt: si det rett ut når listen er ført.]**
+- **Lagring av sikkerhetskopier** (krypterte): leverandør er ikke valgt. **[ÅPENT Å5 – Eier: leverandør, land og databehandleravtale for kopiene (pilot-sjekkliste A9, B6, C6).]**
 
-Tilbudsinformasjon hentes av vår server fra [Tjek]. Vi sender ikke opplysninger om deg eller husstanden din dit. **Unntak: bilder.** Når du åpner et tilbud med produktbilde eller blar i en kundeavis fra Tjek, henter enheten din bildene direkte fra Tjek. Tjek ser da IP-adressen til enheten din og når bildet ble hentet, men ingenting annet fra appen. [UTKAST: behandlingsgrunnlag og Tjeks rolle må vurderes av fagperson.]
+Tilbudsinformasjon hentes av vår server fra Tjek. Vi sender ikke opplysninger om deg eller husstanden din dit. **Unntak: bilder.** Når du åpner et tilbud med produktbilde eller blar i en kundeavis fra Tjek, henter enheten din bildene direkte fra Tjek. Tjek ser da IP-adressen til enheten din, nettlesertypen og når bildet ble hentet, men ikke hvilken side i appen du er på. Det skjer bare etter at du har trykket. **[ÅPENT Å13 – Fagperson: om Tjek er selvstendig behandlingsansvarlig for disse loggene, og om behandlingsgrunnlag må nevnes her. Ingen bildeproxy er bygget (beslutning 2026-11-22, pilot-sjekkliste D16).]**
 
-**Overføring utenfor EØS:** [Dataene lagres i EØS og leverandøren er i EØS: ingen overføring. ELLER: leverandøren er amerikansk; overføringsgrunnlag er … Fylles ut etter valg av hosting.]
+**Overføring utenfor EØS:** vi har ikke bekreftet at dataene bare ligger i EØS. **[ÅPENT Å3 – Eier: bekreft land og datasenter. Er det EØS og leverandøren er i EØS: ingen overføring. Ellers: Fagperson avgjør overføringsgrunnlag. Det samme gjelder fjerntilgang fra leverandørens støtte og lagring av sikkerhetskopier (Å5).]**
 
 ## Lagring på enheten din
 
-Appen lagrer planen, innstillingene, postnummer, allergier og kostkrav, handlelisten og (hvis du er med i en husstand) nøkkelen til husstanden på enheten din, slik at den virker uten nett. Vi bruker ingen sporings- eller reklameinformasjonskapsler. [Må verifiseres mot ekomloven.] Nøkkelen kan brukes av den som får tilgang til en ulåst telefon eller nettleserprofil: lås telefonen, og fjern enheten fra husstanden i appen hvis du mister den. «Slett lokale data» fjerner alt appen har lagret på enheten.
+Appen lagrer planen, innstillingene, postnummer, allergier og kostkrav, handlelisten og (hvis du er med i en husstand) nøkkelen til husstanden på enheten din, slik at den virker uten nett. Vi bruker ingen sporings- eller reklameinformasjonskapsler, og ingen informasjonskapsler i det hele tatt. **[ÅPENT Å12 – Fagperson: om lagring i nettleseren (inkl. nøkkelen) er innenfor unntaket i ekomloven (pilot-sjekkliste B10).]** Nøkkelen kan brukes av den som får tilgang til en ulåst telefon eller nettleserprofil: lås telefonen, og fjern enheten fra husstanden i appen hvis du mister den. «Slett alt på denne enheten» på Husstand-skjermen fjerner alt appen har lagret på enheten.
 
 ## Dine rettigheter
 
@@ -81,13 +89,13 @@ Du har rett til å:
 - **få slettet** opplysningene, også ved å slette hele husstanden i appen,
 - **få utlevert** opplysningene du har gitt oss i et vanlig, maskinlesbart format,
 - **protestere mot** eller **få begrenset** behandling i enkelte tilfeller,
-- **trekke samtykke** der behandlingen bygger på samtykke.
+- **trekke samtykke** der behandlingen bygger på samtykke (i piloten bygger ingen behandling på samtykke).
 
-Send e-post til **[adresse: UAVKLART, ikke bestemt]**. Vi svarer innen en måned. Vi kan be deg bekrefte at du hører til husstanden, men vi ber ikke om mer personopplysninger enn nødvendig for det. Hvordan vi behandler dem, står i vår interne rutine.
+Send e-post til **kontakt@husvett.no** (se Å1 over). Vi svarer innen en måned. **[ÅPENT Å9 – Eier: hvem som svarer, er ikke bestemt (pilot-sjekkliste A5). Arket i appen lover ingen svartid; stem av når dette er avgjort.]** Vi kan be deg bekrefte at du hører til husstanden, men vi ber ikke om mer personopplysninger enn nødvendig for det. Oppgi gjerne enhets-id-en som står på Husstand-skjermen. Hvordan vi behandler henvendelser, står i vår interne rutine (`05-innsyn-retting-sletting.md`).
 
-**Sletting:** når eieren sletter husstanden i appen (bekreftes ved å skrive SLETT), fjernes dataene fra systemet vårt med en gang, og de andre enhetene i husstanden kobles fra. Spor i serverens databasefil overskrives i løpet av kort tid. Sikkerhetskopier overskrives innen [30] dager, og kopiene brukes bare til gjenoppretting etter feil. Det som ligger på enhetene dine, sletter du selv (valget «Slett også alt som er lagret på denne enheten», eller «Slett lokale data»).
+**Sletting:** når eieren sletter husstanden i appen (bekreftes ved å skrive SLETT), fjernes dataene fra systemet vårt med en gang, og de andre enhetene i husstanden kobles fra. Forlater den siste enheten husstanden, slettes den også. Spor i serverens databasefil overskrives i løpet av kort tid. Sikkerhetskopier kan inneholde slettede data en tid etter slettingen, og brukes bare til gjenoppretting etter feil. **[ÅPENT Å6 – Eier: slettefrist for sikkerhetskopier er ikke bestemt (forslag 30 dager; pilot-sjekkliste A7, C8). Arket i appen sier det samme: «ikke endelig bestemt».]** Det som ligger på enhetene dine, sletter du selv (valget «Slett også alt som er lagret på denne enheten», eller «Slett alt på denne enheten»).
 
-**Innsyn og kopi:** velg «Last ned mine data» på Husstand-skjermen. Du får én fil (JSON) med alt som er lagret på enheten din og alt vi har om husstanden på serveren. Nøkkelen til husstanden er ikke med. Kan du ikke bruke appen, send e-post. Oppgi gjerne enhets-id-en som står på Husstand-skjermen.
+**Innsyn og kopi:** velg «Last ned mine data» på Husstand-skjermen. Du får én fil (JSON) med alt som er lagret på enheten din og alt vi har om husstanden på serveren. Nøkkelen til husstanden er ikke med. Kan du ikke bruke appen, send e-post.
 
 ## Klage
 
@@ -95,8 +103,32 @@ Hvis du mener vi behandler opplysninger i strid med reglene, kan du klage til Da
 
 ## Barn
 
-Appen er ment for voksne som planlegger for familien. Vi samler inn en **etikett og en porsjonsstørrelse** for barn (f.eks. «Barn 1», 0,6 porsjon), ikke navn, alder eller andre personopplysninger om dem. [Barn under [13 / må verifiseres] år skal ikke opprette egen konto eller husstand.]
+Appen er ment for voksne som planlegger for familien. Vi samler inn en **etikett og en porsjonsstørrelse** for barn (f.eks. «Barn 1», 0,6 porsjon), ikke navn, alder eller andre personopplysninger om dem. Barn skal ikke opprette egen husstand. **[ÅPENT Å14 – Fagperson: aldersgrense må verifiseres (pilot-sjekkliste B11).]**
 
 ## Endringer
 
-Hvis vi endrer hva vi gjør med opplysningene, oppdaterer vi erklæringen og varsler i appen før endringen gjelder. Tidligere versjoner: [lenke].
+Hvis vi endrer hva vi gjør med opplysningene, oppdaterer vi erklæringen og varsler i appen før endringen gjelder. Tidligere versjoner: **[ÅPENT Å19 – Eier: ingen fast adresse eller versjonsliste ennå]**.
+
+## Åpne punkter (fjernes før publisering)
+
+| # | Hva som mangler | Hvem avgjør | Se |
+| --- | --- | --- | --- |
+| Å1 | Postkassen kontakt@husvett.no er ikke bekreftet opprettet eller virkende (prøvemelding utenfra) | Eier | A5 |
+| Å2 | Domenet husvett.no: ikke bekreftet kjøpt, i AVVR AS sitt navn eller koblet til serveren; fast adresse for erklæringen | Eier | A4, B4 |
+| Å3 | Land/datasenter for serveren og at det er EØS; overføringsgrunnlag hvis ikke | Eier (land), fagperson (grunnlag) | A3, `04` |
+| Å4 | Databehandleravtale med one.com (eierens opplysning, ikke sett), versjon, dato, underleverandørliste | Eier | B6, `04` |
+| Å5 | Lagring av sikkerhetskopier: leverandør, land, avtale | Eier | A9, B6, C6 |
+| Å6 | Slettefrist for sikkerhetskopier (forslag 30 dager) | Eier | A7, C8 |
+| Å7 | Logger og loggtid (forslag 14 dager), hva leverandør og brannmur logger | Eier og drift | A7, C11 |
+| Å8 | Oppbevaring av henvendelser (forslag 12 måneder) | Eier | A7 |
+| Å9 | Hvem svarer på henvendelser og innen hvilken tid; stem av med arket i appen | Eier | A5 |
+| Å10 | Behandlingsgrunnlag (art. 6) | Fagperson | B1 |
+| Å11 | Art. 9: lokal lagring av allergier/kostkrav og indirekte avledning | Fagperson | B2 |
+| Å12 | Ekomloven: lagring i nettleseren | Fagperson | B10 |
+| Å13 | Tjek som selvstendig behandlingsansvarlig for bildeforespørsler | Fagperson | D16, `01` |
+| Å14 | Aldersgrense for barn | Fagperson | B11 |
+| Å15 | Fjernede medlemmer beholdes som rad til husstanden slettes | Eier og utvikler | D3 |
+| Å16 | Delt server: andre med administratortilgang kan lese databasen; tilgangslisten er ikke ført | Eier | C16, C17, B8 |
+| Å17 | Hvor lenge priser fra Tjek kan lagres | Eier med Tjek | E3 |
+| Å18 | Ingen fagperson har lest erklæringen: eieren må enten få den lest eller skrive i del H at den publiseres uten | Eier | A12, B1, B4 |
+| Å19 | Fast adresse og versjonsliste («Tidligere versjoner») | Eier | B4 |
