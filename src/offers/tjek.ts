@@ -139,6 +139,14 @@ export class TjekSource implements OfferSource {
     private readonly baseUrl = 'https://api.etilbudsavis.dk/v2',
   ) {}
 
+  /** Tilbud uten `dealer.country` som slapp gjennom landfilteret siden forrige `takeMissingCountry()` (O4b). */
+  private missingCountry = 0;
+  /**
+   * Antall tilbud uten land siden sist, og nullstill. Innsamleren logger tallet per runde (bare antallet). Er det null over
+   * tid, kan landfilteret strammes inn til å kreve land (docs/kodegjennomgang.md, O4b).
+   */
+  takeMissingCountry(): number { const n = this.missingCountry; this.missingCountry = 0; return n; }
+
   private async get<T>(path: string, params: Record<string, string>): Promise<T> {
     const res = await this.fetchImpl(`${this.baseUrl}${path}?${new URLSearchParams(params)}`, { headers: { Accept: 'application/json' } });
     if (!res.ok) throw new Error(`Tjek svarte ${res.status} på ${path}`);
@@ -166,8 +174,9 @@ export class TjekSource implements OfferSource {
     if (q.dealerIds?.length) params.dealer_ids = q.dealerIds.join(',');
     const raw = await this.get<RawTjekOffer[]>('/offers/search', params);
     const observed = this.now();
-    return raw
-      .filter((o) => !o.dealer?.country?.id || o.dealer.country.id === q.country)
+    const kept = raw.filter((o) => !o.dealer?.country?.id || o.dealer.country.id === q.country);
+    this.missingCountry += kept.filter((o) => !o.dealer?.country?.id).length;
+    return kept
       .map((o) => parseTjekOffer(o, observed))
       .slice(0, limit);
   }

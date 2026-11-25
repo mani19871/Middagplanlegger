@@ -3,7 +3,7 @@
 // intervallet). Kallbudsjettet (CallBudget, OFFER_MAX_CALLS_PER_DAY) stopper runden før grensen; da ventes et helt
 // intervall. Tjeks offentlige tak er 8 000 000 kall per måned per land (§ 8.5); vår avtales grense er ikke kjent for oss
 // (phase0/tjek-avtale.md), så standarden ligger langt under. Klokke og timer settes inn, så alt kan testes uten nett.
-import type { LiveOffer } from '../../src/offers/service';
+import { PartialCollectError, type LiveOffer } from '../../src/offers/service';
 import type { NormalizedOffer } from '../../src/offers/types';
 import type { OfferStore } from './types';
 
@@ -41,6 +41,8 @@ export interface CollectorOptions {
   /** Lagrede, utløpte tilbud som ikke er sett på så mange dager, slettes i hver runde, også når hentingen feiler. 0 = aldri. */ retentionDays: number;
   /** Planlegg neste runde. Standard: setTimeout som ikke holder prosessen i live. Returnerer avlysning. */
   schedule?: (fn: () => void, ms: number) => () => void;
+  /** Antall tilbud uten land siden sist (TjekSource.takeMissingCountry, O4b). Logges per runde, også når runden feiler. */
+  missingCountry?: () => number;
   /** Etter en vellykket runde: tilbudene og hentetidspunktet (live-visningen i minnet bruker dem). */
   onCollected?: (offers: LiveOffer[], at: string, other: NormalizedOffer[]) => void;
 }
@@ -100,6 +102,7 @@ export function startOfferCollector(o: CollectorOptions): OfferCollector {
 
   async function round() {
     const at = o.now();
+    const noCountry = () => (o.missingCountry ? `, ${o.missingCountry()} uten land` : '');
     try {
       const offers = await o.collect();
       let other: NormalizedOffer[] = [];
@@ -111,9 +114,20 @@ export function startOfferCollector(o: CollectorOptions): OfferCollector {
       st.lastOk = at; st.failures = 0;
       o.onCollected?.(offers, at, other);
       const deleted = await prune();
-      log(`Tilbud: ${offers.length} hentet${o.collectOther ? `, ${other.length} husholdning` : ''} (${r.inserted} nye, ${r.updated} endret, ${r.seen} sett igjen${r.skipped ? `, ${r.skipped} avvist` : ''})${deleted ? `, ${deleted} gamle slettet` : ''}.`);
+      log(`Tilbud: ${offers.length} hentet${o.collectOther ? `, ${other.length} husholdning` : ''} (${r.inserted} nye, ${r.updated} endret, ${r.seen} sett igjen${r.skipped ? `, ${r.skipped} avvist` : ''})${deleted ? `, ${deleted} gamle slettet` : ''}${noCountry()}.`);
       next(o.intervalMs);
-    } catch (e) {
+    } catch (err) {
+      // Delvis innsamling (O5): det som ble hentet før feilen, er ekte observasjoner og lagres (idempotent på kilde og id).
+      // Runden regnes likevel som feilet: ingen ny «sist hentet», ingen oppdatering av live-visningen, og bakoff som før.
+      let e = err;
+      if (err instanceof PartialCollectError) {
+        e = err.cause;
+        try {
+          const r = await o.store.record(err.offers.map((l) => l.offer), o.country, o.now());
+          log(`Tilbud: delvis runde, ${err.offers.length} hentet før feilen (${r.inserted} nye, ${r.updated} endret, ${r.seen} sett igjen).`);
+        } catch (se) { log(`tilbud-lagringsfeil: ${se instanceof Error ? se.name : typeof se}`); }
+      }
+      if (o.missingCountry) log(`Tilbud: ${o.missingCountry()} uten land i runden.`);
       // Også når hentingen feiler eller kallgrensen er nådd: gamle priser skal ikke bli liggende (runde 2, O12).
       await prune();
       if (e instanceof BudgetExceededError) {

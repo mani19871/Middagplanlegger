@@ -95,6 +95,7 @@ if (offerStore) {
     collector = startOfferCollector({
       collect: collectNow, collectOther: collectHouseNow, store: offerStore, country: 'NO', now: () => new Date().toISOString(),
       intervalMs: offerCfg.refreshMs, retryMs: RETRY_MS, retentionDays: offerCfg.retentionDays,
+      missingCountry: () => source.takeMissingCountry(),
       onCollected: (offers, at, other) => { cache = { offers, other, observed: at, day: oslo() }; logForeignHosts(offers); },
     });
   }

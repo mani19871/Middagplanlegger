@@ -39,6 +39,15 @@ describe('tilbud', () => {
     const bad = new TjekSource(async () => ({ ok: false, status: 403, json: async () => ({}) }), () => 'x');
     await expect(bad.searchOffers({ query: 'torsk', country: 'NO' })).rejects.toThrow('403');
   });
+  it('O4b: tilbud uten land slipper fortsatt gjennom, men telles (bare antall) og nullstilles når tallet hentes', async () => {
+    const src = new TjekSource(async () => ({ ok: true, status: 200, json: async () => [
+      raw(), raw({ id: 'o2', dealer: { name: 'Uten land' } }), raw({ id: 'o3', dealer: null }), raw({ id: 'o4', dealer: { name: 'SE', country: { id: 'SE' } } }),
+    ] }), () => '2026-11-21');
+    expect((await src.searchOffers({ query: 'torsk', country: 'NO' })).map((o) => o.id)).toEqual(['o1', 'o2', 'o3']);
+    await src.searchOffers({ query: 'laks', country: 'NO' });
+    expect(src.takeMissingCountry()).toBe(4);
+    expect(src.takeMissingCountry()).toBe(0);
+  });
   it('matcher hele ord og avviser bearbeidede varer', () => {
     const h = (heading: string) => matchOffer(parseTjekOffer(raw({ heading }), 'x'), ingredients, '2026-11-24');
     expect(h('Ostekake')).toBeNull();

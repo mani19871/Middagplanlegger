@@ -17,6 +17,15 @@ export const addDays = (iso: string, n: number) => {
   return d.toISOString().slice(0, 10);
 };
 
+/**
+ * En innsamling som stoppet på en kildefeil etter at noen søk hadde lykkes (O5). `cause` er den opprinnelige feilen
+ * (f.eks. 429 eller kallgrensen), `offers` er det som var hentet før feilen. Innsamleren lagrer dem, men regner runden
+ * som feilet (bakoff, ingen ny «sist hentet»). Uten noe hentet kastes den opprinnelige feilen uendret.
+ */
+export class PartialCollectError extends Error {
+  constructor(readonly cause: unknown, readonly offers: LiveOffer[]) { super('delvis innsamling'); this.name = 'PartialCollectError'; }
+}
+
 export async function collectOffers(source: OfferSource, ingredients: Ingredient[], o: CollectOptions): Promise<LiveOffer[]> {
   const terms = o.terms ?? OFFER_TERMS;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
@@ -24,7 +33,12 @@ export async function collectOffers(source: OfferSource, ingredients: Ingredient
   for (const ing of ingredients) {
     if (ing.staple) continue;
     for (const term of (terms[ing.id] ?? []).slice(0, o.termsPerIngredient ?? 2)) {
-      const offers = await source.searchOffers({ query: term, country: o.country, limit: o.limit ?? 20 });
+      let offers: NormalizedOffer[];
+      // Stopp ved første feil (ikke hamre på en kilde som svarer 429), men behold det som er hentet.
+      try { offers = await source.searchOffers({ query: term, country: o.country, limit: o.limit ?? 20 }); } catch (e) {
+        if (out.size === 0) throw e;
+        throw new PartialCollectError(e, sortLive([...out.values()]));
+      }
       for (const offer of offers) {
         if (out.has(offer.id)) continue;
         const l = toLiveOffer(offer, ingredients, o.today, terms, o.rules ?? OFFER_RULES);

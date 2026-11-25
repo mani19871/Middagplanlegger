@@ -1,6 +1,6 @@
 // Periodisk henting av tilbud til lagringen (server/offers/collector.ts): intervall, bakoff, kallbudsjett, oppbevaring.
 import { describe, expect, it } from 'vitest';
-import type { LiveOffer } from '../../src/offers/service';
+import { PartialCollectError, type LiveOffer } from '../../src/offers/service';
 import type { NormalizedOffer } from '../../src/offers/types';
 import { BudgetExceededError, CallBudget, startOfferCollector } from './collector';
 import { SqliteOfferStore } from './sqlite';
@@ -11,14 +11,14 @@ const offer = (id: string, observed: string, over: Partial<NormalizedOffer> = {}
 });
 const live = (o: NormalizedOffer): LiveOffer => ({ offer: o, ingredient: 'torsk', unitPriceOre: 19975, needsReview: false, reasons: [], approved: false, rule: null, phase: 'nå' });
 
-function harness(collect: () => Promise<LiveOffer[]>, extra: { retentionDays?: number; store?: SqliteOfferStore; collectOther?: () => Promise<NormalizedOffer[]> } = {}) {
+function harness(collect: () => Promise<LiveOffer[]>, extra: { retentionDays?: number; store?: SqliteOfferStore; collectOther?: () => Promise<NormalizedOffer[]>; missingCountry?: () => number } = {}) {
   let clock = Date.parse('2026-11-23T08:00:00.000Z');
   const delays: number[] = [];
   let pending: (() => void) | null = null;
   const logs: string[] = [];
   const store = extra.store ?? new SqliteOfferStore(':memory:');
   const job = startOfferCollector({
-    collect, collectOther: extra.collectOther, store, country: 'NO', now: () => new Date(clock).toISOString(), log: (m) => logs.push(m),
+    collect, collectOther: extra.collectOther, missingCountry: extra.missingCountry, store, country: 'NO', now: () => new Date(clock).toISOString(), log: (m) => logs.push(m),
     intervalMs: 6 * 3_600_000, retryMs: 5 * 60_000, retentionDays: extra.retentionDays ?? 180,
     schedule: (fn, ms) => { delays.push(ms); pending = fn; return () => { pending = null; }; },
   });
@@ -99,6 +99,42 @@ describe('startOfferCollector', () => {
     const h = harness(async () => [], { store, retentionDays: 180 });
     await h.job.idle();
     expect((await store.counts()).observations).toBe(0);
+  });
+});
+
+describe('startOfferCollector: delvis runde (O5) og tilbud uten land (O4b)', () => {
+  it('O5: det som ble hentet før feilen, lagres, men runden regnes som feilet (bakoff, ingen ny «sist hentet»)', async () => {
+    const h = harness(async () => { throw new PartialCollectError(new Error('Tjek svarte 429 på /offers/search'), [live(offer('a', '2026-11-23T07:59:00.000Z'))]); });
+    const job = h.job;
+    await job.idle();
+    expect(job.state().failures).toBe(1);
+    expect(job.state().lastOk).toBeNull();
+    expect(await h.store.lastFetch()).toBeNull();
+    expect(h.delays).toEqual([5 * 60_000]);
+    const rows = await h.store.current({ today: '2026-11-24', observedSince: '2026-11-12', limit: 10 });
+    expect(rows.map((r) => r.id)).toEqual(['a']);
+    expect(rows[0].lastObserved).toBe('2026-11-23T07:59:00.000Z');
+    expect(h.logs.some((l) => /delvis runde, 1 hentet/.test(l))).toBe(true);
+    expect(h.logs.join('\n')).not.toMatch(/429|offers\/search/); // bare feilens navn
+  });
+
+  it('O5: delvis runde som stoppet på kallgrensen lagrer det som er hentet og venter et helt intervall', async () => {
+    const h = harness(async () => { throw new PartialCollectError(new BudgetExceededError(), [live(offer('b', '2026-11-23T07:00:00.000Z'))]); });
+    await h.job.idle();
+    expect(h.delays).toEqual([6 * 3_600_000]);
+    expect(h.job.state().failures).toBe(0);
+    expect((await h.store.current({ today: '2026-11-24', observedSince: '2026-11-12', limit: 10 })).map((r) => r.id)).toEqual(['b']);
+  });
+
+  it('O4b: antall tilbud uten land logges per runde, også null og også når runden feiler', async () => {
+    let n = 0;
+    let fail = false;
+    const h = harness(async () => { if (fail) throw new Error('x'); return []; }, { missingCountry: () => n });
+    await h.job.idle();
+    expect(h.logs.at(-1)).toMatch(/, 0 uten land\.$/);
+    n = 3; fail = true;
+    await h.tick();
+    expect(h.logs.some((l) => /3 uten land i runden/.test(l))).toBe(true);
   });
 });
 
