@@ -7,19 +7,18 @@ Uavhengig gjennomgang av hele repoet på branch `claude/middagsplanner-app-wwuq1
 | Alvorlighet | Funn | Rettet | Åpne |
 |---|---|---|---|
 | Høy | 9 | 9 | 0 |
-| Middels | 15 | 12 + 1 delvis | 2 |
+| Middels | 15 | 13 + 1 delvis | 1 |
 | Lav | 12 | 12 | 0 |
 | **Sum** | **36** | **33 + 1 delvis** | **2 + resten av O4** |
 
 Oppdatert 2026-11-22: E7, S1 og S2 er rettet (se «Rettet»). Runde 2 (alt bygget etter `c137674`) står nederst: 21 funn, 17 rettet og 1 delvis.
 
-Oppdatert 2026-11-24 (oppfølging): V10, O8, O10, S6 og S7 fra første runde og M5, V16 og resten av V17 fra runde 2 er rettet. Åpne er nå V7, O5 og O4b (første runde) og V12 (runde 2). Se «Oppfølging 2026-11-24» nederst.
+Oppdatert 2026-11-24 (oppfølging): V10, O8, O10, S6 og S7 fra første runde og M5, V16 og resten av V17 fra runde 2 er rettet. Åpne er nå V7, O5 og O4b (første runde) og V12 (runde 2). **Oppdatert 2026-11-25:** V7 er rettet med én aktiv fane (se «Rettet»); åpne er O5, O4b og V12. Se «Oppfølging 2026-11-24» nederst.
 
 ## Åpne funn (produktbeslutning eller for store til å rette her)
 
 | # | Alv. | Fil:linje | Funn | Reproduksjon | Anbefaling |
 |---|---|---|---|---|---|
-| V7 | Middels | `src/store.ts` (`usePersistentState`) | Med appen åpen i to faner skriver hver fane hele tilstanden til samme localStorage-nøkkel. En fane kan da slette den andre fanens usendte utboks (også `cookNow`). | Fane A markerer kjøp (utboks = [kjøp]). Fane B, åpnet tidligere, krysser av en vare og skriver uten kjøpet. Etter ny innlasting er kjøpet borte. | **Fortsatt åpen (2026-11-24): krever større endring og et valg.** Riktig retting er å lytte på `storage`-hendelsen og flette tilstanden felt for felt: de idempotente loggene og utboksene som union på id (`inventory`, `list`, `listChanges`, `planHistory` og utboksene), dokumentfeltene (plan, innstillinger) tre-veis mot `sync.docs`-basen som synken gjør, og lokale felt (`cookNow`, postnummer, krav) med en egen regel. Det berører hele `AppState` og trenger tester for hvert felt. Enklere alternativ: én aktiv fane (BroadcastChannel/Web Locks; de andre fanene viser «Appen er åpen i en annen fane» og skriver ikke). Anbefaling: ta én-aktiv-fane først (lite og trygt), fletting senere hvis det trengs. |
 | O5 | Middels | `src/offers/service.ts:19` | Én feilet Tjek-forespørsel forkaster hele innsamlingen (cirka 80 kall i rekke), og det kommer et nytt forsøk først etter fem minutter. Det er bevisst: testen «lar kildefeil boble opp» krever det, og nedkjølingen vernet Tjek. Nå har hvert kall også tidsavbrudd (O6). | Kall 60 av 80 får 429. Svaret blir status `error` i fem minutter. | Bestem om et delvis resultat skal vises, merket som ufullstendig. Produktvalg, ikke vurdert på nytt 2026-11-24. |
 | O4b | Middels | `src/offers/tjek.ts:109` | Tilbud uten `dealer.country` slippes gjennom landfilteret. Valutadelen er rettet (O4). | Et tilbud uten land i et søk med `country_id=NO` tas med. | Krev land bare når Tjek-svaret alltid har det. Phase 0 sier at feltet finnes, men ikke at det alltid er med. Sjekk mot Tjek før det strammes inn. **Fortsatt åpen (2026-11-24):** et valg som krever ekte Tjek-svar; formprøven (`phase0/tjek-formprøve.md`) sier at `country_id` ikke filtrerer, men ikke hvor ofte landet mangler. Anbefaling: tell tilbud uten land i innsamleren (bare antall i loggen) i en uke, og krev land hvis tallet er null. |
 
@@ -57,6 +56,7 @@ Oppdatert 2026-11-24 (oppfølging): V10, O8, O10, S6 og S7 fra første runde og 
 | O7 | Lav | `src/offers/tjek.ts` | Omregning av hg og dl ga flyttallsrester (229,99999 g). | `offers.test.ts`: «pakningsstørrelser regnes om …» |
 | O9 | Lav | `src/offers/match.ts` | Dobbelt eller hardt mellomrom i overskriften hindret treff på søkeord med to ord. | `offers.test.ts`: «flere mellomrom eller hardt mellomrom …» |
 | V10 | Lav | `src/views/HouseholdView.tsx`, `src/App.tsx` | Chipen «⚠ Konflikt» talte også konflikter i handlelista (ulike valg på en linje, ulike godkjente lister), men Husstand-siden forklarte bare dokument- og kjøpskonflikter. Nå viser Husstand også disse, med antall og «Åpne handlelista». (Rettet 2026-11-24.) | `kodegjennomgang2-ui.test.tsx`: «V10 Husstand forklarer også konflikter i handlelista …» |
+| V7 | Middels | `src/singleTab.ts` (ny), `src/views/TabGate.tsx` (ny), `src/main.tsx` | Med appen åpen i to faner skrev hver fane hele tilstanden til samme localStorage-nøkkel, så en fane kunne slette den andres usendte utboks (også `cookNow`). Rettet med anbefalingen «én aktiv fane»: Web Locks (`middag-aktiv-fane`). Bare fanen som holder låsen monterer appen; andre faner viser «Åpen i en annen fane» og leser, skriver og synker ikke. «Bruk Husvett her» tar låsen (`steal`), den andre fanen blir passiv, og appen monteres på nytt og leser det som sist ble lagret. Lukkes den aktive fanen, tar en ventende fane over av seg selv. Uten Web Locks (eldre nettleser) virker appen som før. Fletting felt for felt er ikke bygd. (2026-11-25.) | `src/singleTab.test.ts` (falsk LockManager: én aktiv, overtakelse, ventende tar over, lukket fane melder ingenting, uten Web Locks). Prøvd i Chromium med to faner i samme profil: B passiv, overtakelse, B ser A sin plan, A aktiv igjen når B lukkes, ingen konsollfeil |
 | O8 | Lav | `server/offers/live.ts` (ny), `server/index.ts` | `/api/offers` (live, fra minnet) hadde ingen ratebegrensning. Nå 60 kall per minutt per IP (`TRUST_PROXY` og IPv6 /64 som de andre), før svaret bygges og før et nytt oppslag mot Tjek startes; `429 for_mange_forespørsler` med `Retry-After`, også for andre metoder (som `/api/offers/lagret`). Handleren er flyttet ut av `server/index.ts` så den kan testes. (2026-11-24.) | `security.test.ts`: «O8: /api/offers (live) har grense per IP …» |
 | O10 | Lav | `src/offers/match.ts`, `src/views/papers/LiveOffers.tsx` | `unitPriceOre` var dokumentert som «per stk» for stykkvarer, men ble bare regnet fra `amount`, så eggtilbud (stk uten vekt) fikk `null` og ble sortert sist. Nå: pris per stk for stykkvarer uten vekt eller volum; visningen sier «… kr/stk» og antall stk. Brukes bare til sortering og visning, aldri i en sum. (2026-11-24.) | `offers.test.ts`: «O10: stykkvarer (egg i stk) får pris per stk …» |
 | S6 | Lav | `server/sync/api.ts` (`/healthz`, `healthPerMin`) | `/healthz` hadde ingen ratebegrensning, og hvert kall gikk til databasen. Nå 60 per minutt per IP med egen teller; over grensen `429` uten kall til databasen. Docker-sjekken (hvert 30. s fra `127.0.0.1`) og en oppetidstjeneste ligger langt under, og en annen IP teller for seg. Valget av grense (ikke unntak) følger regelen i CLAUDE.md. (2026-11-24.) | `security.test.ts`: «S6: /healthz har grense per IP …», «S6: standardgrensen tåler Docker-helsesjekken …» |
@@ -216,7 +216,7 @@ Rettet de åpne funnene som var klart feil og kunne testes: M5, V16 og resten av
 Nå står det «Henter serverens oppbevaringstid …» til svaret kommer (`retentionText(…, pending)`), og sjekken venter på teksten (høyst 5 s). Test: `privacyText.test.ts`, som feilet før.
 
 **Fortsatt åpent, og hvorfor:**
-- **V7 (to faner):** krever fletting av hele `AppState` eller én aktiv fane. Anbefaling i tabellen øverst.
+- **V7 (to faner):** krever fletting av hele `AppState` eller én aktiv fane. Anbefaling i tabellen øverst. **Rettet 2026-11-25 med én aktiv fane** (se «Rettet»).
 - **O5 (delvis resultat ved Tjek-feil):** produktvalg.
 - **O4b (landfilter):** krever ekte Tjek-svar. Anbefaling i tabellen øverst.
 - **V12 («Lag nå»-kryss ved ukeskifte):** produktbeslutning. Anbefaling i tabellen for runde 2. `it.fails`-testen er beholdt.

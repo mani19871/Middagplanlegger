@@ -1,7 +1,12 @@
 // Personvern-arket skal ikke love mer enn koden gjør: tallene må stemme med standardene i server/retention.ts (730 dager).
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RETENTION_DAYS, DEFAULT_TOKEN_IDLE_DAYS } from '../../server/retention';
-import { contactText, draftNoticeText, PRIVACY_CONTACT_EMAIL, retentionText, tokenIdleText, TOKEN_IDLE_DEFAULT_DAYS } from './PrivacySheet';
+import { contactText, controllerText, draftNoticeText, hostingText, PRIVACY_CONTACT_EMAIL, retentionText, tokenIdleText, TOKEN_IDLE_DEFAULT_DAYS } from './PrivacySheet';
+import { readFileSync } from 'node:fs';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createElement } from 'react';
+import PrivacySheet from './PrivacySheet';
+import { initialState } from '../store';
 
 describe('personvern-arket: tidsfrister', () => {
   it('reservetekst uten kjent oppbevaringstid sier standard 730 dager (samme som serverens standard), ikke «12 måneder»', () => {
@@ -45,5 +50,33 @@ describe('personvern-arket: kontakt og utkast-merke', () => {
     expect(t).toMatch(/ikke ferdig vurdert av fagperson/);
     expect(t).toMatch(/ikke bekreftet/);
     expect(t).not.toMatch(/ikke fastsatt/); // gammel tekst om at kontaktadressen ikke er bestemt
+  });
+});
+
+describe('personvern-arket: avstemt mot erklæringen (docs/personvern/02, B5 2026-11-25)', () => {
+  const decl = readFileSync('docs/personvern/02-personvernerklaering.md', 'utf8');
+  const sheet = renderToStaticMarkup(createElement(PrivacySheet, { state: initialState, onClose: () => {} })).replace(/<[^>]+>/g, ' ');
+
+  it('nevner behandlingsansvarlig slik erklæringen gjør, og utkast-merket sier ikke lenger at den mangler', () => {
+    expect(controllerText()).toMatch(/AVVR AS \(org\.nr\. 935941644\)/);
+    expect(decl).toContain('AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim');
+    expect(sheet).toContain('AVVR AS');
+    expect(draftNoticeText()).not.toMatch(/behandlingsansvarlig er ikke/);
+  });
+
+  it('hosting: one.com i Europa, aldri «EØS» før landet er bekreftet, og den delte serveren nevnes', () => {
+    const t = hostingText();
+    expect(t).toMatch(/one\.com/);
+    expect(t).toMatch(/Europa/);
+    expect(t).not.toMatch(/EØS/);
+    expect(t).toMatch(/administratortilgang/);
+    expect(sheet).not.toMatch(/Leverandør er ikke valgt/);
+  });
+
+  it('nevner IP-adressen i minnet, barn og at oppskriftene ikke er kontrollert av en person', () => {
+    expect(sheet).toMatch(/IP-adressen din kort i minnet/);
+    expect(sheet).toMatch(/Barn/);
+    expect(sheet).toMatch(/ikke navn eller alder/);
+    expect(sheet).toMatch(/ingen person har kontrollert\s+allergenene/);
   });
 });

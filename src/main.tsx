@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import TabGate from './views/TabGate';
 import './styles.css';
 
 /**
@@ -16,7 +17,7 @@ function serviceWorkerUrl(): string {
   return policy.createScriptURL('/sw.js') as string;
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(<TabGate><App /></TabGate>);
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   try { navigator.serviceWorker.register(serviceWorkerUrl()).catch(() => {}); } catch { /* uten service worker virker appen som før, bare ikke frakoblet */ }
 }

@@ -1,6 +1,6 @@
 // «Personvern» i appen: hva som lagres på enheten, hva som deles med husstanden (serveren), hvor lenge og hva du kan gjøre.
 // Bygger på docs/personvern/02-personvernerklaering.md, men sier bare det koden faktisk gjør. UTKAST til en fagperson har
-// vurdert teksten og behandlingsansvarlig er fastsatt. Ingen inline-skript eller HTML-strenger (CSP med Trusted Types).
+// vurdert teksten. Behandlingsansvarlig (AVVR AS) og hosting (one.com, Europa) er avstemt mot 02 (2026-11-25). Ingen inline-skript eller HTML-strenger (CSP med Trusted Types).
 import { useEffect, useState } from 'react';
 import { deviceId, type AppState } from '../store';
 import { defaultApi } from '../sync/useSync';
@@ -18,12 +18,25 @@ export const TOKEN_IDLE_DEFAULT_DAYS = 730;
 /** Kontakt-e-post for personvern, oppgitt av eieren 2026-11-22 (felles adresse til nettopp dette bruket). Ikke bekreftet i drift: se draftNoticeText. */
 export const PRIVACY_CONTACT_EMAIL = 'kontakt@husvett.no';
 
-/** Utkast-merket øverst i arket. Fjern «ikke bekreftet»-leddet først når postkassen er satt opp og prøvd (docs/pilot-sjekkliste.md, A5). */
-export function draftNoticeText(): string {
-  return 'Teksten er ikke ferdig vurdert av fagperson, og behandlingsansvarlig er ikke ført inn her ennå. Kontaktadressen er oppgitt av eieren, men det er ikke bekreftet at postkassen er i drift. Den beskriver hva appen gjør i dag. Appen er en pilot.';
+/** Behandlingsansvarlig, som i docs/personvern/02 (eieren 2026-11-22, adressen fra Enhetsregisteret). */
+export const CONTROLLER = 'AVVR AS (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim';
+
+/** Hvem som er ansvarlig for opplysningene. */
+export function controllerText(): string {
+  return `${CONTROLLER} er ansvarlig for opplysningene (behandlingsansvarlig).`;
 }
 
-/** Hvordan du kontakter oss om personvern. Lover ingen svartid; det er ikke bestemt. */
+/** Hvor serveren står og hvem som kan lese databasen. Sier ikke «EØS» før landet er bekreftet (02, Å3), og sier rett ut at serveren er delt (02, Å16). */
+export function hostingText(): string {
+  return 'Serveren leies hos one.com og står i Europa; landet er ikke bekreftet. Serveren deles med et annet prosjekt, og andre med administratortilgang på den kan teknisk lese databasen.';
+}
+
+/** Utkast-merket øverst i arket. Fjern «ikke bekreftet»-leddet først når postkassen er satt opp og prøvd (docs/pilot-sjekkliste.md, A5). */
+export function draftNoticeText(): string {
+  return 'Teksten er ikke ferdig vurdert av fagperson. Kontaktadressen er oppgitt av eieren, men det er ikke bekreftet at postkassen er i drift. Den beskriver hva appen gjør i dag. Appen er en pilot.';
+}
+
+/** Hvordan du kontakter oss om personvern. Lover ingen svartid: hvem som svarer er ikke bestemt (02, Å9), så «innen en måned» står bare i erklæringen. */
 export function contactText(): string {
   return `Spørsmål om personvern, innsyn eller sletting du ikke får gjort i appen: skriv til ${PRIVACY_CONTACT_EMAIL} og oppgi enhets-id-en over. Send aldri nøkkelen eller invitasjonskoder.`;
 }
@@ -78,8 +91,13 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
         <li><b>Postnummer, allergier og kostkrav blir alltid på denne enheten.</b> De sendes aldri til serveren, heller ikke når du
           deler husstand. Filteret virker bare på enheten der det er lagt inn: legg det inn på hver enhet som lager planer.</li>
         <li>Appen kan ikke garantere at en vare er fri for allergener. Les alltid varedeklarasjonen.</li>
+        <li>Oppskriftene er demooppskrifter eller utkast skrevet med hjelp av KI. De er ikke testkokt, og ingen person har kontrollert
+          allergenene. Når et allergi-, kost- eller råvarefilter er på, skjules KI-utkastene. Appen sender ingenting om deg til noen KI-tjeneste.</li>
         <li>Vi selger ikke opplysninger og bruker dem ikke til reklame. Appen har ingen sporing eller reklame.</li>
       </ul>
+
+      <h3>Hvem er ansvarlig</h3>
+      <p>{controllerText()}</p>
 
       <h3>Bare på denne enheten</h3>
       <ul className="plain">
@@ -114,13 +132,15 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
       <p className="fine">Tilbud hentes av serveren fra Tjek og lagres der uten noe om deg eller husstanden. Ingenting om deg eller husstanden sendes til Tjek.
         Unntak: når du åpner et tilbud med bilde eller blar i en kundeavis fra Tjek, henter enheten din bildene direkte fra Tjek, som da ser
         IP-adressen din.</p>
+      <p className="fine">Serveren bruker IP-adressen din kort i minnet for å stoppe misbruk (for mange forespørsler). Den lagres ikke i husstandens
+        data og glemmes når serveren starter på nytt.</p>
 
       <h3>Hvem ser det</h3>
       <ul className="plain">
         <li>Alle voksne enheter i husstanden ser og kan endre alt som deles.</li>
         <li>Den som har en gyldig invitasjonskode (virker én gang, i 24 timer), kan bli med uten at eieren godkjenner. Del koden bare med
           den du vil invitere.</li>
-        <li>De som drifter serveren, har tilgang ved behov for drift og feilretting. Leverandør er ikke valgt ennå.</li>
+        <li>De som drifter serveren, har tilgang ved behov for drift og feilretting. {hostingText()}</li>
       </ul>
 
       <h3>Hvor lenge</h3>
@@ -131,6 +151,10 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
         <li>En fjernet enhet blir stående som «Tidligere medlem» med enhets-id, og endringene den gjorde blir liggende, til husstanden slettes.</li>
         <li>Sikkerhetskopier av serveren kan inneholde slettede data en tid etter slettingen. Hvor lenge er ikke endelig bestemt (forslag: 30 dager).</li>
       </ul>
+
+      <h3>Barn</h3>
+      <p className="fine">Appen er ment for voksne som planlegger for familien. For barn lagres bare en etikett og en porsjonsstørrelse
+        (for eksempel «Barn 1», 0,6 porsjon), ikke navn eller alder. Barn skal ikke opprette egen husstand.</p>
 
       <h3>Det du kan gjøre</h3>
       <ul className="plain">
