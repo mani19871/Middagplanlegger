@@ -154,3 +154,11 @@ main:focus { outline:none; }
 .housecard .ghost.sm { min-height:44px; margin-top:auto; }
 .housecard .pill { max-width:100%; white-space:normal; }
 .housetotal { margin-top:8px; }
+/* Introduksjon (pilot) og Hjelp: ikke modal, ligger øverst i innholdet. Trykkflater minst 44 px. */
+.intro { border:2px solid var(--g); margin-top:12px; } .intro p { margin:6px 0; } .intro .introstep { margin:0 0 2px; }
+.intro h2:focus { outline:none; } .intro h2:focus-visible { outline:3px solid var(--focus); }
+.intronav { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin-top:8px; }
+.intronav .ghost, .intro .link, .foot .link { min-height:44px; } .intronav .primary { background:var(--g); color:var(--onG); border-color:var(--g); font-weight:700; }
+a.ghost.mail { display:inline-flex; align-items:center; min-height:44px; color:var(--ink); text-decoration:none; }
+.addr { user-select:all; overflow-wrap:anywhere; }
+.foot { flex-wrap:wrap; gap:0 12px; }

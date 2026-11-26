@@ -25,7 +25,8 @@ const TEXT = 'Kopi av opplysningene Husvett har om deg og husstanden din. «enhe
   + 'markeringene «har / snart tom / tom» i beholdningsloggen (type «nivå»); i en husstand er begge også delt med de '
   + 'andre voksne. Husholdningsvarer på handlelista («Andre varer») er manuelle linjer i handlelista med id som begynner på '
   + '«hus:» (varenavn, kjede og en henvisning til tilbudet hos Tjek), og varegruppene dere følger står i innstillingene '
-  + '(settings.householdGroups). Tilbud og priser fra Tjek er ikke opplysninger om deg og er ikke med. '
+  + '(settings.householdGroups). «introSeen» betyr at introduksjonen er lukket på denne enheten, så den ikke vises av seg '
+  + 'selv igjen; den deles ikke med husstanden og sendes ikke til serveren. Tilbud og priser fra Tjek er ikke opplysninger om deg og er ikke med. '
   + 'Formatet er JSON og kan leses av andre programmer.';
 
 export function buildExport(state: AppState, deviceId: string, now: string, server: ServerExport | null, serverNote?: string): DeviceExport {

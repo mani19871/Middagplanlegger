@@ -194,5 +194,27 @@ Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. A, B og C er bygd
 - Med filter på blir basen 31 demoretter, så variasjonen i planen og «Lag nå» blir mindre.
 - Nye utkast i `catalog.ts` dekkes automatisk av regelen.
 
+## Pilot: introduksjon og «Gi tilbakemelding» (2026-11-26)
+
+Bygget for den lukkede piloten (fase 1, ingen KI, ingen nye synkede data).
+
+**Introduksjon** (`src/views/Intro.tsx`, `showIntro`/`closeIntro` i `src/store.ts`): fem korte steg øverst i innholdet første gang appen åpnes på en enhet: hva Husvett er; pilot og DEMODATA (butikker, priser, aviser merket «demo»; oppskriftene er demo eller KI-utkast, ikke testkokt), summen er anslått, tilbud fra Tjek med «Kilde: Tjek» og dato; allergier (appen garanterer aldri allergenfrihet, allergener ikke kontrollert av en person, filtre bare på denne enheten og på hver enhet, utkast skjules med filter); husstand (opprett, bli med med kode, bare eieren inviterer, 24 timer); hvor «Personvern» (utkast), «Last ned mine data» og «Slett alt på denne enheten» står. Tekstene bygger på `pilot-deltakerinfo.md`.
+- Ikke en modal: et navngitt område (`aria-label="Introduksjon til Husvett"`), appen under kan brukes hele tiden. «Steg n av 5» som tekst, «← Forrige», «Neste →», «Ferdig» og «Hopp over introduksjonen». Fokus flyttes til stegets overskrift ved bytte, og til innholdet (eller «Vis introduksjonen igjen») ved lukking.
+- Markøren `introSeen` (AppState) settes når introduksjonen lukkes (hoppet over eller ferdig). Lokal: ingen hendelse, ikke i plan- eller innstillingsdokumentet, påvirker ingen kurv eller sum. Er med i «Last ned mine data» under `enhet.lagretPåEnheten`, og forklaringen i filen sier hva den er og at den ikke deles. Personvern-arket nevner den under «Bare på denne enheten». «Slett alt på denne enheten» fjerner den, så introduksjonen vises igjen.
+- Åpnes igjen fra Husstand → «Hjelp og tilbakemelding» → «Vis introduksjonen igjen» (uten å endre markøren). Ny lenke «Hjelp» nederst på hver side går dit.
+
+**Gi tilbakemelding** (`src/views/feedback.ts`, `src/views/HelpCard.tsx`): mailto-lenke til `CONTACT_EMAIL` (`kontakt@husvett.no`, én konstant som personvern-arket også bruker; **ikke bekreftet at postkassen virker**, A5) med emne og mal («Hva gjorde du? / Hva skjedde? / Hva forventet du?»). Lenken bygges uten tilstand, så ingen enhets-id, etikett, allergi, postnummer eller nøkkel kommer med. Teksten sier at e-posten sendes fra brukerens egen e-postapp, at appen ikke sender noe, og at vi ser avsenderadressen. Adressen står også som tekst med «Kopier adressen» (melding i status-område). Ingen svarfrist lovet.
+
+**Bevis (skrevet før koden og sett røde):**
+- `src/acceptance/introduksjon-ui.test.tsx` (server-rendret): vises første gang og for eldre tilstand uten markør, ikke etter lukking; ikke modal og appen er der; 4–5 steg med «Steg n av N», overskrift med fokusmål og knapper med navn; innholdet (demodata, Kilde: Tjek og dato, anslått, aldri garanti, bare på denne enheten/hver enhet, bare eieren inviterer, Personvern/Last ned mine data/Slett alt, utkast); løfteord bare benektet; ingen svarfrist, EØS, kryptering eller anonymitet; Husstand med og uten husstand har Hjelp, mailto og kopier-knapp; mailto uten enhets-id, etikett, postnummer, allergier eller nøkkel; dokumentene og utboksene er like med og uten markør; eksport og personvern-ark forklarer markøren.
+- `src/sync/engine.test.ts` «introduksjonsmarkøren (introSeen) er lokal»: mot ekte testserver får den andre enheten den ikke, og serverens eksport nevner den ikke.
+- `npm run check:a11y` (360 og 420 px): introduksjonen vises første gang som område uten dialog, 44 px, steg med tastatur og fokus på overskriften, «Hopp over» lukker og den kommer ikke igjen etter omlasting, «Hjelp» → fokus på «Hjelp og tilbakemelding», mailto uten enhets-id, adressen som tekst, kopier gir melding, «Vis introduksjonen igjen» og «Ferdig» gir fokus tilbake.
+
+**Ikke testet / åpent:**
+- Ikke prøvd med skjermleser (VoiceOver/TalkBack) eller på ekte telefon. Om mailto åpner en e-postapp, avhenger av telefonen; ikke prøvd.
+- `kontakt@husvett.no` er ikke bekreftet i drift (A5). Byttes i `src/views/feedback.ts`.
+- Introduksjonen viser personvern-arket som det er (UTKAST, avvikene i sjekklisten B5 er ikke rettet her).
+- Teksten i introduksjonen er ikke godkjent av eieren (samme som deltakerinfoen, B12).
+
 ## Hvordan kjøre kontrollen på nytt
 `npx tsc --noEmit && npx vitest run && npx vite build`. Nettleserflyten er ikke en sjekket inn test (Playwright er ikke avhengighet i repoet); stegene over kan gjentas manuelt på 420 px mot `npx tsx server/index.ts` etter bygg.

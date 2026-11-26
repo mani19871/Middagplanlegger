@@ -63,6 +63,11 @@ export interface AppState {
    * (engine/cookNow.ts). Bare på denne enheten, synkes ikke og endrer aldri beholdningsloggen.
    */
   cookNow?: CookNowLocal;
+  /**
+   * Introduksjonen (src/views/Intro.tsx) er lukket på denne enheten: hoppet over eller fullført. Bare lokalt, synkes aldri
+   * (ingen hendelse, ikke i noe dokument) og påvirker ingen plan, kurv eller sum. Mangler = vis introduksjonen.
+   */
+  introSeen?: boolean;
 }
 export const initialState: AppState = {
   settings: defaultSettings, slots: [], approved: false, option: 'regular', postal: '',
@@ -159,6 +164,11 @@ export function recordVersion(s: AppState, v: PlanVersion): AppState {
   const planHistory = addVersion(prev, v);
   return planHistory === prev ? s : { ...s, planHistory, versionOutbox: enqueue(s.versionOutbox ?? [], v) };
 }
+
+/** Vises introduksjonen? Første gang på enheten (til den er lukket), eller når brukeren har åpnet den igjen (Husstand → Hjelp). */
+export const showIntro = (s: AppState, reopened = false): boolean => reopened || !s.introSeen;
+/** Lukker introduksjonen på denne enheten. Lokalt felt, ingen utboks. Idempotent. */
+export const closeIntro = (s: AppState): AppState => (s.introSeen ? s : { ...s, introSeen: true });
 
 /** Ny hendelses-id og tidspunkt. Hører hjemme utenfor motoren. */
 export const stamp = () => ({ id: crypto.randomUUID(), at: new Date().toISOString(), by: deviceId() });

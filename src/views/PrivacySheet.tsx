@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { deviceId, type AppState } from '../store';
 import { defaultApi } from '../sync/useSync';
 import { Sheet } from './Sheet';
+import { CONTACT_EMAIL } from './feedback';
 
 interface Props {
   state: AppState; onClose: () => void;
@@ -15,8 +16,8 @@ interface Props {
 /** Standard tokenutløp på serveren (`DEFAULT_TOKEN_IDLE_DAYS` i server/retention.ts; testet mot den). Serveren oppgir ikke tallet til appen. */
 export const TOKEN_IDLE_DEFAULT_DAYS = 730;
 
-/** Kontakt-e-post for personvern, oppgitt av eieren 2026-11-22 (felles adresse til nettopp dette bruket). Ikke bekreftet i drift: se draftNoticeText. */
-export const PRIVACY_CONTACT_EMAIL = 'kontakt@husvett.no';
+/** Kontakt-e-post for personvern, oppgitt av eieren 2026-11-22 (felles adresse til nettopp dette bruket). Ikke bekreftet i drift: se draftNoticeText. Byttes i feedback.ts. */
+export const PRIVACY_CONTACT_EMAIL = CONTACT_EMAIL;
 
 /** Utkast-merket øverst i arket. Fjern «ikke bekreftet»-leddet først når postkassen er satt opp og prøvd (docs/pilot-sjekkliste.md, A5). */
 export function draftNoticeText(): string {
@@ -86,6 +87,7 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
         <li>Postnummer (for «Nær meg» i kundeavisene), allergier og kostkrav (vegetar, allergener, matvarer som skal unngås).</li>
         <li>En kopi av planen, innstillingene, handlelista, matskapet, valg i butikken og tidligere lister, så appen virker uten nett.</li>
         <li>Det du krysser av eller merker «må brukes snart» i «Lag nå». Det deles ikke med husstanden og endrer ikke matskapet.</li>
+        <li>At introduksjonen er lukket her, så den ikke vises av seg selv igjen. Det deles ikke med husstanden.</li>
         <li>En tilfeldig enhets-id: <code>{deviceId()}</code>. Oppgi den hvis du kontakter oss om personvern (se «Det du kan gjøre»).</li>
         <li>Hvis enheten er med i en husstand: nøkkelen som viser at den er med. Den som får bruke en ulåst telefon eller
           nettleserprofil, kan bruke nøkkelen. Lås telefonen, og be eieren fjerne enheten hvis du mister den.</li>
@@ -140,6 +142,8 @@ export default function PrivacySheet({ state, onClose, retentionDays }: Props) {
         <li><b>Slette:</b> eieren sletter husstanden og alle data på serveren (Husstand → Slett). Andre kan forlate husstanden.
           «Slett alt på denne enheten» på Husstand-skjermen fjerner det som er lagret her.</li>
         <li><b>Kontakt:</b> {contactText()}</li>
+        <li><b>Tilbakemelding:</b> «Gi tilbakemelding» under Husstand → Hjelp åpner en e-post i din egen e-postapp. Appen sender
+          ingenting selv og legger ingenting fra enheten inn i e-posten, men vi ser e-postadressen du sender fra.</li>
         <li><b>Klage:</b> du kan klage til Datatilsynet (datatilsynet.no).</li>
       </ul>
       <button className="ghost" onClick={onClose}>Lukk</button>

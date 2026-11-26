@@ -10,6 +10,7 @@ import type { SyncRuntime } from '../sync/useSync';
 import type { SyncStatus } from '../sync/engine';
 import { Sheet } from './Sheet';
 import PrivacySheet from './PrivacySheet';
+import { HelpCard } from './HelpCard';
 import { buildExport, exportFileName, exportText } from '../sync/export';
 import type { ServerExport } from '../sync/protocol';
 
@@ -18,6 +19,8 @@ interface Props {
   statusText: string; purchaseConflicts: number; initialCode: string; openList: () => void;
   /** Konflikter i handlelista som chipen «⚠ Konflikt» også teller: ulike valg på linjer og ulike godkjente lister (V10). */
   listConflicts?: { lines: number; approved: boolean };
+  /** Åpner introduksjonen igjen (Hjelp). */
+  openIntro?: () => void;
 }
 const DOC_TEXT: Record<DocName, string> = { plan: 'Ukeplanen', innstillinger: 'Innstillingene' };
 const time = (iso: string | null) => (iso ? new Date(iso).toLocaleString('nb-NO', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'aldri');
@@ -32,7 +35,7 @@ function saveFile(name: string, text: string) {
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
-export default function HouseholdView({ state, update, runtime, status, statusText, purchaseConflicts, initialCode, openList, listConflicts }: Props) {
+export default function HouseholdView({ state, update, runtime, status, statusText, purchaseConflicts, initialCode, openList, listConflicts, openIntro }: Props) {
   const sync = state.sync;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +88,7 @@ export default function HouseholdView({ state, update, runtime, status, statusTe
           </div>
         )}
       </div>
+      <HelpCard openIntro={openIntro} />
       {privacy && <PrivacySheet state={state} retentionDays={info?.retentionDays} onClose={() => setPrivacy(false)} />}
     </>
   );

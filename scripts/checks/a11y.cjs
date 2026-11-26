@@ -10,6 +10,9 @@
 //  - fokus (V16): etter handlinger som fjerner eller deaktiverer knappen havner fokus aldri på <body> (Åpne «Lag nå», Legg manglende,
 //    Åpne handlelista, godkjenn basisvare, Legg på lista, siste avisside, ← Tilbake fra en avis)
 //  - «Lag nå» (V17): ugyldig mengde gir en melding i et status-område
+//  - introduksjon (pilot): vises første gang som navngitt område (ikke modal), steg med tastatur og fokus på stegets overskrift,
+//    44 px, «Hopp over» lukker og den kommer ikke igjen etter omlasting; Hjelp nederst → Husstand, «Gi tilbakemelding» er en
+//    mailto-lenke uten enhets-id, kopier adressen gir en melding, «Vis introduksjonen igjen» og «Ferdig» gir fokus tilbake
 // Bruk: node scripts/checks/a11y.cjs
 const { chromium } = require('playwright');
 const url = process.env.APP_URL || 'http://localhost:5173/';
@@ -49,6 +52,42 @@ const unnamed = (p) => p.evaluate(() => {
     const scrollOk = async (n) => { const o = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth); ok(o <= 0, `${w}px ${n}: ingen horisontal scrolling`); };
     await p.goto(url); await p.waitForSelector('text=Lag ukeplan');
     let bad = await unnamed(p); ok(bad.length === 0, `${w}px skjema: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('skjema');
+    // Introduksjon (pilot): første gang på enheten, ikke modal, kan brukes med tastatur, hoppes over og åpnes igjen fra Hjelp.
+    const intro = p.getByRole('region', { name: 'Introduksjon til Husvett' });
+    ok(await intro.count() === 1, `${w}px introduksjon: vises første gang på enheten`);
+    ok(await p.getByRole('dialog').count() === 0 && await p.getByRole('tablist').count() === 1, 'introduksjon: ikke en modal, fanene er der');
+    ok(await intro.getByText('Steg 1 av 5').count() === 1, 'introduksjon: «Steg 1 av 5» som tekst');
+    await scrollOk('introduksjon');
+    const smallI = await p.evaluate(() => [...document.querySelectorAll('.intro button')].filter((e) => e.getClientRects().length).map((e) => ({ c: e.textContent, h: e.getBoundingClientRect().height })).filter((r) => r.h < 43.5));
+    ok(smallI.length === 0, `${w}px introduksjon: trykkflater minst 44 px høye ${JSON.stringify(smallI.slice(0, 3))}`);
+    await intro.getByRole('button', { name: /Neste/ }).focus(); await p.keyboard.press('Enter');
+    let f0 = await focused(p); ok(f0 === 'h2:En pilot med demodata', `introduksjon: «Neste» gir fokus på stegets overskrift (${f0})`);
+    ok(await intro.getByText('Steg 2 av 5').count() === 1 && await intro.getByText(/DEMODATA/).count() === 1, 'introduksjon: steg 2 sier DEMODATA');
+    await intro.getByRole('button', { name: /Forrige/ }).focus(); await p.keyboard.press('Enter');
+    f0 = await focused(p); ok(f0 === 'h2:Velkommen til Husvett', `introduksjon: «Forrige» gir fokus på overskriften (${f0})`);
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px introduksjon: alle kontroller har navn ${bad.join(' | ')}`);
+    await intro.getByRole('button', { name: 'Hopp over introduksjonen' }).focus(); await p.keyboard.press('Enter');
+    ok(await intro.count() === 0, 'introduksjon: «Hopp over» lukker');
+    f0 = await focused(p); ok(f0.startsWith('main:'), `introduksjon: etter «Hopp over» er fokus i innholdet, ikke på body (${f0.slice(0, 20)})`);
+    await p.reload(); await p.waitForSelector('text=Lag ukeplan');
+    ok(await intro.count() === 0, 'introduksjon: vises ikke igjen etter omlasting');
+    await p.getByRole('button', { name: 'Hjelp', exact: true }).focus(); await p.keyboard.press('Enter');
+    f0 = await focused(p); ok(f0 === 'h3:Hjelp og tilbakemelding', `Hjelp nederst: Husstand åpnes med fokus på «Hjelp og tilbakemelding» (${f0})`);
+    const mail = p.getByRole('link', { name: /Gi tilbakemelding/ });
+    const href = (await mail.getAttribute('href')) ?? '';
+    const devId = await p.evaluate(() => localStorage.getItem('middag-enhet') ?? 'enhet-');
+    ok(href.startsWith('mailto:kontakt@husvett.no?subject=') && !href.includes(devId) && !decodeURIComponent(href).includes('enhet-'), 'Gi tilbakemelding: mailto med emne, uten enhets-id');
+    ok(await p.getByText('kontakt@husvett.no', { exact: true }).count() === 1, 'Gi tilbakemelding: adressen står som tekst');
+    await p.getByRole('button', { name: /Kopier adressen/ }).click();
+    ok(await p.getByRole('status').filter({ hasText: /Adressen er kopiert|Kopiering ble blokkert/ }).waitFor({ timeout: 4000 }).then(() => true, () => false), 'Kopier adressen: melding i et status-område');
+    bad = await unnamed(p); ok(bad.length === 0, `${w}px Husstand med Hjelp: alle kontroller har navn ${bad.join(' | ')}`); await scrollOk('Husstand med Hjelp');
+    await p.getByRole('button', { name: 'Vis introduksjonen igjen' }).focus(); await p.keyboard.press('Enter');
+    f0 = await focused(p); ok(f0 === 'h2:Velkommen til Husvett', `«Vis introduksjonen igjen»: fokus på første steg (${f0})`);
+    for (let i = 0; i < 4; i++) { await intro.getByRole('button', { name: /Neste/ }).focus(); await p.keyboard.press('Enter'); }
+    ok(await intro.getByText('Steg 5 av 5').count() === 1 && await intro.getByRole('button', { name: /Neste/ }).count() === 0, 'introduksjon: siste steg har «Ferdig», ikke «Neste»');
+    await intro.getByRole('button', { name: 'Ferdig' }).focus(); await p.keyboard.press('Enter');
+    f0 = await focused(p); ok(await intro.count() === 0 && f0 === 'button:Vis introduksjonen igjen', `«Ferdig» lukker, fokus tilbake på knappen som åpnet (${f0})`);
+    await p.getByRole('tab', { name: 'Uka' }).click(); await p.waitForSelector('text=Lag ukeplan');
     await p.getByText('Lag ukeplan').click();
     await scrollOk('ukeplan');
     ok(await p.getByRole('tablist').count() === 1 && await p.getByRole('tab').count() === 4, 'tablist med 4 tabs');

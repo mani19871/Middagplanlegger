@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { catalog } from './data/catalog';
 import { generatePlan } from './engine/planner';
-import { hasDietFilter, recordEvent, usePersistentState } from './store';
+import { closeIntro, hasDietFilter, recordEvent, showIntro, usePersistentState } from './store';
 import { conflicts, deriveStock, type InventoryEvent } from './engine/inventory';
 import HouseholdView from './views/HouseholdView';
 import PrivacySheet from './views/PrivacySheet';
+import Intro from './views/Intro';
 import { useSync } from './sync/useSync';
 import { syncErrorText } from './sync/api';
 import { pendingCount, syncStatus, type SyncStatus } from './sync/engine';
@@ -61,6 +62,13 @@ export default function App() {
   const filterBanner = otherMembers > 0 && !hasDietFilter(state.settings) && !state.filterBannerDismissed;
   const [mode, setMode] = useState<Mode>('home');
   const [privacy, setPrivacy] = useState(false);
+  // Introduksjonen: første gang på enheten (lokal markør, synkes ikke), eller åpnet igjen fra Husstand → Hjelp.
+  const [introAgain, setIntroAgain] = useState(false);
+  const [introKey, setIntroKey] = useState(0);
+  const intro = showIntro(state, introAgain);
+  const openIntro = () => { setIntroAgain(true); setIntroKey((n) => n + 1); focusAfterRender('intro-tittel'); };
+  const endIntro = () => { update(closeIntro); setIntroAgain(false); focusAfterRender('intro-igjen', 'panel'); };
+  const openHelp = () => { setTab('Husstand'); focusAfterRender('hjelp-tittel'); };
   const [pantryMode, setPantryMode] = useState<'skap' | 'lagnå' | 'basis'>('skap');
   const [papersReset, setPapersReset] = useState(0); // trykk på aktiv fane nullstiller åpen utgave/detalj
   const adults = state.settings.eaters.filter((e) => e.portion >= 1).length;
@@ -129,6 +137,8 @@ export default function App() {
       </header>
       <p className="demo">Demodata: butikker, priser og aviser er oppdiktet, og rettene har emoji i stedet for bilder.</p>
       <main id="panel" role="tabpanel" {...(tab === 'Husstand' ? { 'aria-label': 'Husstand' } : { 'aria-labelledby': `tab-${tab}` })} tabIndex={-1}>
+        {intro && <Intro key={introKey} onClose={endIntro} openPrivacy={() => setPrivacy(true)}
+          goFilter={() => { setTab('Uka'); setMode('edit'); }} goHousehold={() => setTab('Husstand')} />}
         {filterBanner && (
           <div className="banner warn" role="status">Ingen allergi- eller kostfilter er satt på denne enheten. Planen kan inneholde
             allergener. Sjekk innholdet, eller legg inn filter. (Filtre deles ikke mellom enhetene i husstanden.)
@@ -150,7 +160,7 @@ export default function App() {
         {tab === 'Kundeaviser' && <PapersView state={state} update={update} ctx={ctx} goWeek={() => setTab('Uka')} resetKey={papersReset} house={house} />}
         {tab === 'Handleliste' && <ListView state={state} update={update} record={record} week={week} basket={basket} offerTotal={offerTotal} approvedHints={approvedHints} syncText={statusText} kit={kit} houseMatches={houseMatches} />}
         {tab === 'Husstand' && <HouseholdView state={state} update={update} runtime={runtime} status={status} statusText={statusText}
-          purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={openList} listConflicts={{ lines: lineConflicts, approved: listConflict }} />}
+          purchaseConflicts={purchaseConflicts} initialCode={inviteCode} openList={openList} listConflicts={{ lines: lineConflicts, approved: listConflict }} openIntro={openIntro} />}
         {tab === 'Matskap' && (
           <>
             <div className="chips tabs" role="group" aria-label="Matskap, Lag nå eller Basisvarer">
@@ -165,7 +175,8 @@ export default function App() {
                 : <PantryView state={state} record={record} week={week} ctx={ctx} basket={basket} openCookNow={() => { setPantryMode('lagnå'); focusAfterRender('lagna-tittel'); }} />}
           </>
         )}
-        <footer className="foot"><button className="link" onClick={() => setPrivacy(true)}>Personvern</button></footer>
+        <footer className="foot"><button className="link" onClick={() => setPrivacy(true)}>Personvern</button>
+          <button className="link" onClick={openHelp}>Hjelp</button></footer>
       </main>
       {privacy && <PrivacySheet state={state} onClose={() => setPrivacy(false)} />}
       <nav role="tablist" aria-label="Hovedmeny" onKeyDown={(e) => {

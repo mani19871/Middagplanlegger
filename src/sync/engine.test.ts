@@ -75,6 +75,21 @@ async function pair() {
 }
 const ids = (s: AppState) => s.inventory.map((e) => e.id).sort();
 
+describe('introduksjonsmarkøren (introSeen) er lokal', () => {
+  it('synkes ikke: den andre enheten får den ikke, serveren har den ikke, og tilkobling eller gjenoppretting endrer den ikke', async () => {
+    const a = new Device('enhet-aaaa1111', { ...initialState, introSeen: true });
+    const b = new Device('enhet-bbbb2222');
+    await a.create('Voksen 1');
+    expect(a.state.introSeen).toBe(true);
+    await b.join(await a.invite());
+    await a.sync(); await b.sync(); await a.sync();
+    expect(b.state.introSeen).toBeUndefined();
+    expect(a.state.introSeen).toBe(true);
+    const server = await a.api.withToken(a.state.sync!.token).exportData();
+    expect(JSON.stringify(server)).not.toMatch(/intro/i);
+  });
+});
+
 describe('synk mellom to enheter', () => {
   it('en avkrysning vises hos den andre med hvem som krysset av', async () => {
     const { a, b } = await pair();

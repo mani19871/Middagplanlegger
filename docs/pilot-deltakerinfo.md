@@ -45,7 +45,7 @@ Den som har en invitasjonskode (gyldig i 24 timer, brukes én gang) kommer rett 
 - Sikkerhetskopier av serveren kan inneholde slettede data en kort tid etter slettingen.
 - **Oppbevaring:** hvis ingen telefon i en husstand har vært i kontakt med serveren på **730 dager** (om lag to år), slettes husstanden automatisk. Vi har ingen kontaktinformasjon og kan ikke varsle på forhånd. Appen åpen på nett holder husstanden i live.
 
-Mer detaljer står i «Personvern» i appen (Husstand-skjermen).
+Mer detaljer står i «Personvern» i appen (Husstand-skjermen). Første gang du åpner appen, viser den en kort introduksjon med det viktigste herfra. Du kan hoppe over den og åpne den igjen under Husstand → «Hjelp og tilbakemelding».
 
 ### Hvem er ansvarlig, og hvem kan du kontakte?
 
@@ -53,7 +53,7 @@ Ansvarlig er **AVVR AS** (org.nr. 935941644), Smedalsvegen 14, 2067 Jessheim. Sp
 
 ### Tilbakemelding og å trekke seg
 
-- Send tilbakemelding til **kontakt@husvett.no**: hva du gjorde, hva du forventet, og hva som skjedde. Skjermbilder er velkomne, men uten navn, nøkler eller koder.
+- Send tilbakemelding til **kontakt@husvett.no**: hva du gjorde, hva du forventet, og hva som skjedde. I appen ligger «Gi tilbakemelding» under Husstand → «Hjelp og tilbakemelding»; den åpner en ferdig påbegynt e-post i din egen e-postapp, og appen sender ingenting selv. Skjermbilder er velkomne, men uten navn, nøkler eller koder.
 - Si fra med en gang hvis du ser **noe som kan gi feil allergiinformasjon**, hvis noe du har lagret **er borte**, hvis du ser **en annens data**, eller hvis en nøkkel eller kode har havnet et sted den ikke skal.
 - Du kan **avvise eller slutte når som helst**, uten å begrunne det: slett husstanden eller forlat den, slett alt på telefonen, og avinstaller appen.
 
