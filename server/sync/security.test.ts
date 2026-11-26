@@ -643,6 +643,31 @@ describe('ratebegrensning på åpne endepunkter (kodegjennomgang S6, O8)', () =>
     expect([...codes]).toEqual([200]);
     expect((await req('/healthz')).status).toBe(429);
   });
+  it('S6/drift: de ekstra tallene i /healthz hentes ikke over grensen (429 uten kall), ikke for HEAD, og kommer aldri med uten at databasen er spurt først', async () => {
+    await srv.close();
+    let extras = 0;
+    srv = await start({
+      trustProxy: true, limits: { ipPerMin: 100_000, devicePerMin: 100_000, createPerHour: 1000, joinPer10Min: 1000, healthPerMin: 2 },
+      healthExtra: () => { extras++; return { offersLastRunAgeMinutes: 7 }; },
+    });
+    const ip = { headers: { 'X-Forwarded-For': '203.0.113.9' } };
+    const bodies = [];
+    for (let i = 0; i < 3; i++) { const r = await req('/healthz', ip); bodies.push([r.status, await r.json()]); }
+    expect(bodies[0]).toEqual([200, { status: 'ok', dbOk: true, offersLastRunAgeMinutes: 7 }]);
+    expect(bodies[2][0]).toBe(429);
+    expect(JSON.stringify(bodies[2][1])).not.toContain('offers');
+    expect(extras).toBe(2);
+    srv.advance(60_000);
+    expect((await req('/healthz', { ...ip, method: 'HEAD' })).status).toBe(200);
+    expect(extras).toBe(2); // HEAD har ikke svarkropp og henter ingenting
+    expect(logs.join('\n')).not.toMatch(/203\.0\.113/);
+  });
+  it('drift: /healthz svarer likt med og uten innloggingsopplysninger, og et ugyldig token gir ikke 401 (åpent og anonymt)', async () => {
+    const a = await req('/healthz');
+    const b = await req('/healthz', { headers: { Authorization: 'Bearer ugyldig' } });
+    expect([a.status, b.status]).toEqual([200, 200]);
+    expect(await b.json()).toEqual(await a.json());
+  });
   it('O8: /api/offers (live) har grense per IP med norsk feilkode, før svaret bygges og før noe oppslag mot Tjek', async () => {
     const { createLiveOffersHandler } = await import('../offers/live');
     let clock = Date.parse('2026-11-23T10:00:00.000Z');

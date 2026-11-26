@@ -52,7 +52,12 @@ try {
   start();
   await ready();
   const h = await fetch(BASE + '/healthz');
-  check(h.status === 200 && (await h.json()).status === 'ok', '/healthz gir 200 {"status":"ok"}');
+  const hb = await h.json();
+  check(h.status === 200 && hb.status === 'ok', '/healthz gir 200 med status «ok»');
+  // Driftsstatus (docs/drift/driftstatus.sh): bare tall og ja/nei, aldri tekst eller antall husstander.
+  check(hb.dbOk === true && hb.offersFetch === false && hb.offersLastRunAgeMinutes === null && hb.offersDbOk === true
+    && Object.entries(hb).every(([k, v]) => k === 'status' || typeof v === 'number' || typeof v === 'boolean' || v === null),
+  '/healthz har dbOk og tilbudstall (henting av i røyktesten), ellers bare tall og ja/nei');
   const root = await fetch(BASE + '/');
   const html = await root.text();
   check(root.status === 200 && html.includes('<div id="root"'), 'GET / serverer den bygde appen');

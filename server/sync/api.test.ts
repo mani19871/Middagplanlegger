@@ -348,11 +348,48 @@ describe('helsesjekk, gjenoppretting og dokumentslekt', () => {
   it('GET /healthz svarer uten autentisering og uten innhold; 503 når databasen ikke svarer', async () => {
     const r = await raw('/healthz');
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ status: 'ok' });
+    expect(await r.json()).toEqual({ status: 'ok', dbOk: true });
     expect(r.headers.get('cache-control')).toBe('no-store');
     expect((await raw('/healthz', { method: 'HEAD' })).status).toBe(200);
     await srv.storage.close();
-    expect((await raw('/healthz')).status).toBe(503);
+    const down = await raw('/healthz');
+    expect(down.status).toBe(503);
+    expect(await down.json()).toEqual({ status: 'feil', dbOk: false });
+  });
+
+  it('GET /healthz tar med healthExtra (driftsstatus): bare tall og ja/nei; HEAD uten innhold; status følger bare synk-databasen', async () => {
+    await srv.close();
+    srv = await startTestServer({ healthExtra: () => ({ offersLastRunAgeMinutes: 42, offersFetch: true, offersDbOk: null }) });
+    const r = await raw('/healthz');
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ status: 'ok', dbOk: true, offersLastRunAgeMinutes: 42, offersFetch: true, offersDbOk: null });
+    const head = await raw('/healthz', { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe('');
+  });
+
+  it('healthExtra kan ikke slippe ut tekst, objekter eller felt som overstyrer status og dbOk; en feil i den gir fortsatt svar uten detaljer i loggen', async () => {
+    const logs: string[] = [];
+    await srv.close();
+    srv = await startTestServer({
+      log: (m) => logs.push(m),
+      healthExtra: () => ({ status: 'hemmelig', dbOk: false, token: 'abc', households: { n: 3 }, minutes: 5 } as never),
+    });
+    expect(await (await raw('/healthz')).json()).toEqual({ status: 'ok', dbOk: true, minutes: 5 });
+    await srv.close();
+    srv = await startTestServer({ log: (m) => logs.push(m), healthExtra: () => { throw new Error('SECRET-DETALJ i melding'); } });
+    const r = await raw('/healthz');
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ status: 'ok', dbOk: true });
+    expect(logs.join('\n')).toContain('helsesjekk: ekstra tall feilet (Error)');
+    expect(logs.join('\n')).not.toContain('SECRET-DETALJ');
+  });
+
+  it('/healthz sier aldri noe om husstander, enheter eller hendelser, selv om databasen har data', async () => {
+    const { A } = await household();
+    await A.push([telling('t1', 'enhet-aaaa1111')]);
+    const body = await (await raw('/healthz')).json();
+    expect(Object.keys(body).sort()).toEqual(['dbOk', 'status']);
   });
 
   it('cursor står alltid på en hendelse (ankeret), også når dokumenter er skrevet etterpå (S2)', async () => {

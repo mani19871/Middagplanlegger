@@ -13,6 +13,7 @@ import { collectOffers, type LiveOffer } from '../src/offers/service';
 import type { NormalizedOffer } from '../src/offers/types';
 import { TjekSource } from '../src/offers/tjek';
 import { createApp } from './app';
+import { createHealthExtra } from './health';
 import { createOffersApi } from './offers/api';
 import { CallBudget, startOfferCollector, startOfferRetention, type OfferCollector } from './offers/collector';
 import { offerConfigFrom, paperCallsPerDay } from './offers/config';
@@ -42,7 +43,11 @@ const storage = new SqliteStorage(DB);
 if (DB === ':memory:') console.warn('Synk-databasen ligger bare i minnet (SYNC_DB=:memory:): alt forsvinner ved omstart.');
 else if (!dbExisted) console.warn(`Synk-databasen fantes ikke og er opprettet tom: ${DB}. Er volumet montert riktig? (Ventet ved første oppstart.)`);
 else console.log(`Synk-databasen: ${DB} (${storage.counts().households} husstander).`);
+// Ekstra tall i /healthz (server/health.ts): hentes først ved kall, så tilbudslagringen og innsamleren (under) er satt opp da.
+const startedAtMs = Date.now();
+let healthExtra: () => ReturnType<ReturnType<typeof createHealthExtra>> = async () => ({});
 const syncApi = createSyncApi({
+  healthExtra: () => healthExtra(),
   storage, secret: process.env.SYNC_SECRET, trustProxy: process.env.TRUST_PROXY === '1',
   tokenIdleMs: tokenIdleMsFrom(process.env.SYNC_TOKEN_IDLE_DAYS),
   quotas: Number.isFinite(totalMb) && totalMb > 0 ? { totalEventBytes: totalMb * 1024 * 1024 } : undefined,
@@ -99,6 +104,7 @@ if (offerStore) {
     });
   }
 }
+healthExtra = createHealthExtra({ offerStore, fetchOn: offerCfg.fetch, collector: () => collector?.state() ?? null, now: Date.now, startedAtMs });
 // Uten innsamler (henting av) slettes gamle tilbud likevel etter OFFER_RETENTION_DAYS (ved oppstart og hver 6. time).
 const offerRetention = offerStore && !collector ? startOfferRetention({ store: offerStore, days: offerCfg.retentionDays, now: () => new Date().toISOString() }) : null;
 if (!offerCfg.fetch) console.log('Tilbud: henting fra Tjek er av (TJEK_FETCH=0).');

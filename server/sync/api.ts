@@ -23,6 +23,7 @@ import {
   type Stream,
 } from '../../src/sync/protocol';
 import { QuotaExceededError, type DeviceRow, type DocOut, type SyncStorage } from '../storage/types';
+import { healthFields, type HealthValue } from '../health';
 import { ipKey, RateLimiter } from './rateLimit';
 
 export interface SyncApiOptions {
@@ -48,6 +49,11 @@ export interface SyncApiOptions {
   log?: (msg: string) => void;
   /** Oppbevaringstid i dager (server/retention.ts), vises til medlemmene og i eksporten. 0 = av. Selve slettingen gjøres ikke her. */
   retentionDays?: number;
+  /**
+   * Ekstra tall i GET /healthz (server/health.ts, driftsstatus). Bare tall, ja/nei og null slipper ut (`healthFields`); en feil
+   * her gir fortsatt vanlig svar, og loggen får bare feilens navn. Kalles ikke over ratebegrensningen og ikke for HEAD.
+   */
+  healthExtra?: () => Promise<Record<string, HealthValue>> | Record<string, HealthValue>;
 }
 const DEFAULT_RATES = {
   /** Per IP: alle kall. */ ipPerMin: 600,
@@ -434,8 +440,14 @@ export function createSyncApi(opts: SyncApiOptions) {
       }
       let ok = true;
       try { await storage.ping(); } catch { ok = false; log('helsesjekk: databasen svarer ikke'); }
+      let extra: Record<string, HealthValue> = {};
+      if (req.method === 'GET' && opts.healthExtra) {
+        try { extra = healthFields(await opts.healthExtra()); } catch (e) { log(`helsesjekk: ekstra tall feilet (${e instanceof Error ? e.name : typeof e})`); }
+      }
       res.statusCode = ok ? 200 : 503;
-      res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ status: ok ? 'ok' : 'feil' }));
+      // status og dbOk settes sist: ekstra felt kan ikke overstyre dem. Statuskoden følger bare synk-databasen (Docker og
+      // oppetidstjenester skal ikke slå alarm fordi Tjek er nede).
+      res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ ...extra, status: ok ? 'ok' : 'feil', dbOk: ok }));
       return true;
     }
     if (!/^\/api\/(household|sync)(\/|$)/.test(url.pathname)) return false;

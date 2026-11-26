@@ -771,7 +771,7 @@ Enhetsfilene over er kontrollert med `systemd-analyze verify` (uten feil), men *
 
 ### 9.3 Varsel når kopien feiler
 
-**Ikke bygget.** Til det finnes: se etter i `journalctl -u husvett-backup --since yesterday --no-pager` minst én gang i uka, og at det kommer nye filer i `/srv/husvett/backup` (`ls -lt /srv/husvett/backup | head`). Et varsel (e-post eller oppetidstjeneste) er en del av pilot-sjekkliste C10.
+**Et eget e-postvarsel er ikke bygget.** Det som finnes: `driftstatus.sh` (9B) sier **ADVARSEL** når nyeste kopi er eldre enn 36 timer og **FEIL** etter 4 døgn, og den daglige timeren i 9B skriver det til journalen. Se også etter i `journalctl -u husvett-backup --since yesterday --no-pager`, og at det kommer nye filer i `/srv/husvett/backup` (`ls -lt /srv/husvett/backup | head`). Et varsel som når deg uten at du ser etter (e-post), er ikke på plass (pilot-sjekkliste C10).
 
 ### 9.4 Kopier utenfor serveren
 
@@ -795,6 +795,21 @@ ExecStart=/usr/bin/rclone --config /root/.config/rclone/rclone.conf delete --min
 `copy` laster opp nye filer; `delete --min-age 30d` sletter kopier eldre enn 30 dager der (lokalt gjør `backup.sh` det selv). Bruk gjerne i tillegg en livssyklusregel hos leverandøren («slett etter 30 dager»). **Sjekk dette:** stien til `rclone` (`command -v rclone`), og at `rclone lsf husvett-kopi:<BØTTE>/husvett` viser filene etter neste kjøring.
 
 **Ikke godt nok alene:** øyeblikksbilder (snapshots) av hele serveren hos one.com. De kan være nyttige i tillegg, men ligger hos samme leverandør, tar med alt på serveren (også plattformprosjektet), er ikke kryptert med vår nøkkel, og må ha samme slettefrist. **Sjekk dette** med one.com hvis dere vil bruke dem.
+
+### 9B. Driftsstatus og overvåking (bare lesing)
+
+Skript: [`drift/driftstatus.sh`](drift/driftstatus.sh). Tolkning av hver linje, systemd-timer, oppskrift for ekstern oppetidstjeneste og tabellen «hva gjør jeg ved ADVARSEL/FEIL»: [`drift/driftstatus.md`](drift/driftstatus.md). Kort:
+
+```sh
+cd /srv/husvett/middagsplanlegger/docs/drift
+./driftstatus.sh          # som en vanlig bruker med sudo; utgangskode 0 = OK, 1 = ADVARSEL, 2 = FEIL
+```
+
+Rapporten sjekker containere og helse, `/healthz` lokalt, disk og minne (datavolumet og kopimappen), alderen på siste kopi av begge databasene (ADVARSEL over 36 timer), databasestørrelser, om Tjek-hentingen har kjørt nylig, antall feillinjer i appens logg, og TLS-sertifikatet mot `husvett.no`. Den **leser bare**, skriver aldri IP-adresser, nøkler eller innhold, og kan limes inn i en melding til utvikleren. `/healthz` har fått noen ekstra **tall og ja/nei** (aldri persondata) til dette (`sikkerhet.md`, S23).
+
+For daglig kjøring: tre enhetsfiler i `driftstatus.md` («Kjøre den hver dag»). For å bli varslet når siden er nede: en ekstern oppetidstjeneste (samme dokument; **ikke valgt, ikke satt opp**).
+
+**Status:** skriptet og `/healthz`-tallene er prøvd i sandkassen (falsk `docker`, ekte bygd server, selvsignerte sertifikater; `npm run check:driftstatus`). **Ikke prøvd på denne serveren:** Docker der (formatet på `docker`-utskriftene er antatt), `sudo`-oppførselen for `husvett-drift`, systemd-timeren (bare `systemd-analyze verify`), sertifikatet for `husvett.no`, og at serveren når seg selv utenfra (ellers: `HUSVETT_SKIP_EXTERNAL=1`). Prosjektnavnet på denne serveren er `husvett` (0B); skriptet finner containerne gjennom `docker compose --env-file .env.drift`, så det følger `COMPOSE_PROJECT_NAME` fra `.env.drift` uten å kjenne navnet.
 
 ### 9.5 Gjenopprettingsøvelse (før ekte familier)
 
@@ -882,14 +897,15 @@ docker compose --env-file .env.drift ps
 | Nginx (vei B) | `journalctl -u nginx --no-pager -n 50` og `tail -50 /var/log/nginx/error.log` | Feilloggen kan inneholde IP-adresser. **Sjekk dette:** hvor lenge den beholdes (`cat /etc/logrotate.d/nginx`) |
 | Caddy på verten (vei B) | `journalctl -u caddy --no-pager -n 50` | Samme |
 | Sertifikat (Nginx) | `tail -50 /var/log/letsencrypt/letsencrypt.log` | – |
-| Ressursbruk | `docker stats --no-stream` og `df -h /` | Følg med på disk ukentlig |
+| Ressursbruk | `docker stats --no-stream` og `df -h /` | Følg med på disk ukentlig, eller les `./driftstatus.sh` (9B) |
+| Samlet status | `./driftstatus.sh` fra `docs/drift`, eller `journalctl -u husvett-driftstatus -n 40 --no-pager` etter at timeren i 9B er slått på | Bare lesing; ingen IP-adresser eller innhold |
 | Databasestørrelse | `docker compose --env-file .env.drift exec app ls -la /data` | Kjøres fra `docs/drift`. Viser `middag.sqlite` og `tilbud.sqlite` (med `-wal`/`-shm`) i det volumet appen faktisk bruker |
 
 **Når noe går galt:**
 
 | Symptom | Sjekk | Gjør |
 | --- | --- | --- |
-| Siden svarer ikke | `docker compose --env-file .env.drift ps` | Er `app` ikke `healthy`: les loggen. `docker compose --env-file .env.drift restart app` én gang. Hjelper ikke det: ring utvikleren |
+| Siden svarer ikke | `./driftstatus.sh` (9B), `docker compose --env-file .env.drift ps` | Er `app` ikke `healthy`: les loggen. `docker compose --env-file .env.drift restart app` én gang. Hjelper ikke det: ring utvikleren |
 | `502 Bad Gateway` (vei B) | `curl -s http://127.0.0.1:8790/healthz` på serveren | Svarer ikke appen: se over. Svarer den: feil port i Nginx/Caddy-oppsettet |
 | Alle enheter er logget ut, eller loggen sier «opprettet tom» etter omstart | `docker inspect -f '{{range .Mounts}}{{.Name}} {{end}}' middagsplanlegger-app-1` (på Plattform-serveren trolig `husvett-app-1`, 0B) og `grep DATA_VOLUME .env.drift` | **Feil volum.** Stopp appen (`docker compose --env-file .env.drift stop app`), ikke slett noe, og ring utvikleren. De gamle dataene ligger i det volumet som var i bruk før |
 | Sertifikatfeil i nettleseren | Caddy-loggen (vei A) eller certbot-loggen (vei B) | Se «Vanlige feil med HTTPS» |
@@ -942,7 +958,7 @@ docker compose --env-file .env.drift ps
 4. Avsnitt 5: `.env.drift` (Plattform-serveren: `PUBLIC_BIND_IP`; vei B: to ekstra linjer).
 5. Avsnitt 6A eller 6B/6C: start.
 6. Avsnitt 7: kontroller isolasjonen; avsnitt 8: kontroller på serveren og utenfra.
-7. Avsnitt 9: nøkkel, daglig kopi, kopi utenfor serveren, gjenopprettingsøvelse.
+7. Avsnitt 9: nøkkel, daglig kopi, kopi utenfor serveren, gjenopprettingsøvelse; 9B: driftsstatus (og en ekstern oppetidstjeneste).
 8. Skriv i driftsloggen og i pilot-sjekklisten (C1–C7, C16, C17).
 
 ---
@@ -958,6 +974,7 @@ docker compose --env-file .env.drift ps
 - **Sikkerhetskopi og gjenoppretting i Compose med dagens `backup.sh`** (begge databasene, ekte `age`, `BACKUP_DIR` utenfor repoet med 700): kopi tatt mens appen kjørte, dekryptert, lagt i et nytt volum (kopiering som root og `chown 1000:1000` fra en mappe bare root kan lese), `DATA_VOLUME` satt; appen startet med `(1 husstander)`, og tokenet fra før kopien ga `200`. Varianten med `--user 1000:1000` feilet med `Permission denied` når mappen bare kunne leses av root.
 - **Tilbakerulling:** `docker tag … forrige`, nytt image som `pilot`, `up -d --no-build` laget containeren på nytt med det nye imaget, og tilbake igjen med det gamle.
 - `systemd-analyze verify` av `husvett-backup.service` og `.timer` uten feil (filene og stiene laget midlertidig).
+- **Driftsstatus (2026-11-26):** `driftstatus.sh` (`bash -n`, `shellcheck`, `npm run check:driftstatus`) mot en falsk `docker`, den ekte bygde serveren og selvsignerte sertifikater; `systemd-analyze verify` av de tre enhetsfilene i `drift/driftstatus.md`. Se 9B.
 - **`PUBLIC_BIND_IP` (senere 2026-11-22, Docker 29.10.0 og Compose 5.7.1 i sandkassen):** `docker compose config` med `env.eksempel` uten variabelen, med tom variabel og med en adresse satt. Uten og med tom verdi er utskriften **identisk** med Compose-filen fra før endringen (ingen `host_ip`); med adresse får alle tre Caddy-portene (80/tcp, 443/tcp, 443/udp) `host_ip`; appen har ingen `ports`; begge tjenestene har `restart: unless-stopped`; i vei B (`COMPOSE_FILE` med `docker-compose.bak-proxy.yml`) startes bare `app`, på `127.0.0.1:8790`, også med `PUBLIC_BIND_IP` satt. Et domenenavn i variabelen gir `invalid IP address`. **Kollisjonen er prøvd:** med en annen lytter på `127.0.0.2:443` (stedfortreder for Plattforms `10.8.0.1:443`) feilet Caddy uten variabelen med `failed to bind host port 0.0.0.0:443/tcp: address already in use`; med variabelen satt til sandkassens egen adresse startet Caddy (`docker compose up --no-deps caddy`, `DOMENE=localhost`), lyttet bare på den adressen (80/tcp, 443/tcp, 443/udp), svarte der (http `308`, https nådde Caddy; `502` fordi appen ikke var startet i denne prøven), svarte ikke på `127.0.0.1` eller `172.17.0.1`, og den andre lytteren sto urørt. Appen og hele vei A er ikke kjørt på nytt etter endringen (Compose-utskriften for appen er uendret).
 - **Lesepakken (0A.2):** `bash -n` uten feil; maskeringen prøvd på eksempeladresser (IPv4 blir `a.b.x.x`, IPv6 forkortes, `0.0.0.0` og `127.0.0.1` står); kjørt i sandkassen uten å stoppe (der mangler `ip`, `ss`, `ufw` og systemd, så de linjene ga bare feilmeldinger).
 - Lest (ikke installert) 2026-11-22: Dockers apt-kilde har `resolute` (Ubuntu 26.04) med `docker-ce` 29.10.0 og `docker-compose-plugin` 5.8.0 for `amd64`; Ubuntus pakkeoversikt for `resolute` har `docker.io` 29.1.3, `docker-compose-v2` 2.40.3, `docker-buildx` 0.30.1 og `age` 1.2.1.
@@ -973,6 +990,7 @@ docker compose --env-file .env.drift ps
 - **Navneavviket fra installasjonen** (`husvett_…` i stedet for `middagsplanlegger_…`, `husvett-drift` i stedet for `husvett`; 0B): rapportert, ikke kontrollert av oss og ikke prøvd i sandkassen. Hvordan prosjektnavnet ble endret, og hvilket volum appen bruker, er ikke kjent.
 - Lesepakken på Ubuntu 26.04 (bl.a. om `id`, `passwd -S` og `nft` gir samme format der).
 - Kjøring under systemd (timer og tjeneste), cron-linjen, `rclone` og lagring utenfor serveren, `shred` på serverens disk.
+- **Driftsstatus (9B):** skriptet og enhetsfilene er ikke kjørt på denne serveren eller mot ekte Docker, og timeren, `OnFailure=` og journalprioritetene er ikke prøvd under systemd. Ingen ekstern oppetidstjeneste er valgt eller prøvd. Se `drift/driftstatus.md`, «Hva er prøvd».
 - Vei B når webserveren selv kjører i Docker, med Apache, eller med en CDN foran.
 - Bygging av imaget på en vanlig maskin uten sandkassens omveier, og på `aarch64`.
 - At henting fra Tjek virker fra containeren (i sandkassen var henting slått av).
