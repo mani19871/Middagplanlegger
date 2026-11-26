@@ -15,6 +15,10 @@ const MAP = {
   // Egne oppskrifter, omgang 1. Kyllinglår og fårikålkjøtt er med ben (spiselig andel fra Matvaretabellen).
   hodekal: '06.037', purre: '06.284', erter: '06.027', sotpotet: '06.136', kyllinglar: '03.332', svinefilet: '03.209',
   farikalkjott: '03.218', kjottpolse: '03.145', matflote: '01.175', tomatpure: '06.080',
+  // Egne oppskrifter, omgang 2. Lasagneplater = tørr pasta; hel kylling med skinn og ben (spiselig andel fra Matvaretabellen);
+  // fiskeboller og tunfisk avrent; grytekjøtt = storfekjøtt, rått.
+  gulerter: '06.029', byggryn: '05.001', lasagneplater: '05.016', storfegryte: '03.476', helkylling: '03.006',
+  fiskeboller: '04.079', tunfisk: '04.108',
 };
 // Omregning til gram, hentet fra matvarens egne porsjonsopplysninger der de finnes.
 // Oppskriftene bruker filet, ikke hel fisk, så spiselig andel settes til 100 %.

@@ -9,6 +9,10 @@ export const EMOJI: Record<string, string> = {
   sotpotetsuppe: '🍠', fiskegrateng: '🐟', ovnslaks: '🍣', kokttorsk: '🐟', seibiff: '🐠', fiskegryte: '🍲', hysepurre: '🐟',
   fiskekakererter: '🫛', chili: '🌶️', kjottdeigform: '🥧', kalgryte: '🥬', svinefilet: '🥩', svinesopp: '🍄', lammekikert: '🫘',
   vegtaco: '🌮', frittata: '🍳', tofukarri: '🍛', soppsuppe: '🍄',
+  ertesuppe: '🥣', spinatsuppe: '🥬', blomkalgrateng: '🥦', tofuris: '🍚', bonnesuppe: '🍅', byggotto: '🍄', rotgronnsaker: '🥕',
+  brokkolipasta: '🥦', purresuppe: '🥣', plukkfisk: '🐟', fiskeboller: '🐟', tunfiskpasta: '🍝', stektlaks: '🍣', rekewok: '🦐',
+  kjottsuppe: '🍲', brunlapskaus: '🍲', karbonader: '🍖', lasagne: '🍝', helkylling: '🍗', kyllinggryte: '🍗', kyllingwrap: '🌯',
+  kalruletter: '🥬', lammegryte: '🍲', eggekake: '🍳', svinefiletwok: '🥢',
 };
 const TINT = ['#e6efd9', '#f6e3cf', '#dde8ea', '#f2dede', '#ece6d3'];
 export function Thumb({ id, size = 56 }: { id: string; size?: number }) {
@@ -33,6 +37,7 @@ export const ING_EMOJI: Record<string, string> = {
   makrell: '🥫', kikerter: '🫘', tofu: '⬜', sopp: '🍄', blomkal: '🥦', kalrot: '🥔', soyasaus: '🍶', nudler: '🍜',
   hodekal: '🥬', purre: '🧅', erter: '🫛', sotpotet: '🍠', kyllinglar: '🍗', svinefilet: '🥩', farikalkjott: '🥩',
   kjottpolse: '🌭', matflote: '🥛', tomatpure: '🍅',
+  gulerter: '🫛', byggryn: '🌾', lasagneplater: '🍝', storfegryte: '🥩', helkylling: '🍗', fiskeboller: '🐟', tunfisk: '🐟',
   salt: '🧂', olje: '🫒',
 };
 export const DEPT_EMOJI: Record<string, string> = {

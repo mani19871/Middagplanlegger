@@ -167,7 +167,7 @@ Eierens beslutning: utvidelsene bygges i rekkefølgen A, B, C. A, B og C er bygd
 
 ## KI-utkast skjules ved aktive krav (2026-11-23)
 
-**Eierens beslutning (2026-11-22, spørsmål 45):** Egne oppskrifter skrevet av KI og ikke testkokt (`origin.kind === 'egen'`, `origin.status === 'utkast'`, 25 stk) skjules når allergi-, kost- eller råvarefilteret er aktivt. Det gjelder til de er testkokt og allergen-kontrollert av en person (`testkokt`/`godkjent`).
+**Eierens beslutning (2026-11-22, spørsmål 45):** Egne oppskrifter skrevet av KI og ikke testkokt (`origin.kind === 'egen'`, `origin.status === 'utkast'`, 25 stk da, 50 etter omgang 2) skjules når allergi-, kost- eller råvarefilteret er aktivt. Det gjelder til de er testkokt og allergen-kontrollert av en person (`testkokt`/`godkjent`).
 
 **Regel (motor):** `requirementViolation` gir årsaken `utkast` når retten er et slikt utkast (`isUnreviewedDraft`) og minst ett absolutt krav er aktivt (`hasActiveRequirements`: `avoid`, `vegetarian`, `avoidFoods`). Et konkret allergen-, kost- eller råvarebrudd vinner som årsak. Fordi alle valg av retter går gjennom `requirementViolation`/`eligibleRecipes`, skjules utkastene over alt, uten egne grener:
 - `generatePlan`, `swapOptions`, `budgetSuggestions`
@@ -215,6 +215,20 @@ Bygget for den lukkede piloten (fase 1, ingen KI, ingen nye synkede data).
 - `kontakt@husvett.no` er ikke bekreftet i drift (A5). Byttes i `src/views/feedback.ts`.
 - Introduksjonen viser personvern-arket som det er (UTKAST, avvikene i sjekklisten B5 er ikke rettet her).
 - Teksten i introduksjonen er ikke godkjent av eieren (samme som deltakerinfoen, B12).
+
+## Egne oppskrifter, omgang 2 (2026-11-26)
+
+**Hva:** 25 nye egne KI-utkast i `src/data/catalog.ts` (`ownRecipes2`). Basen har nå 81 oppskrifter: 31 demo, 50 egne (alle `utkast`). Ingen er testkokt eller kontrollert av en person, og ingen oppskrift er `testkokt` eller `godkjent`. Liste, fordeling og nye varer: `docs/oppskrifter-tillatelser.md`, kapittel 4.
+
+**Fordeling, omgang 2:** 9 vegetar, 5 fisk/skalldyr, 11 kjøtt (inkl. eggekake med flesk); 9 under 30 min og 8 på 60 min eller mer; 13 uten gluten og melk; 12 hovedproteiner. **Hele basen:** 23 vegetar, 53 uten gluten, 51 uten melk, 40 uten begge, 26 under 30 min.
+
+**Nye varer (7):** gule erter, byggryn, lasagneplater (uavklart), grytekjøtt av storfe, hel kylling, fiskeboller (uavklart), tunfisk i vann. Demoprodukter og demopriser (regel 5), næring fra Matvaretabellen; eksisterende næringstall uendret. **Uavklart allergenstatus i omgang 2:** fiskeboller i hvit saus, kyllingwraps, lasagne, rekewok.
+
+**Bevis (skrevet før katalogen og sett røde):** `catalog.test.ts` «egne oppskrifter, omgang 2» (9 tester: opphav, 81/50, ingen duplikate id-er eller navn, varer finnes og mengder > 0, allergener lik foreningen av varenes, uavklarte varer, vegetar mot kosttagger, nye varer med demopris og næring, fordeling, ingen løfteord og ingen sesam); `planner.test.ts` «regresjon: egne oppskrifter omgang 2» (6 tester: bolognese uendret for e2e, gyldig og deterministisk plan uten filter og med gluten-, melk-, vegetar- og gluten+melk-filter, vegetar uten melk, simulert godkjent omgang gir maks to per protein med filter, kurv per ny rett). Tallene 25 → 50 skjulte utkast er rettet i `planner.test.ts`, `cookNow.test.ts` og `utkast-filter-ui.test.tsx`. Emoji-miniatyrer for nye retter og varer i `src/views/art.tsx`. Allergenarket er laget på nytt (`npm run allergen-ark`, 81 oppskrifter, samme 10 mulige avvik som før).
+
+**Endret atferd:** uten filter velger standardplanen nå «Fiskeboller i hvit saus» i stedet for «Fiskekaker med poteter og gulrot» (billigere kurv i demodata). `e2e:sync` låser selv «Spagetti bolognese» og påvirkes ikke.
+
+**Ikke testet / åpent:** ingen rett er laget; mengder, tider og porsjoner er anslag. Med filter på hjelper omgang 2 ikke før rettene er kontrollert, og vegetar uten melk har bare fire demoretter. `fase1.test.ts` prøver nå alle 3240 par av retter (testtiden er fortsatt kort). Hovedproteinet «grønnsaker» (potet- og purresuppe) og «egg» for eggekake med flesk er et skjønn som bare brukes til variasjon i planen.
 
 ## Hvordan kjøre kontrollen på nytt
 `npx tsc --noEmit && npx vitest run && npx vite build`. Nettleserflyten er ikke en sjekket inn test (Playwright er ikke avhengighet i repoet); stegene over kan gjentas manuelt på 420 px mot `npx tsx server/index.ts` etter bygg.

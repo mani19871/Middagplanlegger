@@ -54,7 +54,7 @@ describe('Lag nå: KI-utkast ved aktive krav', () => {
   it('med allergifilter: utkastet vises ikke, antallet skjulte står i teksten, uten løfte om allergenfrihet', () => {
     const t = cook({ avoid: ['sesam'] });
     expect(t).not.toContain('Chili con carne');
-    expect(t.match(NOTICE)?.[1]).toBe('25');
+    expect(t.match(NOTICE)?.[1]).toBe('50');
     expect(t).toMatch(/vises igjen når de er testkokt og kontrollert/);
     promisesAreNegated(t);
   });

@@ -278,11 +278,11 @@ describe('Lag nå: KI-utkast skjules ved aktive krav (eierens beslutning 2026-11
     expect(ae.priceComplete).toBe(false);
     expect(ae.missing.find((l) => l.ingredient === 'e')!.status).toBe('ukjent');
   });
-  it('demokatalogen med filter: ingen av de 25 KI-utkastene foreslås', () => {
+  it('demokatalogen med filter: ingen av de 50 KI-utkastene foreslås', () => {
     const c: Ctx = { catalog: demoCatalog, settings: { ...defaultSettings, avoid: ['sesam'] }, shopDate: SHOP };
     const r = cookNow([have('kjottdeig', 400), have('bonner', 400), have('purre', 300), have('sotpotet', 800)], c, { portions: 4, storeIds: ['demoA'] });
     expect(r.suggestions.length).toBeGreaterThan(0);
     expect(r.suggestions.every((s) => !(s.recipe.origin?.kind === 'egen' && s.recipe.origin.status === 'utkast'))).toBe(true);
-    expect(r.excludedUnreviewed).toBe(25);
+    expect(r.excludedUnreviewed).toBe(50);
   });
 });

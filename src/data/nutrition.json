@@ -560,6 +560,83 @@
       "fiberPer100g": 2,
       "saltPer100g": 1,
       "ediblePercent": 100
+    },
+    "gulerter": {
+      "foodId": "06.029",
+      "foodName": "Erter, tørre",
+      "kcalPer100g": 334,
+      "proteinPer100g": 21.6,
+      "fatPer100g": 2.4,
+      "carbsPer100g": 50,
+      "fiberPer100g": 13,
+      "saltPer100g": 0.1,
+      "ediblePercent": 100
+    },
+    "byggryn": {
+      "foodId": "05.001",
+      "foodName": "Byggryn",
+      "kcalPer100g": 327,
+      "proteinPer100g": 8.6,
+      "fatPer100g": 1.1,
+      "carbsPer100g": 65.4,
+      "fiberPer100g": 11,
+      "saltPer100g": 0,
+      "ediblePercent": 100
+    },
+    "lasagneplater": {
+      "foodId": "05.016",
+      "foodName": "Pasta, naturell, tørr",
+      "kcalPer100g": 347,
+      "proteinPer100g": 11.9,
+      "fatPer100g": 1.3,
+      "carbsPer100g": 69.8,
+      "fiberPer100g": 4,
+      "saltPer100g": 0,
+      "ediblePercent": 100
+    },
+    "storfegryte": {
+      "foodId": "03.476",
+      "foodName": "Storfe, kjøtt, rå",
+      "kcalPer100g": 131,
+      "proteinPer100g": 22,
+      "fatPer100g": 4.7,
+      "carbsPer100g": 0,
+      "fiberPer100g": 0,
+      "saltPer100g": 0.1,
+      "ediblePercent": 100
+    },
+    "helkylling": {
+      "foodId": "03.006",
+      "foodName": "Kylling, hel, med skinn, rå",
+      "kcalPer100g": 162,
+      "proteinPer100g": 18.3,
+      "fatPer100g": 9.9,
+      "carbsPer100g": 0,
+      "fiberPer100g": 0,
+      "saltPer100g": 0.2,
+      "ediblePercent": 71
+    },
+    "fiskeboller": {
+      "foodId": "04.079",
+      "foodName": "Fiskeboller, avrent, hermetisk",
+      "kcalPer100g": 120,
+      "proteinPer100g": 9.5,
+      "fatPer100g": 1.5,
+      "carbsPer100g": 17,
+      "fiberPer100g": 0.3,
+      "saltPer100g": 1.3,
+      "ediblePercent": 100
+    },
+    "tunfisk": {
+      "foodId": "04.108",
+      "foodName": "Tunfisk, i vann, avrent, hermetisk",
+      "kcalPer100g": 105,
+      "proteinPer100g": 24.1,
+      "fatPer100g": 1,
+      "carbsPer100g": 0,
+      "fiberPer100g": 0,
+      "saltPer100g": 1,
+      "ediblePercent": 100
     }
   }
 }

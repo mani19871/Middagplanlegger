@@ -90,6 +90,117 @@ describe('katalog (demodata)', () => {
   });
 });
 
+describe('egne oppskrifter, omgang 2 (2026-11-26)', () => {
+  // 25 nye egne KI-utkast. Testet før de ble skrevet inn i katalogen (røde, så grønne).
+  const ROUND2 = [
+    'ertesuppe', 'spinatsuppe', 'blomkalgrateng', 'tofuris', 'bonnesuppe', 'byggotto', 'rotgronnsaker', 'brokkolipasta', 'purresuppe',
+    'plukkfisk', 'fiskeboller', 'tunfiskpasta', 'stektlaks', 'rekewok',
+    'kjottsuppe', 'brunlapskaus', 'karbonader', 'lasagne', 'helkylling', 'kyllinggryte', 'kyllingwrap', 'kalruletter', 'lammegryte',
+    'eggekake', 'svinefiletwok',
+  ];
+  const NEW_INGREDIENTS = ['gulerter', 'byggryn', 'lasagneplater', 'storfegryte', 'helkylling', 'fiskeboller', 'tunfisk'];
+  const round2 = () => ROUND2.map((id) => recipes.find((r) => r.id === id));
+  const ANIMAL: FoodTag[] = ['storfe', 'svin', 'lam', 'kylling', 'fisk', 'skalldyr'];
+  const prods = (ing: string) => products.filter((p) => p.ingredient === ing);
+
+  it('alle 25 finnes, med gyldig opphav: egen, KI-utkast (Claude), 2026-11-26, utkast, uten kilde eller lenke', () => {
+    expect(new Set(ROUND2).size).toBe(25);
+    for (const [i, r] of round2().entries()) {
+      expect(r, ROUND2[i]).toBeDefined();
+      expect(r!.origin, r!.id).toEqual({ kind: 'egen', by: 'KI-utkast (Claude)', date: '2026-11-26', status: 'utkast' });
+    }
+    // Ingen oppskrift er satt til testkokt eller godkjent.
+    expect(recipes.filter((r) => r.origin?.status !== 'utkast').map((r) => r.id)).toEqual([]);
+    expect(recipes.filter((r) => r.origin?.kind === 'egen')).toHaveLength(50);
+    expect(recipes).toHaveLength(81);
+  });
+  it('ingen duplikate id-er eller navn i hele katalogen', () => {
+    expect(uniq(recipes.map((r) => r.id))).toBe(true);
+    expect(uniq(recipes.map((r) => r.name.toLowerCase()))).toBe(true);
+  });
+  it('hver linje peker på en vare i katalogen med mengde > 0, og hver rett har tid, fire porsjoner og fremgangsmåte', () => {
+    const ids = new Set(ingredients.map((i) => i.id));
+    for (const r of round2().map((x) => x!)) {
+      expect(r.minutes, r.id).toBeGreaterThan(0);
+      expect(r.baseServings, r.id).toBe(4);
+      expect(r.steps.length, r.id).toBeGreaterThanOrEqual(2);
+      for (const s of r.steps) expect(s.trim().length, r.id).toBeGreaterThan(5);
+      expect(uniq(r.lines.map((l) => l.ingredient)), `${r.id}: samme vare to ganger`).toBe(true);
+      for (const l of r.lines) {
+        expect(ids.has(l.ingredient), `${r.id}: ${l.ingredient}`).toBe(true);
+        expect(l.amount, `${r.id}: ${l.ingredient}`).toBeGreaterThan(0);
+        expect(Number.isFinite(l.amount)).toBe(true);
+      }
+    }
+  });
+  it('allergenene er utledet fra varene: nøyaktig foreningen av produktenes allergener, ingen gjettet fra teksten', () => {
+    for (const r of round2().map((x) => x!)) {
+      const fromProducts = new Set(r.lines.flatMap((l) => prods(l.ingredient).flatMap((p) => p.allergens)));
+      expect(new Set(r.allergens), r.id).toEqual(fromProducts);
+      expect(uniq(r.allergens), r.id).toBe(true);
+    }
+  });
+  it('uavklart allergenstatus (sammensatte varer) er uavklart, ikke «fri»', () => {
+    const unknownIn = (r: Recipe) => r.lines.flatMap((l) => prods(l.ingredient)).filter((p) => !p.allergenKnown).map((p) => p.id).sort();
+    const withUnknown = Object.fromEntries(round2().map((r) => [r!.id, unknownIn(r!)]).filter(([, ps]) => ps.length > 0));
+    expect(withUnknown).toEqual({
+      fiskeboller: ['fbol560'], kyllingwrap: ['tort8'], lasagne: ['lasag500'], rekewok: ['reker300'],
+    });
+    // Fiskeboller og lasagneplater er sammensatte/ulike mellom merker: uavklart.
+    for (const id of ['fbol560', 'lasag500']) expect(products.find((p) => p.id === id)!.allergenKnown, id).toBe(false);
+    // Rene råvarer og enkle tørrvarer er avklart.
+    for (const id of ['guler500', 'bygg600', 'storf600', 'helkyl1200', 'tun185']) expect(products.find((p) => p.id === id)!.allergenKnown, id).toBe(true);
+    expect(products.find((p) => p.id === 'bygg600')!.allergens).toContain('gluten');
+    expect(products.find((p) => p.id === 'tun185')!.allergens).toContain('fisk');
+  });
+  it('vegetar stemmer med varene, og kjøtt-, fisk- og skalldyrvarer har kosttagg', () => {
+    for (const r of round2().map((x) => x!)) {
+      const tags = recipeTags(r, ingredients);
+      expect(r.vegetarian, r.id).toBe(!ANIMAL.some((t) => tags.has(t)));
+      if (!r.vegetarian && (ANIMAL as string[]).includes(r.protein)) expect(tags.has(r.protein as FoodTag), r.id).toBe(true);
+    }
+    const tag = (id: string) => ingredients.find((i) => i.id === id)!.tags;
+    expect(tag('gulerter')).toContain('belgvekster');
+    expect(tag('storfegryte')).toContain('storfe');
+    expect(tag('helkylling')).toContain('kylling');
+    expect(tag('fiskeboller')).toContain('fisk');
+    expect(tag('tunfisk')).toContain('fisk');
+  });
+  it('nye varer har produkt, demopris merket «Demodata» og næring fra Matvaretabellen', () => {
+    for (const id of NEW_INGREDIENTS) {
+      expect(ingredients.find((i) => i.id === id), id).toBeDefined();
+      const ps = prods(id);
+      expect(ps.length, id).toBeGreaterThan(0);
+      const obs = catalog.prices.filter((o) => ps.some((p) => p.id === o.productId));
+      expect(obs.length, id).toBeGreaterThan(0);
+      for (const o of obs) expect(o.source, id).toBe('Demodata');
+      expect(t[id], id).toBeDefined();
+      expect(t[id].kcalPer100g, id).toBeGreaterThan(0);
+    }
+    // Næringsfilen krediterer kilden.
+    expect(table.source).toContain('Matvaretabellen');
+  });
+  it('øker variasjonen: vegetar, fisk, raske og lange retter, uten gluten og melk, og flere proteiner', () => {
+    const rs = round2().map((x) => x!);
+    const free = (r: Recipe) => !r.allergens.includes('gluten') && !r.allergens.includes('melk');
+    expect(rs.filter((r) => r.vegetarian).length).toBeGreaterThanOrEqual(8);
+    expect(rs.filter((r) => ['fisk', 'skalldyr'].includes(r.protein)).length).toBeGreaterThanOrEqual(4);
+    expect(rs.filter((r) => r.minutes < 30).length).toBeGreaterThanOrEqual(8);
+    expect(rs.filter((r) => r.minutes >= 60).length).toBeGreaterThanOrEqual(5);
+    expect(rs.filter(free).length).toBeGreaterThanOrEqual(10);
+    expect(new Set(rs.map((r) => r.protein)).size).toBeGreaterThanOrEqual(10);
+    // Hele katalogen: minst 20 vegetarretter og 30 uten gluten.
+    expect(recipes.filter((r) => r.vegetarian).length).toBeGreaterThanOrEqual(20);
+    expect(recipes.filter((r) => !r.allergens.includes('gluten')).length).toBeGreaterThanOrEqual(30);
+  });
+  it('fremgangsmåten lover aldri allergenfrihet, og ingen rett har sesam (forutsetning i planner.test.ts)', () => {
+    for (const r of round2().map((x) => x!)) {
+      expect([r.name, ...r.steps].join(' '), r.id).not.toMatch(/(allergen|gluten|laktose|melke|egg)fri/i);
+    }
+    expect(recipes.filter((r) => r.allergens.includes('sesam'))).toEqual([]);
+  });
+});
+
 describe('opphav (regel 6)', () => {
   const thirdParty = readFileSync(new URL('../../THIRD_PARTY.md', import.meta.url), 'utf8');
   const licensed: Recipe = { ...recipes[0], id: 'x', origin: { kind: 'lisensiert', by: 'Eksempelkilden AS', date: '2026-12-01', status: 'utkast',
@@ -100,7 +211,7 @@ describe('opphav (regel 6)', () => {
   });
   it('de egne oppskriftene er merket som KI-utkast som ikke er testkokt, og ingen har kilde eller lenke', () => {
     const own = recipes.filter((r) => r.origin?.kind === 'egen');
-    expect(own.length).toBeGreaterThanOrEqual(25);
+    expect(own.length).toBeGreaterThanOrEqual(50);
     for (const r of own) {
       expect(r.origin, r.id).toMatchObject({ by: 'KI-utkast (Claude)', status: 'utkast' });
       expect(r.origin?.url, r.id).toBeUndefined();

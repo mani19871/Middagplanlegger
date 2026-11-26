@@ -34,6 +34,13 @@ export const ingredients: Ingredient[] = [
   I('farikalkjott', 'Fårikålkjøtt (lam, med ben)', 'g', 'Kjøtt og fisk', false, ['lam']),
   I('kjottpolse', 'Kjøttpølse', 'g', 'Kjøtt og fisk', false, ['svin', 'storfe']),
   I('matflote', 'Matfløte', 'ml', 'Meieri'), I('tomatpure', 'Tomatpuré', 'g', 'Hermetikk'),
+  // Lagt til 2026-11-26 for de egne oppskriftene (omgang 2).
+  I('gulerter', 'Gule erter (tørre)', 'g', 'Tørrvarer', false, ['belgvekster']), I('byggryn', 'Byggryn', 'g', 'Tørrvarer'),
+  I('lasagneplater', 'Lasagneplater', 'g', 'Tørrvarer'),
+  I('storfegryte', 'Grytekjøtt av storfe (i terninger)', 'g', 'Kjøtt og fisk', false, ['storfe']),
+  I('helkylling', 'Hel kylling', 'g', 'Kjøtt og fisk', false, ['kylling']),
+  I('fiskeboller', 'Fiskeboller (hermetiske)', 'g', 'Hermetikk', false, ['fisk']),
+  I('tunfisk', 'Tunfisk i vann (hermetisk)', 'g', 'Hermetikk', false, ['fisk']),
   I('salt', 'Salt og pepper', 'g', 'Krydder', true), I('olje', 'Matolje', 'ml', 'Tørrvarer', true),
 ];
 
@@ -251,7 +258,137 @@ const ownRecipes: Recipe[] = [
       'Rør inn fløte, og kjør gjerne halve suppa jevn.', 'Smak til med salt og pepper.']),
 ];
 
-export const recipes: Recipe[] = [...demoRecipes, ...ownRecipes];
+// Egne oppskrifter, omgang 2 (2026-11-26): norsk husmannskost og enkle familieretter, skrevet med egne ord og egne mengder
+// uten noen kilde åpen. Valgt for å øke variasjonen: flere vegetarretter, retter uten gluten og melk, raske retter under
+// 30 min og retter med lang tid, og flere hovedproteiner. Allergenene er foreningen av varenes allergener (testet i
+// catalog.test.ts). KI-utkast, ikke testkokt og ikke kontrollert av en person; mengder og tider må kontrolleres ved testkoking.
+const OWN2: RecipeOrigin = { kind: 'egen', by: 'KI-utkast (Claude)', date: '2026-11-26', status: 'utkast' };
+const E2 = (...a: Parameters<typeof R>) => R(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], OWN2);
+const ownRecipes2: Recipe[] = [
+  // Vegetar
+  E2('ertesuppe', 'Gul ertesuppe med rotgrønnsaker', 120, true, 'belgvekster', [],
+    [['gulerter', 400], ['gulrot', 300], ['kalrot', 300], ['poteter', 400], ['purre', 200], ['lok', 1], ['salt', 10]],
+    ['Skyll ertene, kok dem opp i ca. 1,5 liter vann og skum av.',
+      'La ertene småkoke under lokk i ca. 1 time, til de begynner å gå i stykker. Rør av og til og spe med vann om det trengs.',
+      'Ha i poteter, gulrot og kålrot i terninger og hakket løk, og kok i 25 min til.',
+      'Ha i purre i ringer de siste 5 minuttene og smak til med salt og pepper. Ertene kan bløtlegges natten før; da går kokingen raskere.']),
+  E2('spinatsuppe', 'Spinatsuppe med egg', 30, true, 'egg', ['melk', 'egg'],
+    [['spinat', 400], ['poteter', 400], ['lok', 1], ['melk', 700], ['egg', 6], ['olje', 15], ['salt', 5]],
+    ['Kok eggene i 9 min, avkjøl dem i kaldt vann og del dem i to.',
+      'Fres hakket løk i olje, ha i poteter i små terninger og melk, og la det småkoke på svak varme i 15 min, til potetene er møre.',
+      'Ha i spinaten, la den falle sammen og kjør suppa jevn.', 'Smak til med salt og pepper og server med eggene i suppa.']),
+  E2('blomkalgrateng', 'Blomkål- og brokkoligrateng', 50, true, 'ost', ['melk', 'egg'],
+    [['blomkal', 600], ['brokkoli', 400], ['egg', 4], ['melk', 300], ['ost', 200], ['poteter', 800], ['salt', 5]],
+    ['Kok poteter.', 'Del blomkål og brokkoli i buketter, forkok dem i 3 min i lettsaltet vann og la dem renne godt av.',
+      'Legg grønnsakene i en ildfast form. Pisk egg, melk og halvparten av den revne osten, og hell det over.',
+      'Strø over resten av osten og bak i ca. 30 min på 200 °C, til gratengen har stivnet og fått farge.']),
+  E2('tofuris', 'Stekt ris med tofu og egg', 25, true, 'tofu', ['gluten', 'egg', 'soya'],
+    [['ris', 300], ['tofu', 400], ['egg', 4], ['erter', 200], ['gulrot', 200], ['soyasaus', 40], ['olje', 30]],
+    ['Kok risen og la den dampe av, eller bruk kokt ris fra dagen før.', 'Stek tofu i terninger gyllen i olje og ta den ut av panna.',
+      'Stek revet gulrot og erter et par minutter, skyv dem til side og rør eggene raskt sammen i panna.',
+      'Ha i risen og tofuen, hell over soyasaus og stek alt sammen i 3–4 min.']),
+  E2('bonnesuppe', 'Tomatsuppe med bønner og grønnsaker', 30, true, 'belgvekster', [],
+    [['bonner', 400], ['tomat', 800], ['poteter', 300], ['gulrot', 200], ['purre', 200], ['lok', 1], ['olje', 15], ['salt', 5]],
+    ['Fres hakket løk i olje i en gryte.', 'Ha i poteter og gulrot i små terninger, tomat og 5 dl vann, og la det småkoke i 15 min.',
+      'Ha i avrente bønner og purre i ringer og kok 5 min til.', 'Smak til med salt og pepper.']),
+  E2('byggotto', 'Byggotto med sopp', 45, true, 'sopp', ['gluten', 'melk'],
+    [['byggryn', 300], ['sopp', 400], ['erter', 200], ['lok', 1], ['ost', 100], ['olje', 20], ['salt', 10]],
+    ['Fres hakket løk og byggryn i olje i et par minutter.',
+      'Spe med ca. 1 liter varmt, lettsaltet vann, litt om gangen, og la det småkoke i ca. 30 min under omrøring, til grynene er møre.',
+      'Stek sopp i skiver gyllen i en panne.', 'Vend sopp, erter og revet ost inn i grynene og smak til.']),
+  E2('rotgronnsaker', 'Ovnsbakte rotgrønnsaker med kikerter', 45, true, 'belgvekster', [],
+    [['sotpotet', 800], ['gulrot', 400], ['kalrot', 400], ['kikerter', 800], ['lok', 2], ['olje', 40], ['salt', 5]],
+    ['Skjær søtpotet, gulrot og kålrot i biter og løk i båter.', 'Vend grønnsakene i olje, salt og pepper og bak dem i en langpanne i 20 min på 220 °C.',
+      'Ha i avrente kikerter, rør om og bak 15 min til, til grønnsakene er møre og har fått farge.']),
+  E2('brokkolipasta', 'Pasta med brokkoli, erter og ost', 20, true, 'ost', ['gluten', 'melk'],
+    [['pasta', 400], ['brokkoli', 400], ['erter', 200], ['matflote', 200], ['ost', 150], ['salt', 5]],
+    ['Kok pasta etter anvisning på pakken, og ha brokkolibuketter og erter i kjelen de siste 3 minuttene.', 'Hell av vannet.',
+      'Rør inn fløte og revet ost, varm forsiktig til osten smelter og smak til med salt og pepper.']),
+  E2('purresuppe', 'Potet- og purresuppe', 35, true, 'grønnsaker', ['melk'],
+    [['poteter', 800], ['purre', 600], ['lok', 1], ['melk', 500], ['matflote', 300], ['olje', 15], ['salt', 10]],
+    ['Fres hakket løk og purre i ringer i olje på svak varme, uten at det tar farge.',
+      'Ha i poteter i terninger og 5 dl vann med salt, og kok til potetene er helt møre, ca. 20 min.',
+      'Hell i melk og fløte, varm opp og kjør suppa jevn.', 'Smak til med salt og pepper.']),
+  // Fisk og skalldyr
+  E2('plukkfisk', 'Plukkfisk', 35, false, 'fisk', ['gluten', 'melk', 'fisk'],
+    [['sei', 600], ['poteter', 800], ['melk', 500], ['mel', 40], ['purre', 100], ['gulrot', 300], ['olje', 30], ['salt', 5]],
+    ['Kok poteter og skjær dem i terninger.', 'La fisken trekke i lettsaltet vann i 5–6 min og del den i flak.',
+      'Varm olje og mel i en gryte, spe med melk litt om gangen og kok til en jevn saus i 5 min.',
+      'Vend fisk, poteter og purre i tynne ringer forsiktig inn i sausen. Server med revet gulrot.']),
+  E2('fiskeboller', 'Fiskeboller i hvit saus', 25, false, 'fisk', ['gluten', 'melk', 'fisk'],
+    [['fiskeboller', 560], ['poteter', 800], ['gulrot', 400], ['melk', 400], ['mel', 40], ['olje', 30], ['salt', 5]],
+    ['Kok poteter og gulrøtter.', 'Hell av laken fra fiskebollene, men ta vare på ca. 2 dl.',
+      'Varm olje og mel, spe med lake og melk og kok sausen jevn i 5 min.', 'Legg fiskebollene i sausen og varm dem forsiktig.']),
+  E2('tunfiskpasta', 'Pasta med tunfisk, mais og tomat', 20, false, 'fisk', ['gluten', 'fisk'],
+    [['pasta', 400], ['tunfisk', 370], ['tomat', 400], ['mais', 200], ['lok', 1], ['olje', 15], ['salt', 5]],
+    ['Kok pasta etter anvisning på pakken.', 'Fres hakket løk i olje, ha i tomat og la det putre i 5 min.',
+      'Vend inn avrent tunfisk og mais og varm alt.', 'Bland sausen med pastaen.']),
+  E2('stektlaks', 'Stekt laks med poteter og erter', 25, false, 'fisk', ['fisk'],
+    [['laks', 600], ['poteter', 800], ['erter', 300], ['olje', 15], ['salt', 5]],
+    ['Kok poteter.', 'Strø salt og pepper på laksestykkene og stek dem med skinnsiden ned i 4 min. Snu og stek 2–3 min til.',
+      'Kok ertene i 2–3 min.', 'Server sammen.']),
+  E2('rekewok', 'Rekewok med ris', 20, false, 'skalldyr', ['skalldyr'],
+    [['reker', 300], ['ris', 300], ['brokkoli', 300], ['paprika', 1], ['gulrot', 200], ['olje', 20], ['salt', 5]],
+    ['Sett ris på koking.', 'Wok brokkoli, paprika og gulrot i strimler i olje på sterk varme i 4–5 min.',
+      'Vend inn rekene til de er varme, og smak til med salt og pepper.', 'Server med ris.']),
+  // Kjøtt
+  E2('kjottsuppe', 'Kjøttsuppe med rotgrønnsaker', 150, false, 'storfe', [],
+    [['storfegryte', 600], ['poteter', 600], ['gulrot', 400], ['kalrot', 400], ['purre', 200], ['lok', 1], ['salt', 15]],
+    ['Legg kjøttet i en gryte med ca. 2 liter kaldt vann og salt, kok opp og skum godt.', 'La det småkoke under lokk i ca. 1,5 time, til kjøttet er mørt.',
+      'Ha i poteter, gulrot, kålrot og løk i terninger og kok i 20 min til.', 'Ha i purre i ringer de siste 5 minuttene og smak til med salt og pepper.']),
+  E2('brunlapskaus', 'Brun lapskaus', 120, false, 'storfe', [],
+    [['storfegryte', 600], ['poteter', 1000], ['gulrot', 300], ['kalrot', 300], ['lok', 2], ['olje', 20], ['salt', 10]],
+    ['Brun kjøttet i små terninger i olje, litt om gangen, til det har fått godt med farge.',
+      'Ha i hakket løk og vann så det så vidt dekker, og la det småkoke under lokk i ca. 1 time.',
+      'Ha i poteter, gulrot og kålrot i terninger og kok i 30–40 min til, til noe av potetene koker ut og gjør lapskausen tykk.',
+      'Smak til med salt og pepper.']),
+  E2('karbonader', 'Karbonader med løk og poteter', 35, false, 'storfe', [],
+    [['kjottdeig', 600], ['lok', 3], ['poteter', 1000], ['gulrot', 400], ['olje', 30], ['salt', 5]],
+    ['Kok poteter og gulrøtter.', 'Form kjøttdeigen til 8 flate karbonader med våte hender, og stek dem 3–4 min på hver side.',
+      'Stek løk i skiver myk og gyllen i samme panne.', 'Hell en skvett vann i panna, la det koke opp og server løk og skysaus over karbonadene.']),
+  E2('lasagne', 'Lasagne med kjøttdeig', 80, false, 'storfe', ['gluten', 'melk'],
+    [['lasagneplater', 250], ['kjottdeig', 500], ['tomat', 800], ['tomatpure', 70], ['gulrot', 200], ['lok', 1], ['melk', 700], ['mel', 50],
+      ['ost', 150], ['olje', 30], ['salt', 5]],
+    ['Brun kjøttdeig med hakket løk og revet gulrot, rør inn tomat og tomatpuré og la sausen småkoke i 15 min.',
+      'Lag en hvit saus: varm olje og mel, spe med melk litt om gangen og kok i 5 min.',
+      'Legg kjøttsaus, plater og hvit saus lagvis i en ildfast form, og avslutt med hvit saus.',
+      'Strø over revet ost og bak i ca. 40 min på 200 °C. La lasagnen hvile litt før servering.']),
+  E2('helkylling', 'Hel kylling i ovn med rotgrønnsaker', 100, false, 'kylling', [],
+    [['helkylling', 1200], ['poteter', 1000], ['gulrot', 400], ['lok', 2], ['olje', 30], ['salt', 10]],
+    ['Gni kyllingen inn med olje, salt og pepper og legg den i en langpanne.',
+      'Del poteter, gulrot og løk i biter, vend dem i olje og salt og legg dem rundt kyllingen.',
+      'Stek i ca. 1 time og 15 min på 200 °C. Kyllingen er ferdig når kjøttsaften er klar ved låret.', 'La kyllingen hvile i 10 min før den deles.']),
+  E2('kyllinggryte', 'Kyllinglår i tomatgryte med bønner', 75, false, 'kylling', [],
+    [['kyllinglar', 1000], ['tomat', 800], ['bonner', 400], ['paprika', 1], ['lok', 1], ['ris', 300], ['olje', 15], ['salt', 5]],
+    ['Brun kyllinglårene i olje i en vid gryte og ta dem ut.', 'Fres løk og paprika i samme gryte, ha i tomat og legg kyllingen tilbake.',
+      'La det småkoke under lokk i ca. 45 min, til kjøttet slipper beinet. Ha i avrente bønner de siste 10 minuttene.', 'Kok ris og server sammen.']),
+  E2('kyllingwrap', 'Kyllingwraps med grønnsaker', 20, false, 'kylling', ['gluten', 'melk'],
+    [['kylling', 500], ['tortilla', 8], ['paprika', 2], ['mais', 200], ['spinat', 100], ['romme', 200], ['olje', 15], ['salt', 5]],
+    ['Skjær kyllingen i strimler, strø over salt og pepper og stek den gjennom i olje, ca. 6–8 min.', 'Strimle paprika og varm maisen.',
+      'Varm lefsene i en tørr panne.', 'Fyll lefsene med kylling, grønnsaker, spinat og rømme, og rull dem sammen.']),
+  E2('kalruletter', 'Kålruletter i tomatsaus', 75, false, 'svin', ['egg'],
+    [['hodekal', 800], ['svinedeig', 400], ['ris', 100], ['egg', 1], ['lok', 1], ['tomat', 800], ['poteter', 800], ['salt', 5]],
+    ['Kok risen og la den bli kald.', 'Skjær ut stilken og kok kålhodet i lettsaltet vann i 5 min, til de ytterste bladene løsner. Ta av ca. 12 blader.',
+      'Bland svinekjøttdeig, ris, egg, revet løk, salt og pepper. Legg en skje fyll på hvert blad og rull sammen.',
+      'Legg rulettene tett i en form, hell over tomat og bak dem tildekket i ca. 45 min på 180 °C. Server med kokte poteter.']),
+  E2('lammegryte', 'Lammegryte med kålrot og gulrot', 120, false, 'lam', [],
+    [['farikalkjott', 1500], ['kalrot', 500], ['gulrot', 400], ['poteter', 800], ['lok', 2], ['tomatpure', 70], ['olje', 20], ['salt', 10]],
+    ['Brun kjøttet i olje i en vid gryte, litt om gangen. Ha i hakket løk og tomatpuré og stek et minutt.',
+      'Hell på vann så det nesten dekker kjøttet, og la det småkoke under lokk i ca. 1 time.',
+      'Ha i kålrot og gulrot i store biter og kok videre i 30–40 min, til kjøttet slipper beinet og grønnsakene er møre.',
+      'Kok poteter og smak gryta til med salt og pepper.']),
+  E2('eggekake', 'Eggekake med stekt flesk', 25, false, 'egg', ['melk', 'egg'],
+    [['egg', 10], ['melk', 300], ['flesk', 300], ['purre', 100], ['poteter', 800], ['salt', 5]],
+    ['Kok poteter.', 'Stek flesket i skiver sprøtt i en stor panne og ta det ut. Hell av det meste av fettet.',
+      'Pisk egg, melk og salt lett sammen, hell det i panna og la det stivne under lokk på svak varme, ca. 10 min. Ikke rør.',
+      'Legg flesket og purre i tynne ringer over og server rett fra panna med poteter.']),
+  E2('svinefiletwok', 'Svinefilet i wok med grønnsaker og ris', 25, false, 'svin', [],
+    [['svinefilet', 500], ['ris', 300], ['brokkoli', 300], ['paprika', 1], ['gulrot', 200], ['olje', 20], ['salt', 5]],
+    ['Sett ris på koking.', 'Skjær svinefileten i tynne strimler og stek dem raskt i olje på sterk varme. Ta dem ut.',
+      'Wok brokkoli, paprika og gulrot i 4–5 min.', 'Vend inn kjøttet, smak til med salt og pepper og server med ris.']),
+];
+
+export const recipes: Recipe[] = [...demoRecipes, ...ownRecipes, ...ownRecipes2];
 
 const P = (id: string, ingredient: string, name: string, size: number, allergens: Product['allergens'] = [], allergenKnown = true): Product =>
   ({ id, ingredient, name, size, allergens, allergenKnown });
@@ -292,6 +429,14 @@ export const products: Product[] = [
   // Kjøttpølse: innholdet varierer mellom merker (ofte melk, noen ganger hvete, sennep eller selleri); ikke avklart.
   P('polse500', 'kjottpolse', 'Kjøttpølse 500 g', 500, ['gluten', 'melk'], false),
   P('flote300', 'matflote', 'Matfløte 300 ml', 300, ['melk']), P('pure140', 'tomatpure', 'Tomatpuré 140 g', 140),
+  // Omgang 2 (2026-11-26).
+  P('guler500', 'gulerter', 'Gule erter, tørre 500 g', 500), P('bygg600', 'byggryn', 'Byggryn 600 g', 600, ['gluten']),
+  // Lasagneplater: hvete, men noen merker har også egg; ikke avklart.
+  P('lasag500', 'lasagneplater', 'Lasagneplater 500 g', 500, ['gluten'], false),
+  P('storf600', 'storfegryte', 'Grytekjøtt av storfe 600 g', 600), P('helkyl1200', 'helkylling', 'Hel kylling ca. 1,2 kg', 1200),
+  // Fiskeboller: typisk fisk og melk, men innholdet varierer mellom merker (noen har hvete eller andre tilsetninger); ikke avklart.
+  P('fbol560', 'fiskeboller', 'Fiskeboller, hermetiske 560 g (avrent)', 560, ['fisk', 'melk'], false),
+  P('tun185', 'tunfisk', 'Tunfisk i vann 185 g', 185, ['fisk']),
 ];
 
 export const stores: Store[] = [
@@ -319,6 +464,8 @@ const priceTable: [string, number, number | null][] = [
   ['kal1200', 2990, 2490], ['purre300', 1990, 1690], ['erter450', 2490, 2190], ['sotp800', 3290, 2790],
   ['kyll1000', 6990, 5990], ['svf600', 9990, 8990], ['fari1500', 29990, null], ['polse500', 4490, 3990],
   ['flote300', 2490, 2190], ['pure140', 1490, 1190],
+  ['guler500', 2490, 1990], ['bygg600', 2290, 1890], ['lasag500', 2990, 2490], ['storf600', 15990, 13990],
+  ['helkyl1200', 8990, 7490], ['fbol560', 3990, 3490], ['tun185', 2490, 1990],
 ];
 export const prices: PriceObs[] = priceTable.flatMap(([p, a, b]) => [
   o(p, 'demoA', a, p === 'laks400' ? 'tilbud' : 'ordinær', p === 'laks400' ? DEMO_OFFER_UNTIL : undefined),

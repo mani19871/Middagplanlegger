@@ -6,7 +6,7 @@ Dokumentet har tre deler:
 
 1. **Søknadspakke:** hvem du spør, og hva du ber om.
 2. **Importrutine:** hva som skjer når en kilde sier ja.
-3. **Egne oppskrifter:** status for omgang 1.
+3. **Egne oppskrifter:** status for omgang 1 og 2.
 
 ## 1. Søknadspakke
 
@@ -142,5 +142,27 @@ Legg svaret der du lagrer avtaler. **Ikke legg det i repoet** hvis det er fortro
 - testkoking, med mengder og tider rettet
 - allergenkontroll av en person nummer to (bruk arket `docs/allergen-gjennomgang.md`, laget med `npm run allergen-ark`)
 - godkjenning av en redaktør, og status endret til `testkokt` eller `godkjent`
+
+## 4. Egne oppskrifter: omgang 2
+
+25 nye oppskrifter er lagt til i `src/data/catalog.ts` (`ownRecipes2`, 2026-11-26), slik at basen nå har **81**: 31 demo, 25 fra omgang 1 og 25 fra omgang 2. Norsk husmannskost og enkle familieretter, skrevet med egne ord og egne mengder uten noen kilde åpen (ingen tekst, ingredienslister eller bilder fra Matprat, TINE, kjedene, bøker eller nettsteder). Rettene er valgt for å fylle hull etter omgang 1:
+
+| Gruppe | Retter |
+| --- | --- |
+| Vegetar (9) | gul ertesuppe, spinatsuppe med egg, blomkål- og brokkoligrateng, stekt ris med tofu og egg, tomatsuppe med bønner, byggotto med sopp, ovnsbakte rotgrønnsaker med kikerter, pasta med brokkoli og erter, potet- og purresuppe |
+| Fisk og skalldyr (5) | plukkfisk, fiskeboller i hvit saus, pasta med tunfisk, stekt laks med erter, rekewok |
+| Kjøtt (11) | kjøttsuppe, brun lapskaus, karbonader, lasagne (storfe); hel kylling i ovn, kyllinglår i tomatgryte, kyllingwraps (kylling); kålruletter, svinefilet i wok (svin); lammegryte (lam); eggekake med flesk (egg, med svin) |
+
+**Fordeling i omgang 2:** 9 vegetar; 9 under 30 min; 8 på 60 min eller mer (ertesuppe, kjøttsuppe, brun lapskaus, lasagne, hel kylling, kyllinggryte, kålruletter, lammegryte); 13 uten gluten og melk; 12 ulike hovedproteiner (belgvekster 3, storfe 4, fisk 4, kylling 3, egg 2, ost 2, svin 2, og én hver av tofu, sopp, grønnsaker, skalldyr og lam). **Hele basen (81):** 23 vegetar, 53 uten gluten, 51 uten melk, 40 uten både gluten og melk, 26 under 30 min.
+
+**Merking:** som omgang 1, men med datoen 2026-11-26: `origin: { kind: 'egen', by: 'KI-utkast (Claude)', date: '2026-11-26', status: 'utkast' }`. **Ingen av dem er testkokt eller kontrollert av en person.** Ingen oppskrift i basen er `testkokt` eller `godkjent`.
+
+**Allergener:** foreningen av varenes allergener (testet i `catalog.test.ts`: nøyaktig lik, ikke bare dekket), aldri gjettet fra teksten. Fire retter bruker en uavklart vare (`allergenKnown: false`) og kan ha flere allergener enn oppgitt: fiskeboller i hvit saus (fiskeboller), kyllingwraps (tortillalefser), lasagne (lasagneplater) og rekewok (reker). Ved aktivt allergifilter gir de ukjent pris, men de er uansett skjult som utkast når et filter er på.
+
+**Nye varer (7):** gule erter (tørre), byggryn, lasagneplater, grytekjøtt av storfe, hel kylling, fiskeboller (hermetiske, uavklart) og tunfisk i vann. Alle har demoprodukt og demopriser i begge demobutikkene (regel 5) og næring fra Matvaretabellen (`scripts/build-nutrition.mjs`; eksisterende tall er kontrollert uendret). Lasagneplater er uavklart fordi noen merker har egg.
+
+**Skjult ved aktive krav:** som omgang 1. Med allergi-, kost- eller råvarefilter skjules nå 50 utkast; med filter på er basen fortsatt bare de 31 demorettene. Omgang 2 gir derfor først variasjon med filter når rettene er testkokt og allergen-kontrollert. Testen «når omgang 2 en gang er kontrollert (simulert godkjent)» i `planner.test.ts` viser at planen da holder seg til maks to per protein med filter for gluten + melk og for vegetar. Vegetar uten melk gir i dag bare fire demoretter, så planen gjentar retter (testet).
+
+**Må gjøres før de kan regnes som ferdige:** samme som for omgang 1 (testkoking, allergenkontroll med `docs/allergen-gjennomgang.md`, som nå dekker alle 81, og godkjenning).
 
 Neste omganger: se `docs/oppskrifter-research.md`, kapittel 6.

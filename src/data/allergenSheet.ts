@@ -25,6 +25,8 @@ const UAVKLART_BEGRUNNELSE: Record<string, string> = {
   mak170: 'Tomatsausen kan ha gluten (stivelse) og andre tilsetninger.',
   nud250: 'Ofte eggnudler; egg er ikke avklart.',
   polse500: 'Innholdet varierer mellom merker (ofte melk, noen ganger hvete, sennep eller selleri).',
+  lasag500: 'Hvete, men noen merker har også egg.',
+  fbol560: 'Typisk fisk og melk, men innholdet varierer mellom merker (noen har hvete eller andre tilsetninger).',
 };
 
 /**

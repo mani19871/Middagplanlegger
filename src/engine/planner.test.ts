@@ -534,8 +534,8 @@ describe('regresjon: KI-utkast skjules ved aktive krav (eierens beslutning 2026-
     ...catalog, recipes: catalog.recipes.map((r) => (r.id === id ? { ...r, origin: { ...r.origin!, status } } : r)),
   });
 
-  it('forutsetning: katalogen har 25 KI-utkast (egen, utkast)', () => {
-    expect(drafts).toHaveLength(25);
+  it('forutsetning: katalogen har 50 KI-utkast (egen, utkast; omgang 1 og 2)', () => {
+    expect(drafts).toHaveLength(50);
     expect(drafts.every((r) => r.origin!.by === 'KI-utkast (Claude)')).toBe(true);
   });
   it('aktivt allergifilter: ingen utkast i plan, valgbare retter, bytteforslag, budsjettforslag eller tilbudsretter', async () => {
@@ -570,7 +570,7 @@ describe('regresjon: KI-utkast skjules ved aktive krav (eierens beslutning 2026-
   it('uten aktive krav vises utkastene som før', async () => {
     const { eligibleRecipes, requirementViolation, hiddenUnreviewed } = await import('./planner');
     const free = ctx({ days: long });
-    expect(eligibleRecipes(free, 0).filter((r) => draftIds.has(r.id))).toHaveLength(25);
+    expect(eligibleRecipes(free, 0).filter((r) => draftIds.has(r.id))).toHaveLength(drafts.length);
     for (const r of drafts) expect(requirementViolation(r, free)).toBeNull();
     expect(hiddenUnreviewed(free)).toEqual([]);
     expect(generatePlan(free, [slot(0, 'chili', true)])[0]).toEqual(slot(0, 'chili', true)); // lås beholdes
@@ -627,5 +627,102 @@ describe('regresjon: KI-utkast skjules ved aktive krav (eierens beslutning 2026-
     expect(budgetAnswer(b, 10_000_000)).toBe('ufullstendig');
     // Uten filter har kokosmelken pris.
     expect(buildBasket([slot(0, 'karri')], ['demoA'], ctx({ days: long })).complete).toBe(true);
+  });
+});
+
+describe('regresjon: egne oppskrifter omgang 2 (2026-11-26)', () => {
+  // 25 nye KI-utkast. Planmotoren skal fortsatt gi gyldige, deterministiske planer med og uten filter, og utkastene
+  // skal fortsatt skjules når et absolutt krav er aktivt (CLAUDE.md, «Oppskrifter»).
+  const long = defaultSettings.days.map(() => ({ enabled: true, maxMinutes: 300 }));
+  const round2 = catalog.recipes.filter((r) => r.origin?.kind === 'egen' && r.origin.date === '2026-11-26');
+  const byId = (id: string) => catalog.recipes.find((r) => r.id === id)!;
+  const isDraft = (id: string) => byId(id).origin?.kind === 'egen' && byId(id).origin?.status === 'utkast';
+  const valid = (plan: Slot[], c: Ctx, unique = true) => {
+    if (unique) expect(new Set(plan.map((s) => s.recipeId)).size, 'samme rett to ganger').toBe(plan.length);
+    for (const s of plan) {
+      const r = byId(s.recipeId);
+      expect(r, s.recipeId).toBeDefined();
+      expect(r.minutes, r.id).toBeLessThanOrEqual(c.settings.days[s.day].maxMinutes);
+      for (const a of c.settings.avoid) expect(r.allergens, `${r.id} ${a}`).not.toContain(a);
+      if (c.settings.vegetarian) expect(r.vegetarian, r.id).toBe(true);
+    }
+  };
+  const perProtein = (plan: Slot[]) => {
+    const m = new Map<string, number>();
+    for (const s of plan) m.set(byId(s.recipeId).protein, (m.get(byId(s.recipeId).protein) ?? 0) + 1);
+    return m;
+  };
+  const approved = (): Catalog => ({
+    ...catalog, recipes: catalog.recipes.map((r) => (round2.includes(r) ? { ...r, origin: { ...r.origin!, status: 'godkjent' as const } } : r)),
+  });
+
+  it('forutsetning: 25 nye utkast, og Spagetti bolognese (brukt i e2e:sync) er uendret demodata', () => {
+    expect(round2).toHaveLength(25);
+    const b = byId('bolognese');
+    expect(b.origin?.kind).toBe('demo');
+    expect(b.lines).toEqual([
+      { ingredient: 'pasta', amount: 400 }, { ingredient: 'kjottdeig', amount: 400 }, { ingredient: 'tomat', amount: 800 },
+      { ingredient: 'lok', amount: 1 }, { ingredient: 'olje', amount: 20 }, { ingredient: 'salt', amount: 5 },
+    ]);
+  });
+  it('uten filter: gyldig og deterministisk plan med standardinnstillinger og med lange dager, maks to per protein', async () => {
+    const { eligibleRecipes } = await import('./planner');
+    for (const c of [ctx(), ctx({ days: long })]) {
+      const plan = generatePlan(c);
+      expect(plan).toHaveLength(c.settings.days.filter((d) => d.enabled).length);
+      valid(plan, c);
+      expect(JSON.stringify(generatePlan(c))).toBe(JSON.stringify(plan));
+      for (const n of perProtein(plan).values()) expect(n).toBeLessThanOrEqual(2);
+    }
+    // Uten filter kan alle de nye rettene velges når tiden strekker til.
+    const ids = eligibleRecipes(ctx({ days: long }), 0).map((r) => r.id);
+    for (const r of round2) expect(ids, r.id).toContain(r.id);
+  });
+  it('med filter for gluten, melk (laktose), vegetar og gluten + melk: gyldig plan på 7 dager uten utkast, deterministisk', () => {
+    const cases: Partial<Settings>[] = [{ avoid: ['gluten'] }, { avoid: ['melk'] }, { vegetarian: true }, { avoid: ['gluten', 'melk'] }];
+    for (const over of cases) {
+      const c = ctx({ days: long, ...over });
+      const plan = generatePlan(c);
+      expect(plan, JSON.stringify(over)).toHaveLength(7);
+      valid(plan, c);
+      expect(plan.filter((s) => isDraft(s.recipeId)).map((s) => s.recipeId), JSON.stringify(over)).toEqual([]);
+      expect(JSON.stringify(generatePlan(c))).toBe(JSON.stringify(plan));
+    }
+  });
+  it('vegetar uten melk: bare demoretter er igjen (utkast skjules), så planen gjentar retter, men alle er gyldige', async () => {
+    const { eligibleRecipes } = await import('./planner');
+    const c = ctx({ days: long, vegetarian: true, avoid: ['melk'] });
+    const plan = generatePlan(c);
+    expect(plan).toHaveLength(7);
+    valid(plan, c, false);
+    const pool = eligibleRecipes(c, 0).map((r) => r.id);
+    expect(pool.every((id) => !isDraft(id))).toBe(true);
+    expect(new Set(plan.map((s) => s.recipeId)).size).toBe(Math.min(7, pool.length));
+  });
+  it('når omgang 2 en gang er kontrollert (simulert godkjent), gir de variasjon med filter: maks to per protein', async () => {
+    const { eligibleRecipes } = await import('./planner');
+    for (const over of [{ avoid: ['gluten', 'melk'] }, { vegetarian: true }] as Partial<Settings>[]) {
+      const c: Ctx = { catalog: approved(), settings: { ...defaultSettings, days: long, ...over } };
+      const pool = eligibleRecipes(c, 0);
+      expect(pool.filter((r) => round2.some((x) => x.id === r.id)).length, JSON.stringify(over)).toBeGreaterThanOrEqual(8);
+      const plan = generatePlan(c);
+      expect(plan).toHaveLength(7);
+      valid(plan, c);
+      for (const n of perProtein(plan).values()) expect(n, JSON.stringify(over)).toBeLessThanOrEqual(2);
+      expect(perProtein(plan).size, JSON.stringify(over)).toBeGreaterThanOrEqual(4);
+    }
+  });
+  it('kurven for hver ny rett har én linje per vare, og ukjent eller uavklart pris gjør den aldri komplett', () => {
+    for (const r of round2) {
+      const b = buildBasket([slot(0, r.id)], ['demoA', 'demoB'], ctx({ days: long }));
+      const ids = b.lines.map((l) => l.ingredient);
+      expect(new Set(ids).size, r.id).toBe(ids.length);
+      expect(b.complete, r.id).toBe(b.lines.every((l) => l.status !== 'ukjent'));
+      expect(b.totalOre, r.id).toBe(b.lines.reduce((s, l) => s + (l.costOre ?? 0), 0));
+    }
+    // Med aktivt allergifilter gir en uavklart vare ukjent pris (aldri godkjent som trygg).
+    const wrap = buildBasket([slot(0, 'kyllingwrap')], ['demoA'], ctx({ days: long, avoid: ['sesam'] }));
+    expect(wrap.lines.find((l) => l.ingredient === 'tortilla')!.status).toBe('ukjent');
+    expect(wrap.complete).toBe(false);
   });
 });

@@ -69,10 +69,12 @@ Skriptet sammenligner dataene med hverandre og peker på steder en person bør s
 | Makrell i tomat (hermetisk) | Makrell i tomat 170 g | gluten, fisk (uavklart) | Tomatsausen kan ha gluten (stivelse) og andre tilsetninger. |
 | Hvetenudler (tørre) | Hvetenudler 250 g | gluten, egg (uavklart) | Ofte eggnudler; egg er ikke avklart. |
 | Kjøttpølse | Kjøttpølse 500 g | gluten, melk (uavklart) | Innholdet varierer mellom merker (ofte melk, noen ganger hvete, sennep eller selleri). |
+| Lasagneplater | Lasagneplater 500 g | gluten (uavklart) | Hvete, men noen merker har også egg. |
+| Fiskeboller (hermetiske) | Fiskeboller, hermetiske 560 g (avrent) | melk, fisk (uavklart) | Typisk fisk og melk, men innholdet varierer mellom merker (noen har hvete eller andre tilsetninger). |
 
 ## Oversikt over oppskriftene
 
-56 oppskrifter. Fyll ut «ferdig» når alle felt under retten er fylt ut.
+81 oppskrifter. Fyll ut «ferdig» når alle felt under retten er fylt ut.
 
 | # | Oppskrift | Opphav | Allergener (appen) | Vegetar | Uavklarte varer | Ferdig |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -132,6 +134,31 @@ Skriptet sammenligner dataene med hverandre og peker på steder en person bør s
 | 54 | Ovnsomelett med poteter og spinat (`frittata`) | egen, utkast | melk, egg | ja | 0 | [ ] |
 | 55 | Tofu i kokoskarri med ris (`tofukarri`) | egen, utkast | soya | ja | 1 | [ ] |
 | 56 | Kremet soppsuppe (`soppsuppe`) | egen, utkast | melk | ja | 0 | [ ] |
+| 57 | Gul ertesuppe med rotgrønnsaker (`ertesuppe`) | egen, utkast | – | ja | 0 | [ ] |
+| 58 | Spinatsuppe med egg (`spinatsuppe`) | egen, utkast | melk, egg | ja | 0 | [ ] |
+| 59 | Blomkål- og brokkoligrateng (`blomkalgrateng`) | egen, utkast | melk, egg | ja | 0 | [ ] |
+| 60 | Stekt ris med tofu og egg (`tofuris`) | egen, utkast | gluten, egg, soya | ja | 0 | [ ] |
+| 61 | Tomatsuppe med bønner og grønnsaker (`bonnesuppe`) | egen, utkast | – | ja | 0 | [ ] |
+| 62 | Byggotto med sopp (`byggotto`) | egen, utkast | gluten, melk | ja | 0 | [ ] |
+| 63 | Ovnsbakte rotgrønnsaker med kikerter (`rotgronnsaker`) | egen, utkast | – | ja | 0 | [ ] |
+| 64 | Pasta med brokkoli, erter og ost (`brokkolipasta`) | egen, utkast | gluten, melk | ja | 0 | [ ] |
+| 65 | Potet- og purresuppe (`purresuppe`) | egen, utkast | melk | ja | 0 | [ ] |
+| 66 | Plukkfisk (`plukkfisk`) | egen, utkast | gluten, melk, fisk | nei | 0 | [ ] |
+| 67 | Fiskeboller i hvit saus (`fiskeboller`) | egen, utkast | gluten, melk, fisk | nei | 1 | [ ] |
+| 68 | Pasta med tunfisk, mais og tomat (`tunfiskpasta`) | egen, utkast | gluten, fisk | nei | 0 | [ ] |
+| 69 | Stekt laks med poteter og erter (`stektlaks`) | egen, utkast | fisk | nei | 0 | [ ] |
+| 70 | Rekewok med ris (`rekewok`) | egen, utkast | skalldyr | nei | 1 | [ ] |
+| 71 | Kjøttsuppe med rotgrønnsaker (`kjottsuppe`) | egen, utkast | – | nei | 0 | [ ] |
+| 72 | Brun lapskaus (`brunlapskaus`) | egen, utkast | – | nei | 0 | [ ] |
+| 73 | Karbonader med løk og poteter (`karbonader`) | egen, utkast | – | nei | 0 | [ ] |
+| 74 | Lasagne med kjøttdeig (`lasagne`) | egen, utkast | gluten, melk | nei | 1 | [ ] |
+| 75 | Hel kylling i ovn med rotgrønnsaker (`helkylling`) | egen, utkast | – | nei | 0 | [ ] |
+| 76 | Kyllinglår i tomatgryte med bønner (`kyllinggryte`) | egen, utkast | – | nei | 0 | [ ] |
+| 77 | Kyllingwraps med grønnsaker (`kyllingwrap`) | egen, utkast | gluten, melk | nei | 1 | [ ] |
+| 78 | Kålruletter i tomatsaus (`kalruletter`) | egen, utkast | egg | nei | 0 | [ ] |
+| 79 | Lammegryte med kålrot og gulrot (`lammegryte`) | egen, utkast | – | nei | 0 | [ ] |
+| 80 | Eggekake med stekt flesk (`eggekake`) | egen, utkast | melk, egg | nei | 0 | [ ] |
+| 81 | Svinefilet i wok med grønnsaker og ris (`svinefiletwok`) | egen, utkast | – | nei | 0 | [ ] |
 
 ## Oppskrifter
 
@@ -1655,6 +1682,735 @@ Opphav: egen, status utkast. Tid: 30 min. Mengdene gjelder 4 porsjoner.
 - **Kosttagger:** vegetar: ja. Hovedprotein: sopp. Råvaretagger fra varene: ingen.
 - Uavklart eller uten merking: Matolje, Salt og pepper.
 - Fremgangsmåte (for å se om noe mangler i varelisten): Fres hakket løk og sopp i skiver i en gryte. Ha i poteter i små terninger og melk, og la det småkoke i 15 min. Rør inn fløte, og kjør gjerne halve suppa jevn. Smak til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 57. Gul ertesuppe med rotgrønnsaker (`ertesuppe`)
+
+Opphav: egen, status utkast. Tid: 120 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Gule erter (tørre) | 400 g | Gule erter, tørre 500 g | – | kjent |
+| Gulrot | 300 g | Gulrot 1 kg | – | kjent |
+| Kålrot | 300 g | Kålrot 1 kg | – | kjent |
+| Poteter | 400 g | Poteter 1,5 kg | – | kjent |
+| Purre | 200 g | Purre 1 stk (ca. 300 g) | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Salt og pepper | 10 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: belgvekster. Råvaretagger fra varene: belgvekster.
+- Uavklart eller uten merking: Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Skyll ertene, kok dem opp i ca. 1,5 liter vann og skum av. La ertene småkoke under lokk i ca. 1 time, til de begynner å gå i stykker. Rør av og til og spe med vann om det trengs. Ha i poteter, gulrot og kålrot i terninger og hakket løk, og kok i 25 min til. Ha i purre i ringer de siste 5 minuttene og smak til med salt og pepper. Ertene kan bløtlegges natten før; da går kokingen raskere.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 58. Spinatsuppe med egg (`spinatsuppe`)
+
+Opphav: egen, status utkast. Tid: 30 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Spinat | 400 g | Spinat 200 g | – | kjent |
+| Poteter | 400 g | Poteter 1,5 kg | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Melk | 700 ml | Lettmelk 1 l | melk | kjent |
+| Egg | 6 stk | Egg 12 stk | egg | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): melk, egg
+- Samlet fra varene: melk, egg
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: egg. Råvaretagger fra varene: ingen.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok eggene i 9 min, avkjøl dem i kaldt vann og del dem i to. Fres hakket løk i olje, ha i poteter i små terninger og melk, og la det småkoke på svak varme i 15 min, til potetene er møre. Ha i spinaten, la den falle sammen og kjør suppa jevn. Smak til med salt og pepper og server med eggene i suppa.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 59. Blomkål- og brokkoligrateng (`blomkalgrateng`)
+
+Opphav: egen, status utkast. Tid: 50 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Blomkål | 600 g | Blomkål 1 stk (ca. 600 g) | – | kjent |
+| Brokkoli | 400 g | Brokkoli 400 g | – | kjent |
+| Egg | 4 stk | Egg 12 stk | egg | kjent |
+| Melk | 300 ml | Lettmelk 1 l | melk | kjent |
+| Ost | 200 g | Norvegia 400 g | melk | kjent |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): melk, egg
+- Samlet fra varene: melk, egg
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: ost. Råvaretagger fra varene: ingen.
+- Uavklart eller uten merking: Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok poteter. Del blomkål og brokkoli i buketter, forkok dem i 3 min i lettsaltet vann og la dem renne godt av. Legg grønnsakene i en ildfast form. Pisk egg, melk og halvparten av den revne osten, og hell det over. Strø over resten av osten og bak i ca. 30 min på 200 °C, til gratengen har stivnet og fått farge.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 60. Stekt ris med tofu og egg (`tofuris`)
+
+Opphav: egen, status utkast. Tid: 25 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Ris | 300 g | Jasminris 1 kg | – | kjent |
+| Tofu | 400 g | Tofu naturell 400 g | soya | kjent |
+| Egg | 4 stk | Egg 12 stk | egg | kjent |
+| Grønne erter (frosne) | 200 g | Grønne erter, frosne 450 g | – | kjent |
+| Gulrot | 200 g | Gulrot 1 kg | – | kjent |
+| Soyasaus | 40 ml | Soyasaus 150 ml | gluten, soya | kjent |
+| Matolje | 30 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, egg, soya
+- Samlet fra varene: gluten, egg, soya
+- Ikke merket (kontroller at ingen av disse finnes i retten): melk, fisk, skalldyr, bløtdyr, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: tofu. Råvaretagger fra varene: belgvekster.
+- Uavklart eller uten merking: Matolje.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok risen og la den dampe av, eller bruk kokt ris fra dagen før. Stek tofu i terninger gyllen i olje og ta den ut av panna. Stek revet gulrot og erter et par minutter, skyv dem til side og rør eggene raskt sammen i panna. Ha i risen og tofuen, hell over soyasaus og stek alt sammen i 3–4 min.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 61. Tomatsuppe med bønner og grønnsaker (`bonnesuppe`)
+
+Opphav: egen, status utkast. Tid: 30 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Kidneybønner | 400 g | Kidneybønner 400 g | – | kjent |
+| Hakkede tomater | 800 g | Hakkede tomater 400 g | – | kjent |
+| Poteter | 300 g | Poteter 1,5 kg | – | kjent |
+| Gulrot | 200 g | Gulrot 1 kg | – | kjent |
+| Purre | 200 g | Purre 1 stk (ca. 300 g) | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: belgvekster. Råvaretagger fra varene: belgvekster.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Fres hakket løk i olje i en gryte. Ha i poteter og gulrot i små terninger, tomat og 5 dl vann, og la det småkoke i 15 min. Ha i avrente bønner og purre i ringer og kok 5 min til. Smak til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 62. Byggotto med sopp (`byggotto`)
+
+Opphav: egen, status utkast. Tid: 45 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Byggryn | 300 g | Byggryn 600 g | gluten | kjent |
+| Sjampinjong | 400 g | Sjampinjong 250 g | – | kjent |
+| Grønne erter (frosne) | 200 g | Grønne erter, frosne 450 g | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Ost | 100 g | Norvegia 400 g | melk | kjent |
+| Matolje | 20 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 10 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, melk
+- Samlet fra varene: gluten, melk
+- Ikke merket (kontroller at ingen av disse finnes i retten): egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: sopp. Råvaretagger fra varene: ingen.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Fres hakket løk og byggryn i olje i et par minutter. Spe med ca. 1 liter varmt, lettsaltet vann, litt om gangen, og la det småkoke i ca. 30 min under omrøring, til grynene er møre. Stek sopp i skiver gyllen i en panne. Vend sopp, erter og revet ost inn i grynene og smak til.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 63. Ovnsbakte rotgrønnsaker med kikerter (`rotgronnsaker`)
+
+Opphav: egen, status utkast. Tid: 45 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Søtpotet | 800 g | Søtpotet 800 g | – | kjent |
+| Gulrot | 400 g | Gulrot 1 kg | – | kjent |
+| Kålrot | 400 g | Kålrot 1 kg | – | kjent |
+| Kikerter (hermetiske) | 800 g | Kikerter 400 g | – | kjent |
+| Løk | 2 stk | Gul løk 3-pk | – | kjent |
+| Matolje | 40 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: belgvekster. Råvaretagger fra varene: belgvekster.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Skjær søtpotet, gulrot og kålrot i biter og løk i båter. Vend grønnsakene i olje, salt og pepper og bak dem i en langpanne i 20 min på 220 °C. Ha i avrente kikerter, rør om og bak 15 min til, til grønnsakene er møre og har fått farge.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 64. Pasta med brokkoli, erter og ost (`brokkolipasta`)
+
+Opphav: egen, status utkast. Tid: 20 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Pasta | 400 g | Spagetti 500 g | gluten | kjent |
+| Brokkoli | 400 g | Brokkoli 400 g | – | kjent |
+| Grønne erter (frosne) | 200 g | Grønne erter, frosne 450 g | – | kjent |
+| Matfløte | 200 ml | Matfløte 300 ml | melk | kjent |
+| Ost | 150 g | Norvegia 400 g | melk | kjent |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, melk
+- Samlet fra varene: gluten, melk
+- Ikke merket (kontroller at ingen av disse finnes i retten): egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: ost. Råvaretagger fra varene: ingen.
+- Uavklart eller uten merking: Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok pasta etter anvisning på pakken, og ha brokkolibuketter og erter i kjelen de siste 3 minuttene. Hell av vannet. Rør inn fløte og revet ost, varm forsiktig til osten smelter og smak til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 65. Potet- og purresuppe (`purresuppe`)
+
+Opphav: egen, status utkast. Tid: 35 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Purre | 600 g | Purre 1 stk (ca. 300 g) | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Melk | 500 ml | Lettmelk 1 l | melk | kjent |
+| Matfløte | 300 ml | Matfløte 300 ml | melk | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 10 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): melk
+- Samlet fra varene: melk
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: ja. Hovedprotein: grønnsaker. Råvaretagger fra varene: ingen.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Fres hakket løk og purre i ringer i olje på svak varme, uten at det tar farge. Ha i poteter i terninger og 5 dl vann med salt, og kok til potetene er helt møre, ca. 20 min. Hell i melk og fløte, varm opp og kjør suppa jevn. Smak til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 66. Plukkfisk (`plukkfisk`)
+
+Opphav: egen, status utkast. Tid: 35 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Seifilet | 600 g | Seifilet 400 g | fisk | kjent |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Melk | 500 ml | Lettmelk 1 l | melk | kjent |
+| Hvetemel | 40 g | Hvetemel 1 kg | gluten | kjent |
+| Purre | 100 g | Purre 1 stk (ca. 300 g) | – | kjent |
+| Gulrot | 300 g | Gulrot 1 kg | – | kjent |
+| Matolje | 30 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, melk, fisk
+- Samlet fra varene: gluten, melk, fisk
+- Ikke merket (kontroller at ingen av disse finnes i retten): egg, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: fisk. Råvaretagger fra varene: fisk.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok poteter og skjær dem i terninger. La fisken trekke i lettsaltet vann i 5–6 min og del den i flak. Varm olje og mel i en gryte, spe med melk litt om gangen og kok til en jevn saus i 5 min. Vend fisk, poteter og purre i tynne ringer forsiktig inn i sausen. Server med revet gulrot.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 67. Fiskeboller i hvit saus (`fiskeboller`)
+
+Opphav: egen, status utkast. Tid: 25 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Fiskeboller (hermetiske) | 560 g | Fiskeboller, hermetiske 560 g (avrent) | melk, fisk | **uavklart** |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Gulrot | 400 g | Gulrot 1 kg | – | kjent |
+| Melk | 400 ml | Lettmelk 1 l | melk | kjent |
+| Hvetemel | 40 g | Hvetemel 1 kg | gluten | kjent |
+| Matolje | 30 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, melk, fisk
+- Samlet fra varene: gluten, melk, fisk
+- Ikke merket (kontroller at ingen av disse finnes i retten): egg, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: fisk. Råvaretagger fra varene: fisk.
+- Uavklart eller uten merking: Fiskeboller (hermetiske), Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok poteter og gulrøtter. Hell av laken fra fiskebollene, men ta vare på ca. 2 dl. Varm olje og mel, spe med lake og melk og kok sausen jevn i 5 min. Legg fiskebollene i sausen og varm dem forsiktig.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 68. Pasta med tunfisk, mais og tomat (`tunfiskpasta`)
+
+Opphav: egen, status utkast. Tid: 20 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Pasta | 400 g | Spagetti 500 g | gluten | kjent |
+| Tunfisk i vann (hermetisk) | 370 g | Tunfisk i vann 185 g | fisk | kjent |
+| Hakkede tomater | 400 g | Hakkede tomater 400 g | – | kjent |
+| Mais | 200 g | Mais 200 g | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, fisk
+- Samlet fra varene: gluten, fisk
+- Ikke merket (kontroller at ingen av disse finnes i retten): melk, egg, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: fisk. Råvaretagger fra varene: fisk.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok pasta etter anvisning på pakken. Fres hakket løk i olje, ha i tomat og la det putre i 5 min. Vend inn avrent tunfisk og mais og varm alt. Bland sausen med pastaen.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 69. Stekt laks med poteter og erter (`stektlaks`)
+
+Opphav: egen, status utkast. Tid: 25 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Laks | 600 g | Laksefilet 400 g | fisk | kjent |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Grønne erter (frosne) | 300 g | Grønne erter, frosne 450 g | – | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): fisk
+- Samlet fra varene: fisk
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: fisk. Råvaretagger fra varene: fisk.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok poteter. Strø salt og pepper på laksestykkene og stek dem med skinnsiden ned i 4 min. Snu og stek 2–3 min til. Kok ertene i 2–3 min. Server sammen.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 70. Rekewok med ris (`rekewok`)
+
+Opphav: egen, status utkast. Tid: 20 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Reker, skallfrie | 300 g | Reker, skallfrie 300 g | skalldyr | **uavklart** |
+| Ris | 300 g | Jasminris 1 kg | – | kjent |
+| Brokkoli | 300 g | Brokkoli 400 g | – | kjent |
+| Paprika | 1 stk | Paprika 3-pk | – | kjent |
+| Gulrot | 200 g | Gulrot 1 kg | – | kjent |
+| Matolje | 20 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): skalldyr
+- Samlet fra varene: skalldyr
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: skalldyr. Råvaretagger fra varene: skalldyr.
+- Uavklart eller uten merking: Reker, skallfrie, Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Sett ris på koking. Wok brokkoli, paprika og gulrot i strimler i olje på sterk varme i 4–5 min. Vend inn rekene til de er varme, og smak til med salt og pepper. Server med ris.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 71. Kjøttsuppe med rotgrønnsaker (`kjottsuppe`)
+
+Opphav: egen, status utkast. Tid: 150 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Grytekjøtt av storfe (i terninger) | 600 g | Grytekjøtt av storfe 600 g | – | kjent |
+| Poteter | 600 g | Poteter 1,5 kg | – | kjent |
+| Gulrot | 400 g | Gulrot 1 kg | – | kjent |
+| Kålrot | 400 g | Kålrot 1 kg | – | kjent |
+| Purre | 200 g | Purre 1 stk (ca. 300 g) | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Salt og pepper | 15 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: storfe. Råvaretagger fra varene: storfe.
+- Uavklart eller uten merking: Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Legg kjøttet i en gryte med ca. 2 liter kaldt vann og salt, kok opp og skum godt. La det småkoke under lokk i ca. 1,5 time, til kjøttet er mørt. Ha i poteter, gulrot, kålrot og løk i terninger og kok i 20 min til. Ha i purre i ringer de siste 5 minuttene og smak til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 72. Brun lapskaus (`brunlapskaus`)
+
+Opphav: egen, status utkast. Tid: 120 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Grytekjøtt av storfe (i terninger) | 600 g | Grytekjøtt av storfe 600 g | – | kjent |
+| Poteter | 1000 g | Poteter 1,5 kg | – | kjent |
+| Gulrot | 300 g | Gulrot 1 kg | – | kjent |
+| Kålrot | 300 g | Kålrot 1 kg | – | kjent |
+| Løk | 2 stk | Gul løk 3-pk | – | kjent |
+| Matolje | 20 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 10 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: storfe. Råvaretagger fra varene: storfe.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Brun kjøttet i små terninger i olje, litt om gangen, til det har fått godt med farge. Ha i hakket løk og vann så det så vidt dekker, og la det småkoke under lokk i ca. 1 time. Ha i poteter, gulrot og kålrot i terninger og kok i 30–40 min til, til noe av potetene koker ut og gjør lapskausen tykk. Smak til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 73. Karbonader med løk og poteter (`karbonader`)
+
+Opphav: egen, status utkast. Tid: 35 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Kjøttdeig | 600 g | Kjøttdeig 400 g; Kjøttdeig 800 g | – | kjent |
+| Løk | 3 stk | Gul løk 3-pk | – | kjent |
+| Poteter | 1000 g | Poteter 1,5 kg | – | kjent |
+| Gulrot | 400 g | Gulrot 1 kg | – | kjent |
+| Matolje | 30 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: storfe. Råvaretagger fra varene: storfe.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok poteter og gulrøtter. Form kjøttdeigen til 8 flate karbonader med våte hender, og stek dem 3–4 min på hver side. Stek løk i skiver myk og gyllen i samme panne. Hell en skvett vann i panna, la det koke opp og server løk og skysaus over karbonadene.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 74. Lasagne med kjøttdeig (`lasagne`)
+
+Opphav: egen, status utkast. Tid: 80 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Lasagneplater | 250 g | Lasagneplater 500 g | gluten | **uavklart** |
+| Kjøttdeig | 500 g | Kjøttdeig 400 g; Kjøttdeig 800 g | – | kjent |
+| Hakkede tomater | 800 g | Hakkede tomater 400 g | – | kjent |
+| Tomatpuré | 70 g | Tomatpuré 140 g | – | kjent |
+| Gulrot | 200 g | Gulrot 1 kg | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Melk | 700 ml | Lettmelk 1 l | melk | kjent |
+| Hvetemel | 50 g | Hvetemel 1 kg | gluten | kjent |
+| Ost | 150 g | Norvegia 400 g | melk | kjent |
+| Matolje | 30 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, melk
+- Samlet fra varene: gluten, melk
+- Ikke merket (kontroller at ingen av disse finnes i retten): egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: storfe. Råvaretagger fra varene: storfe.
+- Uavklart eller uten merking: Lasagneplater, Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Brun kjøttdeig med hakket løk og revet gulrot, rør inn tomat og tomatpuré og la sausen småkoke i 15 min. Lag en hvit saus: varm olje og mel, spe med melk litt om gangen og kok i 5 min. Legg kjøttsaus, plater og hvit saus lagvis i en ildfast form, og avslutt med hvit saus. Strø over revet ost og bak i ca. 40 min på 200 °C. La lasagnen hvile litt før servering.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 75. Hel kylling i ovn med rotgrønnsaker (`helkylling`)
+
+Opphav: egen, status utkast. Tid: 100 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Hel kylling | 1200 g | Hel kylling ca. 1,2 kg | – | kjent |
+| Poteter | 1000 g | Poteter 1,5 kg | – | kjent |
+| Gulrot | 400 g | Gulrot 1 kg | – | kjent |
+| Løk | 2 stk | Gul løk 3-pk | – | kjent |
+| Matolje | 30 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 10 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: kylling. Råvaretagger fra varene: kylling.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Gni kyllingen inn med olje, salt og pepper og legg den i en langpanne. Del poteter, gulrot og løk i biter, vend dem i olje og salt og legg dem rundt kyllingen. Stek i ca. 1 time og 15 min på 200 °C. Kyllingen er ferdig når kjøttsaften er klar ved låret. La kyllingen hvile i 10 min før den deles.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 76. Kyllinglår i tomatgryte med bønner (`kyllinggryte`)
+
+Opphav: egen, status utkast. Tid: 75 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Kyllinglår (med ben, uten skinn) | 1000 g | Kyllinglår 1 kg | – | kjent |
+| Hakkede tomater | 800 g | Hakkede tomater 400 g | – | kjent |
+| Kidneybønner | 400 g | Kidneybønner 400 g | – | kjent |
+| Paprika | 1 stk | Paprika 3-pk | – | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Ris | 300 g | Jasminris 1 kg | – | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: kylling. Råvaretagger fra varene: belgvekster, kylling.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Brun kyllinglårene i olje i en vid gryte og ta dem ut. Fres løk og paprika i samme gryte, ha i tomat og legg kyllingen tilbake. La det småkoke under lokk i ca. 45 min, til kjøttet slipper beinet. Ha i avrente bønner de siste 10 minuttene. Kok ris og server sammen.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 77. Kyllingwraps med grønnsaker (`kyllingwrap`)
+
+Opphav: egen, status utkast. Tid: 20 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Kyllingfilet | 500 g | Kyllingfilet 600 g | – | kjent |
+| Tortillalefser | 8 stk | Tortillalefser 8 stk | gluten | **uavklart** |
+| Paprika | 2 stk | Paprika 3-pk | – | kjent |
+| Mais | 200 g | Mais 200 g | – | kjent |
+| Spinat | 100 g | Spinat 200 g | – | kjent |
+| Rømme | 200 ml | Rømme 300 ml | melk | kjent |
+| Matolje | 15 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): gluten, melk
+- Samlet fra varene: gluten, melk
+- Ikke merket (kontroller at ingen av disse finnes i retten): egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: kylling. Råvaretagger fra varene: kylling.
+- Uavklart eller uten merking: Tortillalefser, Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Skjær kyllingen i strimler, strø over salt og pepper og stek den gjennom i olje, ca. 6–8 min. Strimle paprika og varm maisen. Varm lefsene i en tørr panne. Fyll lefsene med kylling, grønnsaker, spinat og rømme, og rull dem sammen.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 78. Kålruletter i tomatsaus (`kalruletter`)
+
+Opphav: egen, status utkast. Tid: 75 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Hodekål | 800 g | Hodekål 1 stk (ca. 1,2 kg) | – | kjent |
+| Svinekjøttdeig | 400 g | Svinekjøttdeig 400 g | – | kjent |
+| Ris | 100 g | Jasminris 1 kg | – | kjent |
+| Egg | 1 stk | Egg 12 stk | egg | kjent |
+| Løk | 1 stk | Gul løk 3-pk | – | kjent |
+| Hakkede tomater | 800 g | Hakkede tomater 400 g | – | kjent |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): egg
+- Samlet fra varene: egg
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: svin. Råvaretagger fra varene: svin.
+- Uavklart eller uten merking: Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok risen og la den bli kald. Skjær ut stilken og kok kålhodet i lettsaltet vann i 5 min, til de ytterste bladene løsner. Ta av ca. 12 blader. Bland svinekjøttdeig, ris, egg, revet løk, salt og pepper. Legg en skje fyll på hvert blad og rull sammen. Legg rulettene tett i en form, hell over tomat og bak dem tildekket i ca. 45 min på 180 °C. Server med kokte poteter.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 79. Lammegryte med kålrot og gulrot (`lammegryte`)
+
+Opphav: egen, status utkast. Tid: 120 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Fårikålkjøtt (lam, med ben) | 1500 g | Fårikålkjøtt 1,5 kg | – | kjent |
+| Kålrot | 500 g | Kålrot 1 kg | – | kjent |
+| Gulrot | 400 g | Gulrot 1 kg | – | kjent |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Løk | 2 stk | Gul løk 3-pk | – | kjent |
+| Tomatpuré | 70 g | Tomatpuré 140 g | – | kjent |
+| Matolje | 20 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 10 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: lam. Råvaretagger fra varene: lam.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Brun kjøttet i olje i en vid gryte, litt om gangen. Ha i hakket løk og tomatpuré og stek et minutt. Hell på vann så det nesten dekker kjøttet, og la det småkoke under lokk i ca. 1 time. Ha i kålrot og gulrot i store biter og kok videre i 30–40 min, til kjøttet slipper beinet og grønnsakene er møre. Kok poteter og smak gryta til med salt og pepper.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 80. Eggekake med stekt flesk (`eggekake`)
+
+Opphav: egen, status utkast. Tid: 25 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Egg | 10 stk | Egg 12 stk | egg | kjent |
+| Melk | 300 ml | Lettmelk 1 l | melk | kjent |
+| Sideflesk | 300 g | Sideflesk 500 g | – | kjent |
+| Purre | 100 g | Purre 1 stk (ca. 300 g) | – | kjent |
+| Poteter | 800 g | Poteter 1,5 kg | – | kjent |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): melk, egg
+- Samlet fra varene: melk, egg
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: egg. Råvaretagger fra varene: svin.
+- Uavklart eller uten merking: Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Kok poteter. Stek flesket i skiver sprøtt i en stor panne og ta det ut. Hell av det meste av fettet. Pisk egg, melk og salt lett sammen, hell det i panna og la det stivne under lokk på svak varme, ca. 10 min. Ikke rør. Legg flesket og purre i tynne ringer over og server rett fra panna med poteter.
+
+**Gjennomgang (fylles ut av en person):**
+
+- Allergener stemmer: [ ] ja  [ ] nei
+- Kosttagger stemmer: [ ] ja  [ ] nei
+- Kommentar:
+- Gjennomgått av (rolle, ikke navn):
+- Dato (ÅÅÅÅ-MM-DD):
+
+### 81. Svinefilet i wok med grønnsaker og ris (`svinefiletwok`)
+
+Opphav: egen, status utkast. Tid: 25 min. Mengdene gjelder 4 porsjoner.
+
+| Vare | Mengde | Produkt i katalogen | Allergener fra varen | Merkestatus |
+| --- | --- | --- | --- | --- |
+| Svinefilet | 500 g | Svinefilet 600 g | – | kjent |
+| Ris | 300 g | Jasminris 1 kg | – | kjent |
+| Brokkoli | 300 g | Brokkoli 400 g | – | kjent |
+| Paprika | 1 stk | Paprika 3-pk | – | kjent |
+| Gulrot | 200 g | Gulrot 1 kg | – | kjent |
+| Matolje | 20 ml | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+| Salt og pepper | 5 g | ingen (basisvare uten produkt) | ikke merket | ikke merket |
+
+- **Appens allergener for retten** (det filteret bruker): –
+- Samlet fra varene: –
+- Ikke merket (kontroller at ingen av disse finnes i retten): gluten, melk, egg, fisk, skalldyr, bløtdyr, soya, peanøtter, nøtter, selleri, sennep, sesam, lupin, svoveldioksid og sulfitt
+- **Kosttagger:** vegetar: nei. Hovedprotein: svin. Råvaretagger fra varene: svin.
+- Uavklart eller uten merking: Matolje, Salt og pepper.
+- Fremgangsmåte (for å se om noe mangler i varelisten): Sett ris på koking. Skjær svinefileten i tynne strimler og stek dem raskt i olje på sterk varme. Ta dem ut. Wok brokkoli, paprika og gulrot i 4–5 min. Vend inn kjøttet, smak til med salt og pepper og server med ris.
 
 **Gjennomgang (fylles ut av en person):**
 

@@ -5,7 +5,7 @@
 
 ## Eierens beslutning etter researchen (2026-11-22)
 
-Eieren har bestemt at Husvett kan bruke oppskrifter fra nettet, og vil selv innhente tillatelsene som trengs. Inntil en kilde har gitt skriftlig tillatelse, kopieres ingenting fra den kilden (regel 6). Søknadspakken, importrutinen og status for egne oppskrifter står i `docs/oppskrifter-tillatelser.md`. Omgang 1 med 25 egne oppskrifter er lagt inn som KI-utkast som ikke er testkokt. Spørsmål 1 i kapittel 7 er dermed besvart for omgang 1: Claude-utkast godtas, og de merkes med opphav.
+Eieren har bestemt at Husvett kan bruke oppskrifter fra nettet, og vil selv innhente tillatelsene som trengs. Inntil en kilde har gitt skriftlig tillatelse, kopieres ingenting fra den kilden (regel 6). Søknadspakken, importrutinen og status for egne oppskrifter står i `docs/oppskrifter-tillatelser.md`. Omgang 1 med 25 egne oppskrifter er lagt inn som KI-utkast som ikke er testkokt. Spørsmål 1 i kapittel 7 er dermed besvart for omgang 1: Claude-utkast godtas, og de merkes med opphav. Omgang 2 (2026-11-26) la til 25 til (basen har nå 81), også KI-utkast som ikke er testkokt; se `docs/oppskrifter-tillatelser.md`, kapittel 4.
 
 ## Kort oppsummert
 
